@@ -139,126 +139,71 @@ func (m Model) renderTestsStep() string {
 		categories[test.Category] = append(categories[test.Category], test)
 	}
 
-	// Organizar categorías en dos columnas
-	leftCategories := []string{"INFO", "CONF", "IDNT", "ATHN", "ATHZ", "SESS"}
-	rightCategories := []string{"INPV", "ERRH", "CRYP", "BUSL", "CLNT", "APIT", "MISC"}
+	// Renderizar cada categoría de forma simple y limpia
+	categoryOrder := []string{"INFO", "CONF", "IDNT", "ATHN", "ATHZ", "SESS", "INPV", "ERRH", "CRYP", "BUSL", "CLNT", "APIT", "MISC"}
 
-	var leftContent, rightContent strings.Builder
+	for _, cat := range categoryOrder {
+		if len(categories[cat]) == 0 {
+			continue
+		}
 
-	// Renderizar columna izquierda
-	for _, cat := range leftCategories {
-		if len(categories[cat]) > 0 {
-			leftContent.WriteString(fmt.Sprintf("┌─ %s ─ %s ┐\n", cat, getCategoryDescription(cat)))
-			for _, test := range categories[cat] {
-				globalIndex := getGlobalTestIndex(m.tests, test.ID)
+		// Header de categoría simple
+		categoryTitle := fmt.Sprintf("🔸 %s - %s", cat, getCategoryDescription(cat))
+		sb.WriteString(headerStyle.Render(categoryTitle))
+		sb.WriteString("\n")
 
-				marker := "[ ]"
-				if test.Selected {
-					marker = "[✓]"
-				}
+		// Tests de la categoría
+		for _, test := range categories[cat] {
+			globalIndex := getGlobalTestIndex(m.tests, test.ID)
 
-				style := normalStyle
-				if globalIndex == m.cursor {
-					style = focusedStyle
-					marker = "►" + marker
-				}
-
-				recommended := ""
-				if test.Recommended {
-					recommended = " ⭐"
-				}
-
-				name := test.Name
-				if len(name) > 30 {
-					name = name[:27] + "..."
-				}
-
-				leftContent.WriteString(style.Render(fmt.Sprintf("│ %s %s%s\n", marker, name, recommended)))
+			marker := "☐"
+			if test.Selected {
+				marker = "☑"
 			}
-			leftContent.WriteString("└" + strings.Repeat("─", 38) + "┘\n\n")
-		}
-	}
 
-	// Renderizar columna derecha
-	for _, cat := range rightCategories {
-		if len(categories[cat]) > 0 {
-			rightContent.WriteString(fmt.Sprintf("┌─ %s ─ %s ┐\n", cat, getCategoryDescription(cat)))
-			for _, test := range categories[cat] {
-				globalIndex := getGlobalTestIndex(m.tests, test.ID)
-
-				marker := "[ ]"
-				if test.Selected {
-					marker = "[✓]"
-				}
-
-				style := normalStyle
-				if globalIndex == m.cursor {
-					style = focusedStyle
-					marker = "►" + marker
-				}
-
-				recommended := ""
-				if test.Recommended {
-					recommended = " ⭐"
-				}
-
-				name := test.Name
-				if len(name) > 30 {
-					name = name[:27] + "..."
-				}
-
-				rightContent.WriteString(style.Render(fmt.Sprintf("│ %s %s%s\n", marker, name, recommended)))
+			style := normalStyle
+			prefix := "  "
+			if globalIndex == m.cursor {
+				style = focusedStyle
+				prefix = "→ "
 			}
-			rightContent.WriteString("└" + strings.Repeat("─", 38) + "┘\n\n")
-		}
-	}
 
-	// Combinar columnas lado a lado
-	leftLines := strings.Split(strings.TrimRight(leftContent.String(), "\n"), "\n")
-	rightLines := strings.Split(strings.TrimRight(rightContent.String(), "\n"), "\n")
+			recommended := ""
+			if test.Recommended {
+				recommended = " ⭐"
+			}
 
-	maxLines := len(leftLines)
-	if len(rightLines) > maxLines {
-		maxLines = len(rightLines)
-	}
-
-	for i := 0; i < maxLines; i++ {
-		leftLine := ""
-		rightLine := ""
-
-		if i < len(leftLines) {
-			leftLine = leftLines[i]
-		}
-		if i < len(rightLines) {
-			rightLine = rightLines[i]
+			// Crear línea bien formateada
+			line := fmt.Sprintf("%s%s %s%s", prefix, marker, test.Name, recommended)
+			sb.WriteString(style.Render(line))
+			sb.WriteString("\n")
 		}
 
-		// Asegurar ancho fijo para la columna izquierda
-		if len(leftLine) < 42 {
-			leftLine += strings.Repeat(" ", 42-len(leftLine))
-		}
-
-		sb.WriteString(leftLine + "  " + rightLine + "\n")
+		sb.WriteString("\n")
 	}
 
 	// Mostrar descripción del test enfocado
 	if m.cursor >= 0 && m.cursor < len(m.tests) {
 		focusedTest := m.tests[m.cursor]
+		sb.WriteString(warningStyle.Render("─────────────────────────────────────────────────────────────────────"))
 		sb.WriteString("\n")
 		sb.WriteString(warningStyle.Render(fmt.Sprintf("📋 %s", focusedTest.Description)))
 		sb.WriteString("\n")
-		sb.WriteString(warningStyle.Render(fmt.Sprintf("🏷️  Categoría: %s (%s)", focusedTest.Category, getCategoryDescription(focusedTest.Category))))
+		sb.WriteString(warningStyle.Render(fmt.Sprintf("🏷️ Categoría: %s (%s)", focusedTest.Category, getCategoryDescription(focusedTest.Category))))
+		sb.WriteString("\n")
+		sb.WriteString(warningStyle.Render("─────────────────────────────────────────────────────────────────────"))
 		sb.WriteString("\n")
 	}
 
 	sb.WriteString("\n")
 	if m.verbose {
-		sb.WriteString("🔍 Modo verbose: " + successStyle.Render("ACTIVADO") + " (mostrará detalles completos de respuestas)\n")
+		sb.WriteString("🔍 Modo verbose: " + successStyle.Render("ACTIVADO") + " (mostrará detalles completos)\n")
 	} else {
 		sb.WriteString("🔍 Modo verbose: DESACTIVADO (presione 'v' para activar)\n")
 	}
 
-	sb.WriteString("💡 Atajos: [SPACE]seleccionar | [A]ll | [N]one | [R]ecommended | [V]erbose | ⭐ = Recomendado\n")
+	sb.WriteString("💡 Atajos: [SPACE] Seleccionar | [A] Todos | [N] Ninguno | [R] Recomendados | [V] Verbose\n")
+	sb.WriteString("   ⭐ = Recomendado | ☑ = Seleccionado | → = Cursor actual\n")
 
 	return sb.String()
 }
@@ -728,7 +673,7 @@ func (m Model) renderModal(content string) string {
 			normalStyle.Render("Presione ESC o Q para cerrar")))
 
 	// Posicionar el modal en el centro
-	_ = (m.width - modalWidth) / 2  // modalX no se usa
+	_ = (m.width - modalWidth) / 2   // modalX no se usa
 	_ = (m.height - modalHeight) / 2 // modalY no se usa
 
 	// Crear el overlay
