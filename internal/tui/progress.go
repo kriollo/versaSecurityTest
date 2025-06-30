@@ -19,6 +19,11 @@ type ProgressTickMsg struct {
 	Time time.Time
 }
 
+// FinishingTickMsg es el mensaje para el tick del spinner de finalización
+type FinishingTickMsg struct {
+	Time time.Time
+}
+
 // startScanWithProgress inicia el escaneo con actualizaciones de progreso en tiempo real
 func (m Model) startScanWithProgress() tea.Cmd {
 	return tea.Batch(
@@ -92,5 +97,12 @@ func (m Model) initializeProgress() Model {
 func (m Model) tickProgress() tea.Cmd {
 	return tea.Tick(200*time.Millisecond, func(t time.Time) tea.Msg {
 		return ProgressTickMsg{Time: t}
+	})
+}
+
+// tickFinishing envía ticks para el spinner de finalización
+func (m Model) tickFinishing() tea.Cmd {
+	return tea.Tick(100*time.Millisecond, func(t time.Time) tea.Msg {
+		return FinishingTickMsg{Time: t}
 	})
 }

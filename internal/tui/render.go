@@ -101,7 +101,7 @@ func (m Model) renderURLStep() string {
 	return sb.String()
 }
 
-// renderTestsStep renderiza el paso de selección de tests organizados por categorías OWASP
+// renderTestsStep renderiza el paso de selección de tests en columnas compactas
 func (m Model) renderTestsStep() string {
 	var sb strings.Builder
 
@@ -129,62 +129,13 @@ func (m Model) renderTestsStep() string {
 	sb.WriteString(fmt.Sprintf("📊 Tests seleccionados: %s | Recomendados: %d\n\n",
 		successStyle.Render(fmt.Sprintf("%d/%d", selectedCount, len(m.tests))), recommendedCount))
 
-	// Agrupar tests por categoría
-	categories := map[string][]TestItem{
-		"INFO": {}, "CONF": {}, "IDNT": {}, "ATHN": {}, "ATHZ": {}, "SESS": {},
-		"INPV": {}, "ERRH": {}, "CRYP": {}, "BUSL": {}, "CLNT": {}, "APIT": {}, "MISC": {},
-	}
-
-	for _, test := range m.tests {
-		categories[test.Category] = append(categories[test.Category], test)
-	}
-
-	// Renderizar cada categoría de forma simple y limpia
-	categoryOrder := []string{"INFO", "CONF", "IDNT", "ATHN", "ATHZ", "SESS", "INPV", "ERRH", "CRYP", "BUSL", "CLNT", "APIT", "MISC"}
-
-	for _, cat := range categoryOrder {
-		if len(categories[cat]) == 0 {
-			continue
-		}
-
-		// Header de categoría simple
-		categoryTitle := fmt.Sprintf("🔸 %s - %s", cat, getCategoryDescription(cat))
-		sb.WriteString(headerStyle.Render(categoryTitle))
-		sb.WriteString("\n")
-
-		// Tests de la categoría
-		for _, test := range categories[cat] {
-			globalIndex := getGlobalTestIndex(m.tests, test.ID)
-
-			marker := "☐"
-			if test.Selected {
-				marker = "☑"
-			}
-
-			style := normalStyle
-			prefix := "  "
-			if globalIndex == m.cursor {
-				style = focusedStyle
-				prefix = "→ "
-			}
-
-			recommended := ""
-			if test.Recommended {
-				recommended = " ⭐"
-			}
-
-			// Crear línea bien formateada
-			line := fmt.Sprintf("%s%s %s%s", prefix, marker, test.Name, recommended)
-			sb.WriteString(style.Render(line))
-			sb.WriteString("\n")
-		}
-
-		sb.WriteString("\n")
-	}
+	// Renderizar tests en columnas compactas
+	sb.WriteString(m.renderTestsInColumns())
 
 	// Mostrar descripción del test enfocado
 	if m.cursor >= 0 && m.cursor < len(m.tests) {
 		focusedTest := m.tests[m.cursor]
+		sb.WriteString("\n")
 		sb.WriteString(warningStyle.Render("─────────────────────────────────────────────────────────────────────"))
 		sb.WriteString("\n")
 		sb.WriteString(warningStyle.Render(fmt.Sprintf("📋 %s", focusedTest.Description)))
@@ -608,13 +559,15 @@ func (m Model) renderFooter() string {
 	case StateURL:
 		help.WriteString("Escribir URL | Enter Continuar | Esc Volver | Q Salir")
 	case StateTests:
-		help.WriteString("↑↓←→ Navegar | Space Seleccionar | A Todos | N Ninguno | R Recomendados | Enter Continuar")
+		help.WriteString("↑↓ Navegar | PgUp/PgDn Página | Space Seleccionar | A Todos | N Ninguno | R Recomendados | Enter Continuar")
 	case StateFormat:
 		help.WriteString("↑↓ Navegar | Space Seleccionar | V Verbose | Enter Continuar")
 	case StateConfirm:
 		help.WriteString("↑↓ Navegar | Space Seleccionar | Enter Confirmar | Esc Volver")
 	case StateScanning:
 		help.WriteString("Q Cancelar escaneo")
+	case StateFinishing:
+		help.WriteString("Generando reporte... Por favor espere")
 	case StateResults:
 		help.WriteString("D Detalles | R Repetir | S Guardar | Backspace Nuevo | Q Salir")
 	}
@@ -688,4 +641,223 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// renderFinishingStep renderiza el paso de finalización con spinner
+func (m Model) renderFinishingStep() string {
+	var sb strings.Builder
+
+	sb.WriteString(titleStyle.Render("🏁 FINALIZANDO ESCANEO"))
+	sb.WriteString("\n\n")
+
+	protocol := "https://"
+	if !m.useHTTPS {
+		protocol = "http://"
+	}
+
+	sb.WriteString(fmt.Sprintf("🎯 URL Escaneada: %s\n\n", successStyle.Render(protocol+m.url)))
+
+	// Barra de progreso al 100%
+	barWidth := 50
+	bar := strings.Repeat("█", barWidth)
+	sb.WriteString(fmt.Sprintf("📊 Progreso: [%s] 100.0%%\n", bar))
+	sb.WriteString(fmt.Sprintf("✅ Tests completados: %d/%d\n\n", m.scanProgress.Total, m.scanProgress.Total))
+
+	// Spinner animado y mensaje de finalización
+	spinnerChars := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧"}
+	currentSpinner := spinnerChars[m.finishingSpinner%len(spinnerChars)]
+
+	// Progreso de finalización más granular
+	finishingProgress := float64(m.finishingElapsed.Milliseconds()) / 800.0 // 800ms total
+	if finishingProgress > 1.0 {
+		finishingProgress = 1.0
+	}
+
+	// Barra de progreso de finalización
+	finishBarWidth := 40
+	finishFilled := int(finishingProgress * float64(finishBarWidth))
+	finishBar := strings.Repeat("█", finishFilled) + strings.Repeat("░", finishBarWidth-finishFilled)
+
+	sb.WriteString("🔄 GENERANDO REPORTE FINAL:\n")
+	sb.WriteString(strings.Repeat("─", 70) + "\n")
+	sb.WriteString(fmt.Sprintf("   %s %s\n",
+		warningStyle.Render(currentSpinner),
+		warningStyle.Render("Procesando resultados y generando reporte detallado...")))
+
+	// Timer detallado con milisegundos
+	elapsedMs := m.finishingElapsed.Milliseconds()
+	sb.WriteString(fmt.Sprintf("   ⏱️  Tiempo transcurrido: %dms / 800ms\n", elapsedMs))
+	sb.WriteString(fmt.Sprintf("   📊 Progreso: [%s] %.1f%%\n", finishBar, finishingProgress*100))
+
+	sb.WriteString(strings.Repeat("─", 70) + "\n\n")
+
+	// Lista de tareas de finalización (ajustadas a 800ms)
+	finishingTasks := []struct {
+		name        string
+		threshold   int64
+		icon        string
+		description string
+	}{
+		{"Compilando resultados", 100, "📋", "Recopilando datos de todos los tests ejecutados"},
+		{"Analizando vulnerabilidades", 300, "🔍", "Evaluando nivel de riesgo y criticidad"},
+		{"Generando recomendaciones", 500, "💡", "Creando guías específicas de remediación"},
+		{"Formateando reporte", 700, "📝", "Estructurando tabla ASCII con resultados"},
+		{"Finalizando", 800, "✨", "Preparando vista de resultados finales"},
+	}
+
+	sb.WriteString("📋 TAREAS DE FINALIZACIÓN:\n")
+	for i, task := range finishingTasks {
+		if elapsedMs >= task.threshold {
+			sb.WriteString(fmt.Sprintf("   ✅ %s %s\n",
+				task.icon,
+				successStyle.Render(task.name)))
+			if m.verbose && task.description != "" {
+				sb.WriteString(fmt.Sprintf("      %s\n",
+					normalStyle.Render("└─ "+task.description)))
+			}
+		} else {
+			// Esta es la tarea actual en progreso
+			sb.WriteString(fmt.Sprintf("   %s %s %s\n",
+				currentSpinner,
+				task.icon,
+				warningStyle.Render(task.name+" (en progreso...)")))
+			if m.verbose && task.description != "" {
+				sb.WriteString(fmt.Sprintf("      %s\n",
+					normalStyle.Render("└─ "+task.description)))
+			}
+
+			// Mostrar las tareas restantes como pendientes
+			for j := i + 1; j < len(finishingTasks); j++ {
+				nextTask := finishingTasks[j]
+				sb.WriteString(fmt.Sprintf("   ⏳ %s %s\n",
+					nextTask.icon,
+					normalStyle.Render(nextTask.name+" (pendiente)")))
+			}
+			break
+		}
+	}
+
+	// Estimación de tiempo restante
+	if finishingProgress < 1.0 {
+		remainingMs := 800 - elapsedMs
+		if remainingMs > 0 {
+			sb.WriteString(fmt.Sprintf("\n⏰ Tiempo estimado restante: ~%dms\n", remainingMs))
+		}
+	}
+
+	return sb.String()
+}
+
+// renderTestsInColumns renderiza los tests en formato de columnas compactas con scroll
+func (m Model) renderTestsInColumns() string {
+	var sb strings.Builder
+
+	// Asegurar que el modelo tenga scroll configurado
+	model := m.adjustScrollPosition()
+
+	// Configuración de visualización
+	testsToShow := model.testsPerPage
+	if testsToShow == 0 {
+		testsToShow = max(5, model.height-25) // Fallback
+	}
+
+	// Determinar qué tests mostrar basado en el scroll
+	startIndex := model.scrollOffset
+	endIndex := min(len(model.tests), startIndex+testsToShow)
+
+	// Mostrar indicador de scroll si es necesario
+	if model.showScrollbar && len(model.tests) > testsToShow {
+		totalTests := len(model.tests)
+		currentPos := startIndex + 1
+		endPos := min(totalTests, startIndex+testsToShow)
+
+		sb.WriteString(fmt.Sprintf("📄 Mostrando tests %d-%d de %d total",
+			currentPos, endPos, totalTests))
+
+		// Barra de scroll visual
+		scrollBarWidth := 20
+		scrollProgress := float64(startIndex) / float64(totalTests-testsToShow)
+		scrollPos := int(scrollProgress * float64(scrollBarWidth))
+
+		scrollBar := strings.Repeat("─", scrollPos) + "█" + strings.Repeat("─", scrollBarWidth-scrollPos)
+		sb.WriteString(fmt.Sprintf(" [%s]\n", scrollBar))
+		sb.WriteString("\n")
+	}
+
+	// Configuración de columnas
+	columnsCount := 2       // Reducir a 2 columnas para más espacio
+	maxTestNameLength := 35 // Aumentar longitud del nombre
+
+	// Crear una lista simple de tests a mostrar
+	visibleTests := model.tests[startIndex:endIndex]
+
+	// Renderizar en columnas simples
+	for i := 0; i < len(visibleTests); i += columnsCount {
+		for col := 0; col < columnsCount; col++ {
+			if i+col >= len(visibleTests) {
+				break
+			}
+
+			test := visibleTests[i+col]
+			globalIndex := startIndex + i + col // Índice real en la lista completa
+
+			// Crear el contenido del test
+			marker := "☐"
+			if test.Selected {
+				marker = "☑"
+			}
+
+			recommended := ""
+			if test.Recommended {
+				recommended = " ⭐"
+			}
+
+			// Truncar nombre si es muy largo
+			testName := test.Name
+			if len(testName) > maxTestNameLength {
+				testName = testName[:maxTestNameLength-3] + "..."
+			}
+
+			// Determinar estilo
+			style := normalStyle
+			prefix := " "
+			if globalIndex == model.cursor {
+				style = focusedStyle
+				prefix = "→"
+			}
+
+			// Crear la línea del test con padding fijo
+			testLine := fmt.Sprintf("%s%s %s%s", prefix, marker, testName, recommended)
+			paddedLine := fmt.Sprintf("%-50s", testLine) // Padding fijo de 50 caracteres
+
+			sb.WriteString(style.Render(paddedLine))
+
+			// Agregar separador entre columnas (excepto en la última)
+			if col < columnsCount-1 && i+col+1 < len(visibleTests) {
+				sb.WriteString(" | ")
+			}
+		}
+		sb.WriteString("\n")
+	}
+
+	// Mostrar descripción del test enfocado
+	if model.cursor >= 0 && model.cursor < len(model.tests) {
+		focusedTest := model.tests[model.cursor]
+		sb.WriteString("\n")
+		sb.WriteString(warningStyle.Render("─────────────────────────────────────────────────────────────────────"))
+		sb.WriteString("\n")
+		sb.WriteString(warningStyle.Render(fmt.Sprintf("📋 %s", focusedTest.Description)))
+		sb.WriteString("\n")
+		sb.WriteString(warningStyle.Render(fmt.Sprintf("🏷️ Categoría: %s (%s)", focusedTest.Category, getCategoryDescription(focusedTest.Category))))
+		sb.WriteString("\n")
+		sb.WriteString(warningStyle.Render("─────────────────────────────────────────────────────────────────────"))
+		sb.WriteString("\n")
+	}
+
+	// Mostrar controles de scroll si es necesario
+	if model.showScrollbar {
+		sb.WriteString("\n💡 NAVEGACIÓN: [↑↓] Test anterior/siguiente | [PgUp/PgDn] Página anterior/siguiente | [Home/End] Inicio/Final\n")
+	}
+
+	return sb.String()
 }

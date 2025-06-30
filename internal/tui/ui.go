@@ -20,6 +20,7 @@ const (
 	StateFormat
 	StateConfirm
 	StateScanning
+	StateFinishing // Nuevo estado para mostrar spinner mientras se generan resultados
 	StateResults
 )
 
@@ -81,6 +82,16 @@ type Model struct {
 	scanProgress ScanProgress
 	scanResult   *scanner.ScanResult
 
+	// Finalización
+	finishingSpinner int
+	finishingStart   time.Time
+	finishingElapsed time.Duration
+
+	// Scroll/Paginación
+	scrollOffset  int  // Offset para el scroll de tests
+	testsPerPage  int  // Número de tests por página
+	showScrollbar bool // Mostrar indicador de scroll
+
 	// Modal
 	showModal    bool
 	modalContent string
@@ -98,8 +109,13 @@ func (m Model) Init() tea.Cmd {
 // Update maneja los mensajes y actualiza el estado
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Primero manejar mensajes de escaneo
-	if newModel, cmd := m.updateWithScanMessages(msg); cmd != nil {
+	newModel, cmd := m.updateWithScanMessages(msg)
+	if cmd != nil {
 		return newModel, cmd
+	}
+	// Siempre usar el modelo actualizado, incluso si cmd es nil
+	if updatedModel, ok := newModel.(Model); ok {
+		m = updatedModel
 	}
 
 	switch msg := msg.(type) {
@@ -171,6 +187,8 @@ func (m Model) View() string {
 		s.WriteString(m.renderConfirmStep())
 	case StateScanning:
 		s.WriteString(m.renderScanningStep())
+	case StateFinishing:
+		s.WriteString(m.renderFinishingStep())
 	case StateResults:
 		s.WriteString(m.renderResultsStep())
 	}
@@ -272,12 +290,15 @@ func NewModel() Model {
 	}
 
 	return Model{
-		state:    initialState,
-		useHTTPS: initialHTTPS,
-		url:      initialURL,
-		tests:    tests,
-		formats:  formats,
-		verbose:  false,
+		state:         initialState,
+		useHTTPS:      initialHTTPS,
+		url:           initialURL,
+		tests:         tests,
+		formats:       formats,
+		verbose:       false,
+		scrollOffset:  0,
+		testsPerPage:  15, // Valor inicial que se ajustará dinámicamente
+		showScrollbar: false,
 	}
 }
 
