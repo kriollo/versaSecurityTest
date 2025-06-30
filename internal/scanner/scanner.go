@@ -55,21 +55,37 @@ func (ws *WebScanner) ScanURL(targetURL string) *ScanResult {
 	// Validar URL
 	_, err := url.Parse(targetURL)
 	if err != nil {
-	return &ScanResult{
-		TestResults: []tests.TestResult{
-			{
-				TestName:    "URL Validation",
-				Status:      "Failed",
-				Description: fmt.Sprintf("URL inválida: %v", err),
-				Severity:    "High",
+		return &ScanResult{
+			TestResults: []tests.TestResult{
+				{
+					TestName:    "URL Validation",
+					Status:      "Failed",
+					Description: fmt.Sprintf("URL inválida: %v", err),
+					Severity:    "High",
+				},
 			},
-		},
-	}
+		}
 	}
 
 	result := &ScanResult{
 		TestResults: []tests.TestResult{},
 		Recommendations: []string{},
+	}
+
+	// Variables para progreso
+	startTime := time.Now()
+	completedTests := 0
+	var progressMutex sync.Mutex
+
+	// Función para mostrar progreso
+	showProgress := func(currentTest string, completed, total int) {
+		progressMutex.Lock()
+		defer progressMutex.Unlock()
+
+		elapsed := time.Since(startTime)
+		percent := float64(completed) / float64(total) * 100
+		fmt.Printf("\r🔍 [%s] Test: %s | Progreso: %.1f%% [%d/%d] | Tiempo: %v",
+			time.Now().Format("15:04:05"), currentTest, percent, completed, total, elapsed.Round(time.Second))
 	}
 
 	// Canal para recopilar resultados de tests
@@ -100,24 +116,34 @@ func (ws *WebScanner) ScanURL(targetURL string) *ScanResult {
 		close(resultsChan)
 	}()
 
+	// Mostrar progreso inicial
+	showProgress("Iniciando escaneo...", 0, len(testRunners))
+
 	// Recopilar resultados
 	for testResult := range resultsChan {
 		result.TestResults = append(result.TestResults, testResult)
-		
+
 		if testResult.Status == "Passed" {
 			result.TestsPassed++
 		} else {
 			result.TestsFailed++
 		}
 
+		// Actualizar progreso
+		completedTests++
+		showProgress(testResult.TestName, completedTests, len(testRunners))
+
 		if ws.config.Verbose {
 			status := "✅"
 			if testResult.Status != "Passed" {
 				status = "❌"
 			}
-			fmt.Printf("%s %s: %s\n", status, testResult.TestName, testResult.Description)
+			fmt.Printf("\n%s %s: %s", status, testResult.TestName, testResult.Description)
 		}
 	}
+
+	// Finalizar línea de progreso
+	fmt.Printf("\n")
 
 	// Calcular puntuación de seguridad
 	result.SecurityScore = ws.calculateSecurityScore(result)
@@ -134,34 +160,74 @@ func (ws *WebScanner) getEnabledTests() []TestRunner {
 
 	// Test básico de conectividad (siempre se ejecuta)
 	testRunners = append(testRunners, &tests.BasicTest{})
-	// Tests de seguridad habilitados
+
+	// Categoría INFO - Recolección de información
+	if ws.config.Tests.InfoGathering {
+		testRunners = append(testRunners, &tests.InfoGatheringTest{})
+		testRunners = append(testRunners, &tests.DirectoryEnumerationTest{})
+		testRunners = append(testRunners, &tests.HTTPMethodsTest{})
+	}
+
+	// Categoría CONF - Configuración
+	if ws.config.Tests.Configuration {
+		testRunners = append(testRunners, &tests.ConfigurationTest{})
+		testRunners = append(testRunners, &tests.DefaultPagesTest{})
+		testRunners = append(testRunners, &tests.ErrorLeakageTest{})
+	}
+
+	// Categoría IDNT - Gestión de identidad
+	if ws.config.Tests.IdentityMgmt {
+		testRunners = append(testRunners, &tests.IdentityManagementTest{})
+		testRunners = append(testRunners, &tests.UserEnumerationTest{})
+	}
+
+	// Categoría ATHZ - Autorización
+	if ws.config.Tests.Authorization {
+		testRunners = append(testRunners, &tests.AuthorizationTest{})
+		testRunners = append(testRunners, &tests.DirectObjectReferenceTest{})
+	}
+
+	// Categoría SESS - Gestión de sesiones
+	if ws.config.Tests.SessionMgmt {
+		testRunners = append(testRunners, &tests.SessionMgmtTest{})
+	}
+
+	// Categoría INPV - Validación de entrada
+	if ws.config.Tests.InputValidation {
+		testRunners = append(testRunners, &tests.InputValidationTest{})
+		testRunners = append(testRunners, &tests.DataValidationTest{})
+	}
 	if ws.config.Tests.SQLInjection {
 		testRunners = append(testRunners, &tests.SQLInjectionTest{})
 	}
 	if ws.config.Tests.XSS {
 		testRunners = append(testRunners, &tests.XSSTest{})
 	}
-	// TODO: Habilitar tests adicionales cuando estén implementados
-	// if ws.config.Tests.HTTPHeaders {
-	// 	testRunners = append(testRunners, &tests.HTTPHeadersTest{})
-	// }
+
+	// Categoría CRYP - Criptografía
+	if ws.config.Tests.Cryptography {
+		testRunners = append(testRunners, &tests.CryptographyTest{})
+	}
+
+	// Categoría BUSL - Lógica de negocio
+	if ws.config.Tests.BusinessLogic {
+		testRunners = append(testRunners, &tests.BusinessLogicTest{})
+	}
+
+	// Categoría CLNT - Cliente
+	if ws.config.Tests.ClientSide {
+		testRunners = append(testRunners, &tests.ClientSideTest{})
+	}
+
+	// Categoría APIT - APIs
+	if ws.config.Tests.APISecurity {
+		testRunners = append(testRunners, &tests.APISecurityTest{})
+	}
+
+	// Tests existentes que aún funcionan
+	// Comentado temporalmente para debugging
 	// if ws.config.Tests.InfoDisclosure {
 	// 	testRunners = append(testRunners, &tests.InfoDisclosureTest{})
-	// }
-	// if ws.config.Tests.SSLAnalysis {
-	// 	testRunners = append(testRunners, &tests.SSLAnalysisTest{})
-	// }
-	// if ws.config.Tests.CSRFProtection {
-	// 	testRunners = append(testRunners, &tests.CSRFProtectionTest{})
-	// }
-	// if ws.config.Tests.BruteForce {
-	// 	testRunners = append(testRunners, &tests.BruteForceTest{})
-	// }
-	// if ws.config.Tests.FileUpload {
-	// 	testRunners = append(testRunners, &tests.FileUploadTest{})
-	// }
-	// if ws.config.Tests.DirTraversal {
-	// 	testRunners = append(testRunners, &tests.DirTraversalTest{})
 	// }
 
 	return testRunners
@@ -222,7 +288,7 @@ func (ws *WebScanner) calculateSecurityScore(result *ScanResult) SecurityScore {
 // generateRecommendations genera recomendaciones basadas en los resultados
 func (ws *WebScanner) generateRecommendations(result *ScanResult) []string {
 	recommendations := []string{}
-	
+
 	for _, test := range result.TestResults {
 		if test.Status != "Passed" {
 			switch test.TestName {

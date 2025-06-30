@@ -63,3 +63,5 @@ go.sum.bak
 *.key
 *.crt
 secrets.json
+
+tui_config.json

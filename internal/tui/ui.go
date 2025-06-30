@@ -6,6 +6,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/versaSecurityTest/internal/config"
 	"github.com/versaSecurityTest/internal/scanner"
 )
 
@@ -62,31 +63,31 @@ type TestProgress struct {
 
 // Model representa el estado completo de la TUI
 type Model struct {
-	state         State
-	cursor        int
-	width         int
-	height        int
-	
+	state  State
+	cursor int
+	width  int
+	height int
+
 	// Configuración
-	useHTTPS      bool
-	url           string
-	tests         []TestItem
-	formats       []FormatItem
-	verbose       bool
-	outputFile    string
-	
+	useHTTPS   bool
+	url        string
+	tests      []TestItem
+	formats    []FormatItem
+	verbose    bool
+	outputFile string
+
 	// Escaneo
-	scanning      bool
-	scanProgress  ScanProgress
-	scanResult    *scanner.ScanResult
-	
+	scanning     bool
+	scanProgress ScanProgress
+	scanResult   *scanner.ScanResult
+
 	// Modal
-	showModal     bool
-	modalContent  string
-	modalTitle    string
-	
+	showModal    bool
+	modalContent string
+	modalTitle   string
+
 	// Error
-	err           error
+	err error
 }
 
 // Init inicializa el modelo
@@ -100,19 +101,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if newModel, cmd := m.updateWithScanMessages(msg); cmd != nil {
 		return newModel, cmd
 	}
-	
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
 		return m, nil
-	
+
 	case tea.KeyMsg:
 		// Si hay un modal abierto, manejarlo primero
 		if m.showModal {
 			return m.handleModalKeys(msg)
 		}
-		
+
 		// Teclas globales
 		switch msg.String() {
 		case "ctrl+c":
@@ -121,7 +122,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.verbose = !m.verbose
 			return m, nil
 		}
-		
+
 		// Manejo por estado
 		switch m.state {
 		case StateProtocol:
@@ -140,7 +141,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleResultsKeys(msg)
 		}
 	}
-	
+
 	return m, nil
 }
 
@@ -149,13 +150,13 @@ func (m Model) View() string {
 	if m.width == 0 {
 		return "Cargando..."
 	}
-	
+
 	s := strings.Builder{}
-	
+
 	// Header
 	s.WriteString(m.renderHeader())
 	s.WriteString("\n\n")
-	
+
 	// Contenido principal basado en el estado
 	switch m.state {
 	case StateProtocol:
@@ -173,49 +174,107 @@ func (m Model) View() string {
 	case StateResults:
 		s.WriteString(m.renderResultsStep())
 	}
-	
+
 	// Footer
 	s.WriteString("\n\n")
 	s.WriteString(m.renderFooter())
-	
+
 	// Modal si está activo
 	if m.showModal {
 		return m.renderModal(s.String())
 	}
-	
+
 	return s.String()
 }
 
 // NewModel crea un nuevo modelo inicializado
 func NewModel() Model {
 	tests := []TestItem{
-		{ID: "basic", Name: "Conectividad Básica", Description: "Pruebas fundamentales de conectividad", Category: "Core", Recommended: true},
-		{ID: "sql", Name: "SQL Injection", Description: "Detecta vulnerabilidades de inyección SQL", Category: "Injection", Recommended: true},
-		{ID: "xss", Name: "Cross-Site Scripting", Description: "Identifica vectores de ataque XSS", Category: "Injection", Recommended: true},
-		{ID: "headers", Name: "Headers de Seguridad", Description: "Verifica headers HTTP de seguridad", Category: "Config", Recommended: true},
-		{ID: "ssl", Name: "SSL/TLS Security", Description: "Analiza configuración SSL", Category: "Crypto", Recommended: false},
-		{ID: "csrf", Name: "CSRF Protection", Description: "Verifica protección contra CSRF", Category: "Auth", Recommended: false},
-		{ID: "bruteforce", Name: "Brute Force", Description: "Detecta vulnerabilidades de fuerza bruta", Category: "Auth", Recommended: false},
-		{ID: "fileupload", Name: "File Upload", Description: "Analiza seguridad en carga de archivos", Category: "Upload", Recommended: false},
-		{ID: "dirtraversal", Name: "Directory Traversal", Description: "Detecta vulnerabilidades de path traversal", Category: "File", Recommended: false},
-		{ID: "info", Name: "Information Disclosure", Description: "Detecta exposición de información", Category: "Info", Recommended: true},
+		// Categoría INFO - Recolección de información
+		{ID: "info_gathering", Name: "INFO-01: Information Gathering", Description: "Recolección de información del servidor", Category: "INFO", Recommended: true},
+		{ID: "dir_enum", Name: "INFO-06: Directory Enumeration", Description: "Enumeración de directorios comunes", Category: "INFO", Recommended: true},
+		{ID: "http_methods", Name: "INFO-07: HTTP Methods", Description: "Métodos HTTP habilitados", Category: "INFO", Recommended: false},
+
+		// Categoría CONF - Configuración
+		{ID: "configuration", Name: "CONF-01: Configuration", Description: "Verificación de configuración", Category: "CONF", Recommended: true},
+		{ID: "default_pages", Name: "CONF-04: Default Pages", Description: "Páginas por defecto expuestas", Category: "CONF", Recommended: true},
+		{ID: "error_handling", Name: "CONF-05: Error Handling", Description: "Manejo de errores", Category: "CONF", Recommended: false},
+
+		// Categoría IDNT - Gestión de identidad
+		{ID: "identity_mgmt", Name: "IDNT-01: Identity Management", Description: "Mecanismos de gestión de identidad", Category: "IDNT", Recommended: false},
+		{ID: "user_enum", Name: "IDNT-05: User Enumeration", Description: "Enumeración de usuarios", Category: "IDNT", Recommended: false},
+
+		// Categoría ATHN - Autenticación
+		{ID: "bruteforce", Name: "ATHN-04: Brute Force", Description: "Vulnerabilidades de fuerza bruta", Category: "ATHN", Recommended: true},
+
+		// Categoría ATHZ - Autorización
+		{ID: "authorization", Name: "ATHZ-01: Authorization", Description: "Control de acceso y autorización", Category: "ATHZ", Recommended: true},
+		{ID: "direct_object_ref", Name: "ATHZ-04: Direct Object Reference", Description: "Referencias directas inseguras", Category: "ATHZ", Recommended: true},
+
+		// Categoría SESS - Gestión de sesiones
+		{ID: "session_mgmt", Name: "SESS-01: Session Management", Description: "Gestión de sesiones y tokens", Category: "SESS", Recommended: true},
+
+		// Categoría INPV - Validación de entrada
+		{ID: "input_validation", Name: "INPV-01: Input Validation", Description: "Validación y saneamiento de entradas", Category: "INPV", Recommended: true},
+		{ID: "data_validation", Name: "INPV-05: Data Validation", Description: "Validación de tipos de datos", Category: "INPV", Recommended: false},
+		{ID: "sql_injection", Name: "INPV-07: SQL Injection", Description: "Inyección SQL", Category: "INPV", Recommended: true},
+		{ID: "xss", Name: "INPV-11: Cross-Site Scripting", Description: "XSS reflejado y almacenado", Category: "INPV", Recommended: true},
+		{ID: "dirtraversal", Name: "INPV-12: Directory Traversal", Description: "Vulnerabilidades de path traversal", Category: "INPV", Recommended: true},
+
+		// Categoría ERRH - Manejo de errores
+		{ID: "error_leakage", Name: "ERRH-01: Error Information Leakage", Description: "Filtración de información en errores", Category: "ERRH", Recommended: false},
+
+		// Categoría CRYP - Criptografía
+		{ID: "ssl_tls", Name: "CRYP-01: SSL/TLS Security", Description: "Configuración SSL/TLS", Category: "CRYP", Recommended: true},
+		{ID: "cryptography", Name: "CRYP-02: Cryptography", Description: "Uso correcto de criptografía", Category: "CRYP", Recommended: false},
+
+		// Categoría BUSL - Lógica de negocio
+		{ID: "business_logic", Name: "BUSL-01: Business Logic", Description: "Lógica de negocio y procesos", Category: "BUSL", Recommended: false},
+
+		// Categoría CLNT - Cliente
+		{ID: "client_side", Name: "CLNT-01: Client-Side Security", Description: "Seguridad del lado del cliente", Category: "CLNT", Recommended: true},
+		{ID: "http_headers", Name: "CLNT-02: Security Headers", Description: "Headers de seguridad HTTP", Category: "CLNT", Recommended: true},
+
+		// Categoría APIT - APIs
+		{ID: "api_security", Name: "APIT-01: API Security", Description: "Seguridad en APIs REST/GraphQL", Category: "APIT", Recommended: true},
+
+		// Tests adicionales
+		{ID: "csrf", Name: "CSRF Protection", Description: "Protección contra CSRF", Category: "MISC", Recommended: false},
+		{ID: "fileupload", Name: "File Upload Security", Description: "Seguridad en carga de archivos", Category: "MISC", Recommended: false},
+		{ID: "info_disclosure", Name: "Information Disclosure", Description: "Revelación de información sensible", Category: "MISC", Recommended: false},
 	}
-	
+
 	// Marcar tests recomendados como seleccionados por defecto
 	for i := range tests {
 		tests[i].Selected = tests[i].Recommended
 	}
-	
+
 	formats := []FormatItem{
 		{ID: "json", Name: "JSON", Description: "Formato estructurado para integración"},
 		{ID: "table", Name: "Tabla ASCII", Description: "Visualización clara en terminal"},
 		{ID: "html", Name: "HTML", Description: "Reporte profesional con gráficos"},
 	}
-	formats[0].Selected = true // JSON por defecto
-	
+	formats[1].Selected = true // Tabla ASCII por defecto
+
+	// Cargar configuración TUI guardada
+	tuiConfig := config.LoadTUIConfig()
+
+	// Determinar estado inicial y configuración
+	var initialState State = StateProtocol
+	var initialURL string = ""
+	var initialHTTPS bool = true
+
+	// Si hay configuración guardada y AutoStart está activo, cargar datos
+	if tuiConfig.AutoStart && tuiConfig.LastUsedURL != "" {
+		initialState = StateTests
+		initialURL = tuiConfig.LastUsedURL
+		initialHTTPS = tuiConfig.LastProtocol
+	}
+
 	return Model{
-		state:    StateProtocol,
-		useHTTPS: true, // HTTPS por defecto
+		state:    initialState,
+		useHTTPS: initialHTTPS,
+		url:      initialURL,
 		tests:    tests,
 		formats:  formats,
 		verbose:  false,
@@ -226,10 +285,10 @@ func NewModel() Model {
 func RunTUI() error {
 	m := NewModel()
 	p := tea.NewProgram(m, tea.WithAltScreen())
-	
+
 	if _, err := p.Run(); err != nil {
 		return fmt.Errorf("error ejecutando TUI: %w", err)
 	}
-	
+
 	return nil
 }

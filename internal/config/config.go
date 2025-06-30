@@ -11,45 +11,60 @@ type Config struct {
 	// Configuración de red
 	Concurrent int           `json:"concurrent"`
 	Timeout    time.Duration `json:"timeout"`
-	
+
 	// User-Agent para las requests
 	UserAgent string `json:"user_agent"`
-	
+
 	// Headers adicionales
 	Headers map[string]string `json:"headers"`
-	
+
 	// Configuración de tests
 	Tests TestConfig `json:"tests"`
-	
+
 	// Configuración de output
 	Verbose bool `json:"verbose"`
-	
+
 	// Configuraciones avanzadas
-	Language    string `json:"language"`     // Idioma de la interfaz
+	Language    string `json:"language"`      // Idioma de la interfaz
 	LastUsedURL string `json:"last_used_url"` // Última URL escaneada
-	AutoSave    bool   `json:"auto_save"`    // Guardar configuración automáticamente
-	Theme       string `json:"theme"`        // Tema de la interfaz
-	Tutorial    bool   `json:"tutorial"`     // Mostrar tutorial en primer uso
+	AutoSave    bool   `json:"auto_save"`     // Guardar configuración automáticamente
+	Theme       string `json:"theme"`         // Tema de la interfaz
+	Tutorial    bool   `json:"tutorial"`      // Mostrar tutorial en primer uso
 }
 
 // TestConfig configura qué tests ejecutar
 type TestConfig struct {
-	SQLInjection    bool `json:"sql_injection"`
-	XSS             bool `json:"xss"`
-	BruteForce      bool `json:"brute_force"`
-	HTTPHeaders     bool `json:"http_headers"`
-	SSLAnalysis     bool `json:"ssl_analysis"`
-	CSRFProtection  bool `json:"csrf_protection"`
-	FileUpload      bool `json:"file_upload"`
-	DirTraversal    bool `json:"dir_traversal"`
-	InfoDisclosure  bool `json:"info_disclosure"`
+	// Tests existentes (compatibilidad)
+	SQLInjection   bool `json:"sql_injection"`
+	XSS            bool `json:"xss"`
+	BruteForce     bool `json:"brute_force"`
+	HTTPHeaders    bool `json:"http_headers"`
+	SSLAnalysis    bool `json:"ssl_analysis"`
+	CSRFProtection bool `json:"csrf_protection"`
+	FileUpload     bool `json:"file_upload"`
+	DirTraversal   bool `json:"dir_traversal"`
+	InfoDisclosure bool `json:"info_disclosure"`
+
+	// Nuevas categorías OWASP
+	InfoGathering   bool `json:"info_gathering"`   // INFO: Recolección de información
+	Configuration   bool `json:"configuration"`    // CONF: Verificación de configuración
+	IdentityMgmt    bool `json:"identity_mgmt"`    // IDNT: Gestión de identidad
+	Authentication  bool `json:"authentication"`   // ATHN: Autenticación
+	Authorization   bool `json:"authorization"`    // ATHZ: Autorización
+	SessionMgmt     bool `json:"session_mgmt"`     // SESS: Gestión de sesiones
+	InputValidation bool `json:"input_validation"` // INPV: Validación de entradas
+	ErrorHandling   bool `json:"error_handling"`   // ERRH: Manejo de errores
+	Cryptography    bool `json:"cryptography"`     // CRYP: Criptografía
+	BusinessLogic   bool `json:"business_logic"`   // BUSL: Lógica de negocio
+	ClientSide      bool `json:"client_side"`      // CLNT: Cliente
+	APISecurity     bool `json:"api_security"`     // APIT: APIs
 }
 
 // PayloadConfig contiene los payloads para diferentes ataques
 type PayloadConfig struct {
-	SQLPayloads []string `json:"sql_payloads"`
-	XSSPayloads []string `json:"xss_payloads"`
-	CommonPaths []string `json:"common_paths"`
+	SQLPayloads       []string     `json:"sql_payloads"`
+	XSSPayloads       []string     `json:"xss_payloads"`
+	CommonPaths       []string     `json:"common_paths"`
 	CommonCredentials []Credential `json:"common_credentials"`
 }
 
@@ -83,21 +98,36 @@ func DefaultConfig() *Config {
 		Timeout:    30 * time.Second,
 		UserAgent:  "VersaSecurityTest/1.0 (Security Scanner)",
 		Headers: map[string]string{
-			"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+			"Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
 			"Accept-Language": "en-US,en;q=0.5",
 			"Accept-Encoding": "gzip, deflate",
-			"Connection": "keep-alive",
+			"Connection":      "keep-alive",
 		},
 		Tests: TestConfig{
-			SQLInjection:       true,
-			XSS:                true,
-			BruteForce:         false, // Por defecto deshabilitado
-			HTTPHeaders:        true,
-			SSLAnalysis:        false, // Por defecto deshabilitado
-			CSRFProtection:     false, // Por defecto deshabilitado
-			FileUpload:         false, // Por defecto deshabilitado
-			DirTraversal:       false, // Por defecto deshabilitado
-			InfoDisclosure:     true,
+			// Tests existentes
+			SQLInjection:   true,
+			XSS:            true,
+			BruteForce:     false, // Por defecto deshabilitado
+			HTTPHeaders:    true,
+			SSLAnalysis:    false, // Por defecto deshabilitado
+			CSRFProtection: false, // Por defecto deshabilitado
+			FileUpload:     false, // Por defecto deshabilitado
+			DirTraversal:   false, // Por defecto deshabilitado
+			InfoDisclosure: true,
+
+			// Nuevas categorías OWASP (habilitadas por defecto las básicas)
+			InfoGathering:   true,  // INFO: Básico y seguro
+			Configuration:   true,  // CONF: Básico y seguro
+			IdentityMgmt:    false, // IDNT: Puede ser intrusivo
+			Authentication:  false, // ATHN: Puede ser intrusivo
+			Authorization:   false, // ATHZ: Puede ser intrusivo
+			SessionMgmt:     true,  // SESS: Básico y seguro
+			InputValidation: true,  // INPV: Incluye SQL/XSS existentes
+			ErrorHandling:   true,  // ERRH: Básico y seguro
+			Cryptography:    true,  // CRYP: Básico y seguro
+			BusinessLogic:   false, // BUSL: Puede ser intrusivo
+			ClientSide:      true,  // CLNT: Básico y seguro
+			APISecurity:     true,  // APIT: Básico y seguro
 		},
 		Verbose: false,
 		// Configuraciones avanzadas
@@ -115,7 +145,7 @@ func (c *Config) SaveConfig(filename string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	return os.WriteFile(filename, data, 0644)
 }
 
@@ -222,4 +252,38 @@ func GetPayloads() *PayloadConfig {
 			{"postgres", "postgres"},
 		},
 	}
+}
+
+// TUIConfig contiene la configuración específica de la TUI
+type TUIConfig struct {
+	LastUsedURL  string `json:"last_used_url"`
+	LastProtocol bool   `json:"last_protocol"` // true = HTTPS, false = HTTP
+	AutoStart    bool   `json:"auto_start"`    // Si debe ir directo al paso 3
+}
+
+// LoadTUIConfig carga la configuración de la TUI desde archivo
+func LoadTUIConfig() *TUIConfig {
+	config := &TUIConfig{
+		LastUsedURL:  "",
+		LastProtocol: true, // HTTPS por defecto
+		AutoStart:    false,
+	}
+
+	data, err := os.ReadFile("tui_config.json")
+	if err != nil {
+		return config // Retornar configuración por defecto si no existe
+	}
+
+	json.Unmarshal(data, config)
+	return config
+}
+
+// SaveTUIConfig guarda la configuración de la TUI en archivo
+func SaveTUIConfig(config *TUIConfig) error {
+	data, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile("tui_config.json", data, 0644)
 }

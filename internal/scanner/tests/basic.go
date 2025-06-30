@@ -37,6 +37,7 @@ type Evidence struct {
 // HTTPClient interface simplificada
 type HTTPClient interface {
 	Get(url string) (*http.Response, error)
+	Do(req *http.Request) (*http.Response, error)
 }
 
 // BasicHTTPClient implementación básica
@@ -56,6 +57,20 @@ func NewBasicHTTPClient() *BasicHTTPClient {
 // Get realiza una petición GET
 func (c *BasicHTTPClient) Get(url string) (*http.Response, error) {
 	return c.client.Get(url)
+}
+
+// Do realiza una petición HTTP personalizada
+func (c *BasicHTTPClient) Do(req *http.Request) (*http.Response, error) {
+	return c.client.Do(req)
+}
+
+// ReadResponseBody lee el cuerpo de una respuesta HTTP
+func ReadResponseBody(resp *http.Response) (string, error) {
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	return string(body), nil
 }
 
 // Run ejecuta el test básico
@@ -136,7 +151,7 @@ func (t *BasicTest) Run(targetURL string, client HTTPClient, payloads *config.Pa
 	if len(issues) > 0 {
 		result.Status = "Failed"
 		result.Details = issues
-		
+
 		// Determinar severidad basada en los problemas encontrados
 		if len(issues) >= 3 {
 			result.Severity = "Medium"
@@ -176,7 +191,7 @@ func (t *SQLInjectionTest) Run(targetURL string, client HTTPClient, payloads *co
 	var detectedVulns int
 	for _, payload := range sqlPayloads {
 		testURL := targetURL + "?id=" + payload
-		
+
 		resp, err := client.Get(testURL)
 		if err != nil {
 			// Si hay error de conexión, continuar con el siguiente payload
@@ -187,11 +202,11 @@ func (t *SQLInjectionTest) Run(targetURL string, client HTTPClient, payloads *co
 		// Leer la respuesta del servidor
 		body, _ := io.ReadAll(resp.Body)
 		responseText := string(body)
-		
+
 		// Detectar signos de inyección SQL
 		vulnDetected := false
 		vulnReason := ""
-		
+
 		if resp.StatusCode == 500 {
 			vulnDetected = true
 			vulnReason = "Error 500 del servidor"
@@ -205,16 +220,16 @@ func (t *SQLInjectionTest) Run(targetURL string, client HTTPClient, payloads *co
 			vulnDetected = true
 			vulnReason = "Error de sintaxis detectado"
 		}
-		
+
 		if vulnDetected {
 			detectedVulns++
-			
+
 			// Truncar respuesta para mostrar solo los primeros caracteres
 			truncatedResponse := responseText
 			if len(truncatedResponse) > 200 {
 				truncatedResponse = truncatedResponse[:200] + "..."
 			}
-			
+
 			result.Evidence = append(result.Evidence, Evidence{
 				Type:        "SQL Injection",
 				URL:         testURL,
@@ -224,8 +239,8 @@ func (t *SQLInjectionTest) Run(targetURL string, client HTTPClient, payloads *co
 				Description: fmt.Sprintf("Payload '%s' causó comportamiento anormal", payload),
 				Severity:    "High",
 			})
-			
-			result.Details = append(result.Details, 
+
+			result.Details = append(result.Details,
 				fmt.Sprintf("Payload '%s': %s (Status: %d)", payload, vulnReason, resp.StatusCode))
 		}
 	}
@@ -264,11 +279,11 @@ func (t *XSSTest) Run(targetURL string, client HTTPClient, payloads *config.Payl
 		"javascript:alert('XSS')",
 		"'><script>alert('XSS')</script>",
 	}
-	
+
 	var detectedVulns int
 	for _, payload := range xssPayloads {
 		testURL := targetURL + "?q=" + payload
-		
+
 		resp, err := client.Get(testURL)
 		if err != nil {
 			// Si hay error de conexión, continuar con el siguiente payload
@@ -279,11 +294,11 @@ func (t *XSSTest) Run(targetURL string, client HTTPClient, payloads *config.Payl
 		// Leer la respuesta del servidor
 		body, _ := io.ReadAll(resp.Body)
 		responseText := string(body)
-		
+
 		// Detectar signos de XSS (script reflejado sin sanitización)
 		vulnDetected := false
 		vulnReason := ""
-		
+
 		// Verificar si el payload se refleja sin codificar
 		if strings.Contains(responseText, "<script>") {
 			vulnDetected = true
@@ -298,16 +313,16 @@ func (t *XSSTest) Run(targetURL string, client HTTPClient, payloads *config.Payl
 			vulnDetected = true
 			vulnReason = "URL javascript: reflejada"
 		}
-		
+
 		if vulnDetected {
 			detectedVulns++
-			
+
 			// Truncar respuesta para mostrar solo los primeros caracteres
 			truncatedResponse := responseText
 			if len(truncatedResponse) > 300 {
 				truncatedResponse = truncatedResponse[:300] + "..."
 			}
-			
+
 			// Buscar la línea específica donde aparece el payload
 			lines := strings.Split(responseText, "\n")
 			reflectedLine := ""
@@ -320,7 +335,7 @@ func (t *XSSTest) Run(targetURL string, client HTTPClient, payloads *config.Payl
 					break
 				}
 			}
-			
+
 			result.Evidence = append(result.Evidence, Evidence{
 				Type:        "Cross-Site Scripting",
 				URL:         testURL,
@@ -328,8 +343,8 @@ func (t *XSSTest) Run(targetURL string, client HTTPClient, payloads *config.Payl
 				StatusCode:  resp.StatusCode,
 				Response:    fmt.Sprintf("%s. Línea afectada: %s", vulnReason, reflectedLine),
 			})
-			
-			result.Details = append(result.Details, 
+
+			result.Details = append(result.Details,
 				fmt.Sprintf("Payload '%s': %s (Status: %d)", payload, vulnReason, resp.StatusCode))
 		}
 	}

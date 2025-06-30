@@ -3,62 +3,64 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"time"
 
-	"github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/versaSecurityTest/internal/config"
 )
 
 // Estilos de la TUI
 var (
 	titleStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#FAFAFA")).
-		Background(lipgloss.Color("#7D56F4")).
-		Padding(0, 1).
-		Bold(true)
+			Foreground(lipgloss.Color("#FAFAFA")).
+			Background(lipgloss.Color("#7D56F4")).
+			Padding(0, 1).
+			Bold(true)
 
 	headerStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#FFFFFF")).
-		Background(lipgloss.Color("#0066CC")).
-		Padding(1, 2).
-		Margin(0, 0, 1, 0).
-		Bold(true)
+			Foreground(lipgloss.Color("#FFFFFF")).
+			Background(lipgloss.Color("#0066CC")).
+			Padding(1, 2).
+			Margin(0, 0, 1, 0).
+			Bold(true)
 
 	focusedStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#FFFFFF")).
-		Background(lipgloss.Color("#7D56F4")).
-		Bold(true).
-		Padding(0, 1)
+			Foreground(lipgloss.Color("#FFFFFF")).
+			Background(lipgloss.Color("#7D56F4")).
+			Bold(true).
+			Padding(0, 1)
 
 	selectedStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#00FF00")).
-		Bold(true)
+			Foreground(lipgloss.Color("#00FF00")).
+			Bold(true)
 
 	normalStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#CCCCCC"))
+			Foreground(lipgloss.Color("#CCCCCC"))
 
 	errorStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#FF0000")).
-		Bold(true)
+			Foreground(lipgloss.Color("#FF0000")).
+			Bold(true)
 
 	warningStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#FFAA00")).
-		Bold(true)
+			Foreground(lipgloss.Color("#FFAA00")).
+			Bold(true)
 
 	successStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#00FF00")).
-		Bold(true)
+			Foreground(lipgloss.Color("#00FF00")).
+			Bold(true)
 
 	modalStyle = lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#7D56F4")).
-		Padding(1, 2).
-		Background(lipgloss.Color("#1E1E1E"))
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#7D56F4")).
+			Padding(1, 2).
+			Background(lipgloss.Color("#1E1E1E"))
 
 	progressBarStyle = lipgloss.NewStyle().
-		Background(lipgloss.Color("#404040"))
+				Background(lipgloss.Color("#404040"))
 
 	progressFillStyle = lipgloss.NewStyle().
-		Background(lipgloss.Color("#00FF00"))
+				Background(lipgloss.Color("#00FF00"))
 )
 
 // handleProtocolKeys maneja las teclas en el paso de selección de protocolo
@@ -123,12 +125,12 @@ func (m Model) handleTestsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "left", "h":
 		// Navegación en columnas (si cursor está en columna derecha, ir a izquierda)
 		if m.cursor >= len(m.tests)/2 {
-			m.cursor -= len(m.tests)/2
+			m.cursor -= len(m.tests) / 2
 		}
 	case "right", "l":
 		// Navegación en columnas (si cursor está en columna izquierda, ir a derecha)
 		if m.cursor < len(m.tests)/2 && m.cursor+len(m.tests)/2 < len(m.tests) {
-			m.cursor += len(m.tests)/2
+			m.cursor += len(m.tests) / 2
 		}
 	case " ":
 		// Alternar selección del test actual
@@ -206,10 +208,19 @@ func (m Model) handleConfirmKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.cursor = 1 - m.cursor // Alternar entre confirmar y cancelar
 	case "enter":
 		if m.cursor == 0 {
-			// Confirmar: iniciar escaneo
+			// Confirmar: guardar configuración y iniciar escaneo
+			// Guardar configuración TUI para recordar la URL y protocolo
+			tuiConfig := &config.TUIConfig{
+				LastUsedURL:  m.url,
+				LastProtocol: m.useHTTPS,
+				AutoStart:    true, // Activar autostart para la próxima vez
+			}
+			config.SaveTUIConfig(tuiConfig) // Guardar configuración
+
 			m.state = StateScanning
 			m.scanning = true
-			return m, m.startScan()
+			m = m.initializeProgress() // Inicializar progreso aquí
+			return m, m.startScanWithProgress()
 		} else {
 			// Cancelar: volver a formato
 			m.state = StateFormat
@@ -230,6 +241,16 @@ func (m Model) handleScanningKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.scanning = false
 		m.state = StateConfirm
 		return m, nil
+	case "v":
+		// Toggle verbose mode
+		m.verbose = !m.verbose
+		return m, nil
+	case "d":
+		// Mostrar detalles del progreso actual
+		m.showModal = true
+		m.modalTitle = "Progreso del Escaneo"
+		m.modalContent = m.generateProgressReport()
+		return m, nil
 	}
 	return m, nil
 }
@@ -241,20 +262,27 @@ func (m Model) handleResultsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Reiniciar escaneo
 		m.state = StateScanning
 		m.scanning = true
-		return m, m.startScan()
+		m = m.initializeProgress()
+		return m, m.startScanWithProgress()
 	case "d", "enter":
 		// Mostrar detalles en modal
 		m.showModal = true
-		m.modalTitle = "Detalles del Escaneo"
+		m.modalTitle = "📊 Detalles Completos del Escaneo"
 		m.modalContent = m.generateDetailedReport()
 		return m, nil
 	case "s":
 		// Guardar resultado
 		if m.scanResult != nil {
-			// TODO: Implementar guardado
-			m.showModal = true
-			m.modalTitle = "Guardar Reporte"
-			m.modalContent = "Función de guardado a implementar"
+			err := m.saveReport()
+			if err != nil {
+				m.showModal = true
+				m.modalTitle = "❌ Error al Guardar"
+				m.modalContent = fmt.Sprintf("Error guardando reporte:\n\n%s", err.Error())
+			} else {
+				m.showModal = true
+				m.modalTitle = "✅ Reporte Guardado"
+				m.modalContent = "El reporte se ha guardado exitosamente en el directorio actual."
+			}
 		}
 		return m, nil
 	case "q", "esc":
@@ -265,6 +293,8 @@ func (m Model) handleResultsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.cursor = 0
 		m.scanResult = nil
 		m.scanning = false
+		// Limpiar progreso anterior
+		m.scanProgress = ScanProgress{}
 		return m, nil
 	}
 	return m, nil
@@ -294,7 +324,7 @@ func (m Model) generateDetailedReport() string {
 	}
 
 	var sb strings.Builder
-	
+
 	sb.WriteString(fmt.Sprintf("URL Escaneada: %s\n", m.scanResult.URL))
 	sb.WriteString(fmt.Sprintf("Fecha: %s\n", m.scanResult.ScanDate.Format("2006-01-02 15:04:05")))
 	sb.WriteString(fmt.Sprintf("Duración: %v\n", m.scanResult.Duration))
@@ -302,7 +332,7 @@ func (m Model) generateDetailedReport() string {
 	sb.WriteString(fmt.Sprintf("Tests Pasados: %d\n", m.scanResult.TestsPassed))
 	sb.WriteString(fmt.Sprintf("Tests Fallidos: %d\n", m.scanResult.TestsFailed))
 	sb.WriteString(fmt.Sprintf("Puntuación: %.1f/10 (%s)\n\n", m.scanResult.SecurityScore.Value, m.scanResult.SecurityScore.Risk))
-	
+
 	if len(m.scanResult.TestResults) > 0 {
 		sb.WriteString("Resultados por Test:\n")
 		sb.WriteString(strings.Repeat("-", 40) + "\n")
@@ -324,7 +354,7 @@ func (m Model) generateDetailedReport() string {
 			sb.WriteString("\n")
 		}
 	}
-	
+
 	if len(m.scanResult.Recommendations) > 0 {
 		sb.WriteString("Recomendaciones:\n")
 		sb.WriteString(strings.Repeat("-", 40) + "\n")
@@ -332,6 +362,73 @@ func (m Model) generateDetailedReport() string {
 			sb.WriteString(fmt.Sprintf("%d. %s\n", i+1, rec))
 		}
 	}
-	
+
+	return sb.String()
+}
+
+// generateProgressReport genera un reporte detallado del progreso actual
+func (m Model) generateProgressReport() string {
+	if m.scanProgress.Total == 0 {
+		return "No hay información de progreso disponible."
+	}
+
+	var sb strings.Builder
+
+	sb.WriteString(fmt.Sprintf("📊 PROGRESO DETALLADO DEL ESCANEO\n"))
+	sb.WriteString(strings.Repeat("=", 50) + "\n\n")
+
+	sb.WriteString(fmt.Sprintf("⏱️  Tiempo transcurrido: %v\n", m.scanProgress.Duration.Round(time.Second)))
+	sb.WriteString(fmt.Sprintf("📈 Progreso: %d/%d tests (%.1f%%)\n\n",
+		m.scanProgress.Completed,
+		m.scanProgress.Total,
+		float64(m.scanProgress.Completed)/float64(m.scanProgress.Total)*100))
+
+	if m.scanProgress.CurrentTest != "" {
+		sb.WriteString(fmt.Sprintf("🔍 Test actual: %s\n", m.scanProgress.CurrentTest))
+		if m.scanProgress.CurrentTestTime > 0 {
+			sb.WriteString(fmt.Sprintf("⏰ Duración actual: %v\n", m.scanProgress.CurrentTestTime.Round(time.Millisecond)))
+		}
+		sb.WriteString("\n")
+	}
+
+	sb.WriteString("📋 ESTADO DE TODOS LOS TESTS:\n")
+	sb.WriteString(strings.Repeat("-", 40) + "\n")
+
+	for i, test := range m.scanProgress.TestDetails {
+		var statusIcon, statusText string
+		switch test.Status {
+		case "completed":
+			statusIcon = "✅"
+			statusText = "COMPLETADO"
+		case "failed":
+			statusIcon = "❌"
+			statusText = "FALLIDO"
+		case "running":
+			statusIcon = "🔄"
+			statusText = "EJECUTANDO"
+		case "pending":
+			statusIcon = "⏳"
+			statusText = "PENDIENTE"
+		default:
+			statusIcon = "⚪"
+			statusText = "DESCONOCIDO"
+		}
+
+		sb.WriteString(fmt.Sprintf("%d. %s %s %s\n", i+1, statusIcon, statusText, test.Name))
+
+		if test.Message != "" {
+			sb.WriteString(fmt.Sprintf("   💬 %s\n", test.Message))
+		}
+
+		if test.Duration > 0 {
+			sb.WriteString(fmt.Sprintf("   ⏱️  Duración: %v\n", test.Duration.Round(time.Millisecond)))
+		}
+
+		sb.WriteString("\n")
+	}
+
+	sb.WriteString(strings.Repeat("-", 40) + "\n")
+	sb.WriteString("Presiona ESC para cerrar este detalle")
+
 	return sb.String()
 }
