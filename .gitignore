@@ -1,0 +1,65 @@
+# Binarios
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+versaSecurityTest
+versaSecurityTest.exe
+
+# Archivos de test
+*.test
+
+# Archivos de salida de profiling
+*.out
+
+# Dependencias de vendor (opcional)
+vendor/
+
+# Archivos de configuración específicos del entorno
+config-local.json
+config-dev.json
+config-prod.json
+
+# Reportes generados
+*.html
+reporte*.html
+scan-results.*
+
+# Logs
+*.log
+logs/
+
+# Directorios temporales
+tmp/
+temp/
+
+# Archivos del IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Archivos del sistema operativo
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Archivos de cobertura de Go
+*.cover
+coverage.html
+coverage.out
+
+# Archivos de mod cache
+go.sum.bak
+
+# Archivos de configuración sensibles
+*.pem
+*.key
+*.crt
+secrets.json

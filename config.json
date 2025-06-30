@@ -1,0 +1,26 @@
+{
+  "concurrent": 5,
+  "timeout": 30000000000,
+  "user_agent": "VersaSecurityTest/1.0 (Security Scanner)",
+  "headers": {
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.5",
+    "Accept-Encoding": "gzip, deflate",
+    "Connection": "keep-alive"
+  },
+  "tests": {
+    "sql_injection": true,
+    "xss": true,
+    "brute_force": false,
+    "csrf": false,
+    "directory_traversal": false,
+    "file_upload": false,
+    "http_headers": true,
+    "ssl": false,
+    "ddos": false,
+    "path_traversal": false,
+    "authentication": false,
+    "information_disclosure": false
+  },
+  "verbose": false
+}
