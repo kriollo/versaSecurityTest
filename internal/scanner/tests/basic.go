@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -38,6 +39,7 @@ type Evidence struct {
 type HTTPClient interface {
 	Get(url string) (*http.Response, error)
 	Do(req *http.Request) (*http.Response, error)
+	PostForm(url string, data url.Values) (*http.Response, error)
 }
 
 // BasicHTTPClient implementación básica
@@ -62,6 +64,11 @@ func (c *BasicHTTPClient) Get(url string) (*http.Response, error) {
 // Do realiza una petición HTTP personalizada
 func (c *BasicHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	return c.client.Do(req)
+}
+
+// PostForm realiza una petición POST con datos de formulario
+func (c *BasicHTTPClient) PostForm(url string, data url.Values) (*http.Response, error) {
+	return c.client.PostForm(url, data)
 }
 
 // ReadResponseBody lee el cuerpo de una respuesta HTTP

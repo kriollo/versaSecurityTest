@@ -197,11 +197,45 @@ func (ws *WebScanner) getEnabledTests() []TestRunner {
 		testRunners = append(testRunners, &tests.InputValidationTest{})
 		testRunners = append(testRunners, &tests.DataValidationTest{})
 	}
+	
+	// Tests de SQL Injection (avanzados si está habilitado)
 	if ws.config.Tests.SQLInjection {
-		testRunners = append(testRunners, &tests.SQLInjectionTest{})
+		if ws.config.Tests.UseAdvancedTests {
+			// Test avanzado con 60+ payloads y técnicas de evasión
+			testRunners = append(testRunners, &tests.AdvancedSQLInjectionTest{})
+		} else {
+			// Test básico (compatible con versiones anteriores)
+			testRunners = append(testRunners, &tests.SQLInjectionTest{})
+		}
 	}
+	
+	// Tests de XSS (avanzados si está habilitado)
 	if ws.config.Tests.XSS {
-		testRunners = append(testRunners, &tests.XSSTest{})
+		if ws.config.Tests.UseAdvancedTests {
+			// Test avanzado con múltiples técnicas de bypass
+			testRunners = append(testRunners, &tests.AdvancedXSSTest{})
+		} else {
+			// Test básico (compatible con versiones anteriores)
+			testRunners = append(testRunners, &tests.XSSTest{})
+		}
+	}
+	
+	// Tests de HTTP Headers (avanzados si está habilitado)
+	if ws.config.Tests.HTTPHeaders {
+		if ws.config.Tests.UseAdvancedTests {
+			// Test avanzado con validación de configuración específica
+			testRunners = append(testRunners, &tests.AdvancedSecurityHeadersTest{})
+		}
+		// Nota: Test básico de headers deshabilitado temporalmente hasta solucionar problemas de compilación
+	}
+	
+	// Tests de Directory Traversal (avanzados si está habilitado)
+	if ws.config.Tests.DirTraversal {
+		if ws.config.Tests.UseAdvancedTests {
+			// Test avanzado con múltiples técnicas de encoding
+			testRunners = append(testRunners, &tests.AdvancedDirectoryTraversalTest{})
+		}
+		// Nota: Test básico de traversal deshabilitado temporalmente hasta solucionar problemas de compilación
 	}
 
 	// Categoría CRYP - Criptografía

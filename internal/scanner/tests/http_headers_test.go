@@ -2,7 +2,6 @@ package tests
 
 import (
 	"fmt"
-	"net/http"
 
 	"github.com/versaSecurityTest/internal/config"
 )
@@ -37,7 +36,7 @@ func (h *HTTPHeadersTest) Run(targetURL string, client HTTPClient, payloads *con
 	}
 
 	for header, desc := range headers {
-		if resp.Headers.Get(header) == "" {
+		if resp.Header.Get(header) == "" {
 			result.Status = "Failed"
 			result.Details = append(result.Details, "❌ "+desc)
 		} else {

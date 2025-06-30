@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	"net/url"
 
 	"github.com/versaSecurityTest/internal/config"
 )
@@ -29,13 +30,14 @@ func (b *BruteForceTest) Run(targetURL string, client HTTPClient, payloads *conf
 		loginURL := targetURL + endpoint
 		for _, cred := range payloads.CommonCredentials {
 			attemptCount++
-			resp, _ := client.PostForm(loginURL, map[string]string{
-				"username": cred.Username,
-				"password": cred.Password,
-			})
+			formData := url.Values{
+				"username": {cred.Username},
+				"password": {cred.Password},
+			}
+			resp, _ := client.PostForm(loginURL, formData)
 
 			// Si no hay invalid credentials, es peligroso
-			if resp.Status == "200 OK" || resp.Status == "302 Found" {
+			if resp != nil && (resp.StatusCode == 200 || resp.StatusCode == 302) {
 				result.Status = "Failed"
 				result.Details = append(result.Details, fmt.Sprintf("❌ Credenciales débiles aceptadas: %s:%s", cred.Username, cred.Password))
 			}

@@ -310,7 +310,7 @@ func (m Model) handleResultsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "q", "esc":
 		return m, tea.Quit
 	case "backspace":
-		// Volver al inicio - limpiar completamente el estado
+		// Volver al inicio - reinicio completo del estado
 		m.state = StateProtocol
 		m.cursor = 0
 		m.scanResult = nil
@@ -319,7 +319,7 @@ func (m Model) handleResultsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.modalContent = ""
 		m.modalTitle = ""
 
-		// Limpiar progreso anterior
+		// Limpiar completamente el progreso del escaneo anterior
 		m.scanProgress = ScanProgress{}
 
 		// Limpiar configuración de finalización
@@ -327,16 +327,26 @@ func (m Model) handleResultsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.finishingStart = time.Time{}
 		m.finishingElapsed = 0
 
-		// Resetear scroll
+		// Resetear scroll y paginación
 		m.scrollOffset = 0
+		m.testsPerPage = 0
+		m.showScrollbar = false
 
-		// Opcionalmente resetear URL y protocolo (para nuevo escaneo completo)
+		// Limpiar errores previos
+		m.err = nil
+
+		// Resetear URL y protocolo para un nuevo escaneo completo
 		m.url = ""
 		m.useHTTPS = true
 
-		// Resetear selección de tests a recomendados
+		// Resetear selección de tests a estado inicial (recomendados)
 		for i := range m.tests {
 			m.tests[i].Selected = m.tests[i].Recommended
+		}
+
+		// Resetear formatos a estado inicial
+		for i := range m.formats {
+			m.formats[i].Selected = (i == 0) // Primer formato seleccionado por defecto
 		}
 
 		return m, nil
@@ -386,7 +396,7 @@ func (m Model) generateDetailedReport() string {
 	// Generar detalles basados en los tests realmente fallidos
 	if len(m.scanProgress.TestDetails) > 0 {
 		failedCount := 0
-		for i, testDetail := range m.scanProgress.TestDetails {
+		for _, testDetail := range m.scanProgress.TestDetails {
 			if testDetail.Status == "failed" && failedCount < m.scanResult.TestsFailed {
 				failedCount++
 
@@ -475,18 +485,37 @@ func (m Model) generateDetailedReport() string {
 		}
 	}
 
-	// Tests exitosos
-	successTests := []string{
-		"SSL/TLS Configuration - Certificado válido y configuración segura",
-		"Directory Traversal - No se encontraron vulnerabilidades de path traversal",
-		"HTTP Methods - Solo métodos seguros habilitados (GET, POST)",
-	}
+	// Tests exitosos basados en datos reales
+	if len(m.scanProgress.TestDetails) > 0 {
+		sb.WriteString("✅ TESTS EXITOSOS:\n")
+		sb.WriteString(strings.Repeat("─", 30) + "\n")
+		successCount := 0
+		for _, testDetail := range m.scanProgress.TestDetails {
+			if testDetail.Status == "completed" && successCount < m.scanResult.TestsPassed {
+				successCount++
+				sb.WriteString(fmt.Sprintf("✅ %s", testDetail.Name))
+				if testDetail.Duration > 0 {
+					sb.WriteString(fmt.Sprintf(" (⏱️ %v)", testDetail.Duration.Round(time.Millisecond)))
+				}
+				sb.WriteString("\n")
 
-	passedCount := 0
-	for _, testName := range successTests {
-		if passedCount < m.scanResult.TestsPassed && passedCount < len(successTests) {
-			sb.WriteString(fmt.Sprintf("✅ TEST EXITOSO: %s\n", testName))
-			passedCount++
+				// Agregar descripción de éxito según el tipo
+				switch {
+				case strings.Contains(strings.ToLower(testDetail.Name), "ssl") || strings.Contains(strings.ToLower(testDetail.Name), "tls"):
+					sb.WriteString("   🔒 Certificado válido y configuración TLS segura\n")
+				case strings.Contains(strings.ToLower(testDetail.Name), "header"):
+					sb.WriteString("   🛡️ Headers de seguridad correctamente configurados\n")
+				case strings.Contains(strings.ToLower(testDetail.Name), "sql"):
+					sb.WriteString("   🚫 No se detectaron vulnerabilidades de inyección SQL\n")
+				case strings.Contains(strings.ToLower(testDetail.Name), "xss"):
+					sb.WriteString("   🛡️ Protección adecuada contra Cross-Site Scripting\n")
+				default:
+					sb.WriteString("   ✅ Test superado - configuración segura detectada\n")
+				}
+			}
+		}
+		if successCount > 0 {
+			sb.WriteString("\n")
 		}
 	}
 
@@ -494,15 +523,64 @@ func (m Model) generateDetailedReport() string {
 	sb.WriteString("💡 RECOMENDACIONES PRIORITARIAS:\n")
 	sb.WriteString(strings.Repeat("─", 60) + "\n")
 
-	recommendations := []string{
-		"🔴 CRÍTICO: Implementar validación de entrada para prevenir SQL injection",
-		"🟡 MEDIO: Configurar headers de seguridad (CSP, X-Frame-Options, HSTS)",
-		"🟢 BAJO: Revisar configuración del servidor web para mayor seguridad",
-		"📚 INFO: Implementar monitoreo de seguridad y logs de auditoría",
+	// Generar recomendaciones específicas basadas en los tests fallidos
+	var recommendations []string
+
+	if len(m.scanProgress.TestDetails) > 0 {
+		for _, testDetail := range m.scanProgress.TestDetails {
+			if testDetail.Status == "failed" {
+				switch {
+				case strings.Contains(strings.ToLower(testDetail.Name), "sql"):
+					recommendations = append(recommendations, "🔴 CRÍTICO: Implementar consultas preparadas para prevenir inyección SQL")
+					recommendations = append(recommendations, "🔴 CRÍTICO: Validar y sanitizar todas las entradas del usuario")
+				case strings.Contains(strings.ToLower(testDetail.Name), "xss"):
+					recommendations = append(recommendations, "🔴 CRÍTICO: Codificar todas las salidas HTML para prevenir XSS")
+					recommendations = append(recommendations, "🟡 MEDIO: Implementar Content Security Policy (CSP)")
+				case strings.Contains(strings.ToLower(testDetail.Name), "header"):
+					recommendations = append(recommendations, "🟡 MEDIO: Configurar headers de seguridad (X-Frame-Options, CSP, HSTS)")
+					recommendations = append(recommendations, "🟡 MEDIO: Agregar X-Content-Type-Options: nosniff")
+				case strings.Contains(strings.ToLower(testDetail.Name), "ssl") || strings.Contains(strings.ToLower(testDetail.Name), "tls"):
+					recommendations = append(recommendations, "🔴 CRÍTICO: Actualizar configuración SSL/TLS a versiones seguras")
+					recommendations = append(recommendations, "🟡 MEDIO: Deshabilitar protocolos y cifrados obsoletos")
+				case strings.Contains(strings.ToLower(testDetail.Name), "brute"):
+					recommendations = append(recommendations, "� MEDIO: Implementar límite de intentos de login")
+					recommendations = append(recommendations, "�� BAJO: Agregar CAPTCHA después de varios intentos fallidos")
+				case strings.Contains(strings.ToLower(testDetail.Name), "directory") || strings.Contains(strings.ToLower(testDetail.Name), "traversal"):
+					recommendations = append(recommendations, "🔴 CRÍTICO: Validar y filtrar nombres de archivos")
+					recommendations = append(recommendations, "🟡 MEDIO: Usar rutas absolutas y listas blancas")
+				default:
+					recommendations = append(recommendations, "🟡 MEDIO: Revisar configuración de seguridad de "+testDetail.Name)
+				}
+			}
+		}
 	}
 
-	for i, rec := range recommendations {
-		if i < len(recommendations) {
+	// Si no hay tests fallidos, dar recomendaciones generales
+	if len(recommendations) == 0 {
+		recommendations = []string{
+			"🟢 BAJO: Mantener el sistema y componentes actualizados",
+			"🟢 BAJO: Implementar monitoreo de seguridad continuo",
+			"📚 INFO: Revisar logs de seguridad regularmente",
+			"📚 INFO: Capacitar al equipo en mejores prácticas de seguridad",
+		}
+	} else {
+		// Agregar recomendaciones generales al final
+		recommendations = append(recommendations, "📚 INFO: Implementar monitoreo y alertas de seguridad")
+		recommendations = append(recommendations, "📚 INFO: Realizar escaneos de seguridad regularmente")
+	}
+
+	// Eliminar duplicados y mostrar recomendaciones
+	seen := make(map[string]bool)
+	uniqueRecs := []string{}
+	for _, rec := range recommendations {
+		if !seen[rec] {
+			seen[rec] = true
+			uniqueRecs = append(uniqueRecs, rec)
+		}
+	}
+
+	for i, rec := range uniqueRecs {
+		if i < 6 { // Mostrar máximo 6 recomendaciones
 			sb.WriteString(fmt.Sprintf("%d. %s\n", i+1, rec))
 		}
 	}

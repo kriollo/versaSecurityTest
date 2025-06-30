@@ -2,7 +2,7 @@ package tests
 
 import (
 	"fmt"
-	"net/http"
+	"io"
 	"strings"
 
 	"github.com/versaSecurityTest/internal/config"
@@ -28,8 +28,16 @@ func (c *CSRFProtectionTest) Run(targetURL string, client HTTPClient, payloads *
 		result.Details = append(result.Details, fmt.Sprintf("Connection error: %v", err))
 		return result
 	}
+	defer resp.Body.Close()
 
-	body := string(resp.Body)
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		result.Status = "Failed"
+		result.Description = "Could not read response body"
+		result.Details = append(result.Details, fmt.Sprintf("Read error: %v", err))
+		return result
+	}
+	body := string(bodyBytes)
 	issues := []string{}
 	warnings := []string{}
 
@@ -49,8 +57,8 @@ func (c *CSRFProtectionTest) Run(targetURL string, client HTTPClient, payloads *
 		}
 
 		// Verificar SameSite en cookies
-		if resp.Headers != nil {
-			cookies := resp.Headers.Get("Set-Cookie")
+		if resp.Header != nil {
+			cookies := resp.Header.Get("Set-Cookie")
 			if cookies != "" {
 				if !strings.Contains(strings.ToLower(cookies), "samesite") {
 					warnings = append(warnings, "Cookies sin atributo SameSite detectadas")
@@ -66,9 +74,9 @@ func (c *CSRFProtectionTest) Run(targetURL string, client HTTPClient, payloads *
 	}
 
 	// Verificar headers de seguridad relacionados con CSRF
-	if resp.Headers != nil {
+	if resp.Header != nil {
 		// Verificar Referrer Policy
-		referrerPolicy := resp.Headers.Get("Referrer-Policy")
+		referrerPolicy := resp.Header.Get("Referrer-Policy")
 		if referrerPolicy == "" {
 			warnings = append(warnings, "Header Referrer-Policy no configurado")
 		} else {
@@ -76,7 +84,7 @@ func (c *CSRFProtectionTest) Run(targetURL string, client HTTPClient, payloads *
 		}
 
 		// Verificar Origin headers
-		origin := resp.Headers.Get("Access-Control-Allow-Origin")
+		origin := resp.Header.Get("Access-Control-Allow-Origin")
 		if origin == "*" {
 			warnings = append(warnings, "CORS configurado para permitir cualquier origen")
 		}

@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	"io"
 	"net/url"
 	"strings"
 
@@ -34,7 +35,7 @@ func (d *DirTraversalTest) Run(targetURL string, client HTTPClient, payloads *co
 	totalTests := 0
 
 	// Buscar parámetros que puedan ser vulnerables
-	parsedURL, err := url.Parse(targetURL)
+	_, err := url.Parse(targetURL)
 	if err != nil {
 		result.Status = "Failed"
 		result.Description = "Invalid URL provided"
@@ -56,8 +57,13 @@ func (d *DirTraversalTest) Run(targetURL string, client HTTPClient, payloads *co
 			if err != nil {
 				continue
 			}
+			defer resp.Body.Close()
 
-			body := string(resp.Body)
+			bodyBytes, err := io.ReadAll(resp.Body)
+			if err != nil {
+				continue
+			}
+			body := string(bodyBytes)
 			bodyLower := strings.ToLower(body)
 
 			// Buscar indicadores de éxito en directory traversal
@@ -90,8 +96,13 @@ func (d *DirTraversalTest) Run(targetURL string, client HTTPClient, payloads *co
 		if err != nil {
 			continue
 		}
+		defer resp.Body.Close()
 
-		body := string(resp.Body)
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			continue
+		}
+		body := string(bodyBytes)
 		if strings.Contains(strings.ToLower(body), "root:") {
 			vulnerableParams++
 			result.Status = "Failed"
