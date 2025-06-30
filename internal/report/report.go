@@ -27,6 +27,15 @@ func GenerateTableReport(result *scanner.ScanResult) string {
 	output.WriteString(fmt.Sprintf("│ Tests Ejecutados: %-44d │\n", result.TestsExecuted))
 	output.WriteString(fmt.Sprintf("│ Tests Pasados: %-47d │\n", result.TestsPassed))
 	output.WriteString(fmt.Sprintf("│ Tests Fallidos: %-46d │\n", result.TestsFailed))
+	
+	// Agregar información de tests saltados y timeout si existen
+	if result.TestsSkipped > 0 {
+		output.WriteString(fmt.Sprintf("│ Tests Saltados: %-46d │\n", result.TestsSkipped))
+	}
+	if result.TestsTimeout > 0 {
+		output.WriteString(fmt.Sprintf("│ Tests Timeout: %-47d │\n", result.TestsTimeout))
+	}
+	
 	output.WriteString(fmt.Sprintf("│ Puntuación de Seguridad: %.1f/10 (%s)%-20s │\n", 
 		result.SecurityScore.Value, result.SecurityScore.Risk, ""))
 	output.WriteString("├─────────────────────────────────────────────────────────────────┤\n")
@@ -36,12 +45,19 @@ func GenerateTableReport(result *scanner.ScanResult) string {
 	output.WriteString("├─────────────────────────────────────────────────────────────────┤\n")
 	
 	for _, test := range result.TestResults {
-		status := "✅ PASÓ"
-		if test.Status != "Passed" {
+		var status string
+		switch test.Status {
+		case "Passed":
+			status = "✅ PASÓ"
+		case "Skipped":
+			status = "⏭️ SALTADO"
+		case "Timeout":
+			status = "⏰ TIMEOUT"
+		default:
 			status = "❌ FALLÓ"
 		}
 		
-		output.WriteString(fmt.Sprintf("│ %s %-44s │\n", status, truncateString(test.TestName, 44)))
+		output.WriteString(fmt.Sprintf("│ %s %-42s │\n", status, truncateString(test.TestName, 42)))
 		output.WriteString(fmt.Sprintf("│   Severidad: %-50s │\n", test.Severity))
 		output.WriteString(fmt.Sprintf("│   %s │\n", truncateAndWrap(test.Description, 63)))
 		
