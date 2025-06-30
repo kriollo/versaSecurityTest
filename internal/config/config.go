@@ -23,6 +23,13 @@ type Config struct {
 	
 	// Configuración de output
 	Verbose bool `json:"verbose"`
+	
+	// Configuraciones avanzadas
+	Language    string `json:"language"`     // Idioma de la interfaz
+	LastUsedURL string `json:"last_used_url"` // Última URL escaneada
+	AutoSave    bool   `json:"auto_save"`    // Guardar configuración automáticamente
+	Theme       string `json:"theme"`        // Tema de la interfaz
+	Tutorial    bool   `json:"tutorial"`     // Mostrar tutorial en primer uso
 }
 
 // TestConfig configura qué tests ejecutar
@@ -30,15 +37,12 @@ type TestConfig struct {
 	SQLInjection    bool `json:"sql_injection"`
 	XSS             bool `json:"xss"`
 	BruteForce      bool `json:"brute_force"`
-	CSRF            bool `json:"csrf"`
-	DirectoryTraversal bool `json:"directory_traversal"`
-	FileUpload      bool `json:"file_upload"`
 	HTTPHeaders     bool `json:"http_headers"`
-	SSL             bool `json:"ssl"`
-	DDoS            bool `json:"ddos"`
-	PathTraversal   bool `json:"path_traversal"`
-	Authentication  bool `json:"authentication"`
-	InformationDisclosure bool `json:"information_disclosure"`
+	SSLAnalysis     bool `json:"ssl_analysis"`
+	CSRFProtection  bool `json:"csrf_protection"`
+	FileUpload      bool `json:"file_upload"`
+	DirTraversal    bool `json:"dir_traversal"`
+	InfoDisclosure  bool `json:"info_disclosure"`
 }
 
 // PayloadConfig contiene los payloads para diferentes ataques
@@ -87,19 +91,54 @@ func DefaultConfig() *Config {
 		Tests: TestConfig{
 			SQLInjection:       true,
 			XSS:                true,
-			BruteForce:         true,
-			CSRF:               true,
-			DirectoryTraversal: true,
-			FileUpload:         true,
+			BruteForce:         false, // Por defecto deshabilitado
 			HTTPHeaders:        true,
-			SSL:                true,
-			DDoS:               false, // Por defecto deshabilitado
-			PathTraversal:      true,
-			Authentication:     true,
-			InformationDisclosure: true,
+			SSLAnalysis:        false, // Por defecto deshabilitado
+			CSRFProtection:     false, // Por defecto deshabilitado
+			FileUpload:         false, // Por defecto deshabilitado
+			DirTraversal:       false, // Por defecto deshabilitado
+			InfoDisclosure:     true,
 		},
 		Verbose: false,
+		// Configuraciones avanzadas
+		Language:    "es", // Español por defecto
+		LastUsedURL: "",
+		AutoSave:    true,
+		Theme:       "default",
+		Tutorial:    true, // Mostrar tutorial en primer uso
 	}
+}
+
+// SaveConfig guarda la configuración en un archivo JSON
+func (c *Config) SaveConfig(filename string) error {
+	data, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		return err
+	}
+	
+	return os.WriteFile(filename, data, 0644)
+}
+
+// UpdateLastUsedURL actualiza la última URL usada
+func (c *Config) UpdateLastUsedURL(url string) {
+	c.LastUsedURL = url
+	if c.AutoSave {
+		c.SaveConfig("config.json") // Guardar automáticamente
+	}
+}
+
+// LoadOrCreateConfig carga la configuración o crea una nueva si no existe
+func LoadOrCreateConfig(filename string) (*Config, error) {
+	config, err := LoadConfig(filename)
+	if err != nil {
+		// Si no existe el archivo, crear uno nuevo
+		config = DefaultConfig()
+		err = config.SaveConfig(filename)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return config, nil
 }
 
 // GetPayloads retorna los payloads por defecto

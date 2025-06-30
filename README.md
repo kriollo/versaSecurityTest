@@ -53,9 +53,55 @@ go build -o versaSecurityTest
 ### Descargas Precompiladas
 Descarga los binarios precompilados desde la sección [Releases](https://github.com/kriollo/versaSecurityTest/releases).
 
-## 🎮 Uso Básico
+## 🎮 Modos de Uso
 
-### Comando Básico
+### 1. 🎨 Modo TUI Moderno (Recomendado)
+
+Interfaz Terminal User Interface moderna e interactiva:
+
+```bash
+# Windows
+.\versaSecurityTest.exe -tui
+
+# Linux/macOS
+./versaSecurityTest -tui
+```
+
+**Características del Modo TUI:**
+- 🎯 **Paso 1**: Selección de protocolo (HTTP/HTTPS)
+- 🌐 **Paso 2**: Ingreso de URL objetivo
+- ✅ **Paso 3**: Selección de tests de seguridad (con checkboxes)
+- 📊 **Paso 4**: Configuración de formato de salida
+- 🚀 **Paso 5**: Confirmación y ejecución del escaneo
+- 📈 **Progreso**: Visualización en tiempo real
+- 📋 **Resultados**: Vista interactiva de resultados
+
+**Controles TUI:**
+- `↑↓←→`: Navegación entre opciones
+- `Space`: Seleccionar/Deseleccionar
+- `Enter`: Continuar/Confirmar
+- `A`: Seleccionar todos los tests
+- `N`: Deseleccionar todos los tests
+- `R`: Seleccionar tests recomendados
+- `V`: Activar/Desactivar modo verbose
+- `Q/Ctrl+C`: Salir de la aplicación
+
+### 2. 💬 Modo CLI Interactivo Legacy
+
+Interfaz de línea de comandos tradicional con asistente:
+
+```bash
+# Windows
+.\versaSecurityTest.exe -interactive
+
+# Linux/macOS
+./versaSecurityTest -interactive
+```
+
+### 3. ⚡ Modo Directo
+
+Ejecución directa con parámetros para automatización:
+
 ```bash
 # Windows
 .\versaSecurityTest.exe -url https://ejemplo.com
@@ -63,6 +109,174 @@ Descarga los binarios precompilados desde la sección [Releases](https://github.
 # Linux/macOS
 ./versaSecurityTest -url https://ejemplo.com
 ```
+
+### 4. 🔄 Modo Automático
+
+Sin parámetros (ejecuta modo interactivo por defecto):
+
+```bash
+# Windows
+.\versaSecurityTest.exe
+
+# Linux/macOS
+./versaSecurityTest
+```
+
+## 🎨 Guía Detallada del Modo TUI
+
+### Pantalla de Inicio
+
+Al ejecutar `./versaSecurityTest -tui`, verás un banner ASCII art seguido de la navegación paso a paso:
+
+```
+██╗   ██╗███████╗██████╗ ███████╗ █████╗ ███████╗███████╗ ██████╗
+██║   ██║██╔════╝██╔══██╗██╔════╝██╔══██╗██╔════╝██╔════╝██╔════╝
+██║   ██║█████╗  ██████╔╝███████╗███████║███████╗█████╗  ██║     
+╚██╗ ██╔╝██╔══╝  ██╔══██╗╚════██║██╔══██║╚════██║██╔══╝  ██║     
+ ╚████╔╝ ███████╗██║  ██║███████║██║  ██║███████║███████╗╚██████╗
+  ╚═══╝  ╚══════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝
+
+🔐 VersaSecurityTest - Interactive Web Security Scanner v2.0
+```
+
+### Flujo de Pantallas TUI
+
+#### 🌐 Paso 1: Selección de Protocolo
+
+- Selecciona entre HTTP y HTTPS
+- HTTPS viene marcado por defecto (recomendado)
+- Navega con flechas y selecciona con `Space`
+
+#### 📝 Paso 2: Ingreso de URL
+
+- Campo de entrada para la URL objetivo
+- No necesitas incluir el protocolo (se agrega automáticamente)
+- Ejemplos: `localhost:8080`, `www.ejemplo.com`, `api.ejemplo.com/v1`
+- Cursor visual en tiempo real
+
+#### ✅ Paso 3: Selección de Tests
+
+**Tests Disponibles:**
+- `[X] Conectividad Básica ⭐` (Recomendado)
+- `[X] SQL Injection ⭐` (Recomendado)
+- `[X] Cross-Site Scripting ⭐` (Recomendado)
+- `[X] Headers de Seguridad ⭐` (Recomendado)
+- `[ ] SSL/TLS Security`
+- `[ ] CSRF Protection`
+- `[ ] Brute Force`
+- `[ ] File Upload`
+- `[ ] Directory Traversal`
+- `[X] Information Disclosure ⭐` (Recomendado)
+
+**Distribución en Columnas:**
+- Los tests se muestran en dos columnas para mejor legibilidad
+- Los tests marcados con ⭐ están preseleccionados
+- Al navegar sobre un test, se muestra su descripción
+
+**Atajos Rápidos:**
+- `A`: Seleccionar todos los tests
+- `N`: Deseleccionar todos los tests
+- `R`: Seleccionar solo los recomendados
+
+#### 📊 Paso 4: Formato de Salida
+
+**Opciones Disponibles:**
+- `[X] JSON` - Formato estructurado para integración (seleccionado por defecto)
+- `[ ] Tabla ASCII` - Visualización clara en terminal
+- `[ ] HTML` - Reporte profesional con gráficos
+
+**Configuraciones Adicionales:**
+- `[ ] Modo Verbose` - Mostrar detalles adicionales
+- Alternar con `V` en cualquier momento
+
+#### 🚀 Paso 5: Confirmación
+
+**Resumen de Configuración:**
+```
+📋 RESUMEN DE CONFIGURACIÓN:
+──────────────────────────────────────────────────
+🎯 URL Objetivo:     https://ejemplo.com
+🔍 Tests (5):        Conectividad Básica, SQL Injection, Cross-Site Scripting
+                     ... y 2 más
+📊 Formato:          JSON
+🔍 Modo Verbose:     false
+──────────────────────────────────────────────────
+```
+
+**Opciones de Confirmación:**
+- `[ ] ✅ Confirmar y ejecutar escaneo`
+- `[ ] ❌ Cancelar y volver atrás`
+
+#### 📈 Pantalla de Progreso
+
+**Durante el Escaneo:**
+```
+🚀 ESCANEO EN PROGRESO
+
+🎯 Escaneando: https://ejemplo.com
+
+Progreso: [████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 60.0%
+Tests completados: 3/5
+
+Test actual: SQL Injection
+Tiempo transcurrido: 2s
+
+💡 Presione [Q] para cancelar el escaneo
+```
+
+#### 📊 Pantalla de Resultados
+
+**Resumen Ejecutivo:**
+```
+📊 RESULTADOS DEL ESCANEO
+
+📋 RESUMEN EJECUTIVO:
+═══════════════════════════════════════════════════════════
+🎯 URL Escaneada:    https://ejemplo.com
+📅 Fecha/Hora:       2024-01-15 10:30:00
+⏱️  Duración:         5.234s
+🔍 Tests Ejecutados: 5
+✅ Tests Pasados:    3
+❌ Tests Fallidos:   2
+═══════════════════════════════════════════════════════════
+
+🛡️  PUNTUACIÓN DE SEGURIDAD:
+──────────────────────────────
+Puntuación: 6.5/10
+Nivel de Riesgo: Medium
+```
+
+**Opciones de Resultados:**
+- `[D/Enter]` Ver detalles completos
+- `[R]` Repetir escaneo
+- `[S]` Guardar reporte
+- `[Backspace]` Nuevo escaneo
+- `[Q/Esc]` Salir
+
+### 🎯 Características Especiales del TUI
+
+#### Responsive Design
+- Se adapta automáticamente al tamaño de la terminal
+- Columnas ajustables según el ancho disponible
+- Texto truncado inteligente para pantallas pequeñas
+
+#### Estado Visual
+- Checkboxes visuales `[X]` para selecciones
+- Indicadores de recomendación con ⭐
+- Colores semánticos (verde para éxito, rojo para errores)
+- Barras de progreso animadas
+
+#### Navegación Intuitiva
+- Navegación coherente con flechas en toda la aplicación
+- Breadcrumbs implícitos (numeración de pasos)
+- Posibilidad de retroceder con `Esc`
+- Salida rápida con `Q` o `Ctrl+C`
+
+#### Feedback en Tiempo Real
+- Actualización instantánea de contadores
+- Vista previa de configuración
+- Validación de entrada en tiempo real
+- Indicadores de estado claros
 
 ### Opciones de Línea de Comandos
 

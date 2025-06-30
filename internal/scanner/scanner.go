@@ -132,15 +132,37 @@ func (ws *WebScanner) ScanURL(targetURL string) *ScanResult {
 func (ws *WebScanner) getEnabledTests() []TestRunner {
 	var testRunners []TestRunner
 
-	// Tests básicos disponibles
+	// Test básico de conectividad (siempre se ejecuta)
 	testRunners = append(testRunners, &tests.BasicTest{})
-	
+	// Tests de seguridad habilitados
 	if ws.config.Tests.SQLInjection {
 		testRunners = append(testRunners, &tests.SQLInjectionTest{})
 	}
 	if ws.config.Tests.XSS {
 		testRunners = append(testRunners, &tests.XSSTest{})
 	}
+	// TODO: Habilitar tests adicionales cuando estén implementados
+	// if ws.config.Tests.HTTPHeaders {
+	// 	testRunners = append(testRunners, &tests.HTTPHeadersTest{})
+	// }
+	// if ws.config.Tests.InfoDisclosure {
+	// 	testRunners = append(testRunners, &tests.InfoDisclosureTest{})
+	// }
+	// if ws.config.Tests.SSLAnalysis {
+	// 	testRunners = append(testRunners, &tests.SSLAnalysisTest{})
+	// }
+	// if ws.config.Tests.CSRFProtection {
+	// 	testRunners = append(testRunners, &tests.CSRFProtectionTest{})
+	// }
+	// if ws.config.Tests.BruteForce {
+	// 	testRunners = append(testRunners, &tests.BruteForceTest{})
+	// }
+	// if ws.config.Tests.FileUpload {
+	// 	testRunners = append(testRunners, &tests.FileUploadTest{})
+	// }
+	// if ws.config.Tests.DirTraversal {
+	// 	testRunners = append(testRunners, &tests.DirTraversalTest{})
+	// }
 
 	return testRunners
 }

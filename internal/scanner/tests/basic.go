@@ -2,7 +2,9 @@ package tests
 
 import (
 	"fmt"
+	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/versaSecurityTest/internal/config"
@@ -28,6 +30,8 @@ type Evidence struct {
 	Payload     string `json:"payload,omitempty"`
 	Response    string `json:"response,omitempty"`
 	StatusCode  int    `json:"status_code,omitempty"`
+	Description string `json:"description,omitempty"`
+	Severity    string `json:"severity,omitempty"`
 }
 
 // HTTPClient interface simplificada
@@ -160,29 +164,79 @@ func (t *SQLInjectionTest) Run(targetURL string, client HTTPClient, payloads *co
 		Evidence:    []Evidence{},
 	}
 
-	// Test muy básico - solo probar con un payload simple
-	testURL := targetURL + "?id=1'"
-	
-	resp, err := client.Get(testURL)
-	if err != nil {
-		// Si hay error, puede ser buena señal (el servidor rechaza la request)
-		return result
+	// Lista de payloads SQL a probar
+	sqlPayloads := []string{
+		"1'",
+		"' OR '1'='1",
+		"' UNION SELECT null--",
+		"1' AND 1=1--",
+		"'; DROP TABLE users--",
 	}
-	defer resp.Body.Close()
 
-	// Si el status code indica error del servidor, puede ser vulnerable
-	if resp.StatusCode == 500 {
+	var detectedVulns int
+	for _, payload := range sqlPayloads {
+		testURL := targetURL + "?id=" + payload
+		
+		resp, err := client.Get(testURL)
+		if err != nil {
+			// Si hay error de conexión, continuar con el siguiente payload
+			continue
+		}
+		defer resp.Body.Close()
+
+		// Leer la respuesta del servidor
+		body, _ := io.ReadAll(resp.Body)
+		responseText := string(body)
+		
+		// Detectar signos de inyección SQL
+		vulnDetected := false
+		vulnReason := ""
+		
+		if resp.StatusCode == 500 {
+			vulnDetected = true
+			vulnReason = "Error 500 del servidor"
+		} else if strings.Contains(strings.ToLower(responseText), "sql") {
+			vulnDetected = true
+			vulnReason = "Mensaje de error SQL en la respuesta"
+		} else if strings.Contains(strings.ToLower(responseText), "mysql") {
+			vulnDetected = true
+			vulnReason = "Referencia a MySQL en la respuesta"
+		} else if strings.Contains(strings.ToLower(responseText), "syntax error") {
+			vulnDetected = true
+			vulnReason = "Error de sintaxis detectado"
+		}
+		
+		if vulnDetected {
+			detectedVulns++
+			
+			// Truncar respuesta para mostrar solo los primeros caracteres
+			truncatedResponse := responseText
+			if len(truncatedResponse) > 200 {
+				truncatedResponse = truncatedResponse[:200] + "..."
+			}
+			
+			result.Evidence = append(result.Evidence, Evidence{
+				Type:        "SQL Injection",
+				URL:         testURL,
+				Payload:     payload,
+				StatusCode:  resp.StatusCode,
+				Response:    fmt.Sprintf("%s: %s", vulnReason, truncatedResponse),
+				Description: fmt.Sprintf("Payload '%s' causó comportamiento anormal", payload),
+				Severity:    "High",
+			})
+			
+			result.Details = append(result.Details, 
+				fmt.Sprintf("Payload '%s': %s (Status: %d)", payload, vulnReason, resp.StatusCode))
+		}
+	}
+
+	// Evaluar resultados
+	if detectedVulns > 0 {
 		result.Status = "Failed"
 		result.Severity = "High"
-		result.Description = "Posible vulnerabilidad de inyección SQL detectada"
-		result.Details = append(result.Details, "El servidor retornó error 500 con payload SQL")
-		result.Evidence = append(result.Evidence, Evidence{
-			Type:       "SQL Injection",
-			URL:        testURL,
-			Payload:    "1'",
-			StatusCode: resp.StatusCode,
-			Response:   "Error 500 - posible inyección SQL",
-		})
+		result.Description = fmt.Sprintf("Se detectaron %d posibles vulnerabilidades de inyección SQL", detectedVulns)
+	} else {
+		result.Details = append(result.Details, "Todos los payloads SQL probados no mostraron signos de vulnerabilidad")
 	}
 
 	return result
@@ -202,22 +256,91 @@ func (t *XSSTest) Run(targetURL string, client HTTPClient, payloads *config.Payl
 		Evidence:    []Evidence{},
 	}
 
-	// Test muy básico - solo probar con un payload simple
-	testURL := targetURL + "?q=<script>alert('xss')</script>"
-	
-	resp, err := client.Get(testURL)
-	if err != nil {
-		return result
+	// Lista de payloads XSS a probar
+	xssPayloads := []string{
+		"<script>alert('XSS')</script>",
+		"<img src=x onerror=alert('XSS')>",
+		"<svg onload=alert('XSS')>",
+		"javascript:alert('XSS')",
+		"'><script>alert('XSS')</script>",
 	}
-	defer resp.Body.Close()
+	
+	var detectedVulns int
+	for _, payload := range xssPayloads {
+		testURL := targetURL + "?q=" + payload
+		
+		resp, err := client.Get(testURL)
+		if err != nil {
+			// Si hay error de conexión, continuar con el siguiente payload
+			continue
+		}
+		defer resp.Body.Close()
 
-	// En un test real analizaríamos el contenido de la respuesta
-	// Por ahora solo verificamos que no haya errores evidentes
-	if resp.StatusCode >= 400 {
-		result.Status = "Warning"
-		result.Severity = "Low"
-		result.Description = "Se detectó comportamiento anómalo con payload XSS"
-		result.Details = append(result.Details, fmt.Sprintf("Status code: %d", resp.StatusCode))
+		// Leer la respuesta del servidor
+		body, _ := io.ReadAll(resp.Body)
+		responseText := string(body)
+		
+		// Detectar signos de XSS (script reflejado sin sanitización)
+		vulnDetected := false
+		vulnReason := ""
+		
+		// Verificar si el payload se refleja sin codificar
+		if strings.Contains(responseText, "<script>") {
+			vulnDetected = true
+			vulnReason = "Script tag reflejado sin sanitización"
+		} else if strings.Contains(responseText, "onerror=") {
+			vulnDetected = true
+			vulnReason = "Atributo onerror reflejado"
+		} else if strings.Contains(responseText, "onload=") {
+			vulnDetected = true
+			vulnReason = "Atributo onload reflejado"
+		} else if strings.Contains(responseText, "javascript:") {
+			vulnDetected = true
+			vulnReason = "URL javascript: reflejada"
+		}
+		
+		if vulnDetected {
+			detectedVulns++
+			
+			// Truncar respuesta para mostrar solo los primeros caracteres
+			truncatedResponse := responseText
+			if len(truncatedResponse) > 300 {
+				truncatedResponse = truncatedResponse[:300] + "..."
+			}
+			
+			// Buscar la línea específica donde aparece el payload
+			lines := strings.Split(responseText, "\n")
+			reflectedLine := ""
+			for _, line := range lines {
+				if strings.Contains(line, payload) || strings.Contains(line, "<script") {
+					reflectedLine = strings.TrimSpace(line)
+					if len(reflectedLine) > 150 {
+						reflectedLine = reflectedLine[:150] + "..."
+					}
+					break
+				}
+			}
+			
+			result.Evidence = append(result.Evidence, Evidence{
+				Type:        "Cross-Site Scripting",
+				URL:         testURL,
+				Payload:     payload,
+				StatusCode:  resp.StatusCode,
+				Response:    fmt.Sprintf("%s. Línea afectada: %s", vulnReason, reflectedLine),
+			})
+			
+			result.Details = append(result.Details, 
+				fmt.Sprintf("Payload '%s': %s (Status: %d)", payload, vulnReason, resp.StatusCode))
+		}
+	}
+
+	// Evaluar resultados
+	if detectedVulns > 0 {
+		result.Status = "Failed"
+		result.Severity = "High"
+		result.Description = fmt.Sprintf("Se detectaron %d posibles vulnerabilidades XSS", detectedVulns)
+	} else {
+		result.Details = append(result.Details, "Todos los payloads XSS probados fueron correctamente sanitizados")
 	}
 
 	return result
