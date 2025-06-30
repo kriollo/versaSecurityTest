@@ -37,7 +37,7 @@
 
 ```bash
 # Clonar el repositorio
-git clone https://github.com/tuusuario/versaSecurityTest.git
+git clone https://github.com/kriollo/versaSecurityTest.git
 cd versaSecurityTest
 
 # Descargar dependencias
@@ -51,7 +51,7 @@ go build -o versaSecurityTest
 ```
 
 ### Descargas Precompiladas
-Descarga los binarios precompilados desde la sección [Releases](https://github.com/tuusuario/versaSecurityTest/releases).
+Descarga los binarios precompilados desde la sección [Releases](https://github.com/kriollo/versaSecurityTest/releases).
 
 ## 🎮 Uso Básico
 
@@ -318,7 +318,7 @@ go run main.go -url https://httpbin.org/get -verbose
 
 ### Reportar Bugs
 
-Usa las [GitHub Issues](https://github.com/tuusuario/versaSecurityTest/issues) para reportar bugs, incluyendo:
+Usa las [GitHub Issues](https://github.com/kriollo/versaSecurityTest/issues) para reportar bugs, incluyendo:
 - Descripción detallada del problema
 - Pasos para reproducir
 - Salida esperada vs actual
@@ -375,9 +375,9 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
 ## 📞 Contacto y Soporte
 
-- **GitHub Issues**: [Reportar problemas](https://github.com/tuusuario/versaSecurityTest/issues)
-- **Documentación**: [Wiki del proyecto](https://github.com/tuusuario/versaSecurityTest/wiki)
-- **Discusiones**: [GitHub Discussions](https://github.com/tuusuario/versaSecurityTest/discussions)
+- **GitHub Issues**: [Reportar problemas](https://github.com/kriollo/versaSecurityTest/issues)
+- **Documentación**: [Wiki del proyecto](https://github.com/kriollo/versaSecurityTest/wiki)
+- **Discusiones**: [GitHub Discussions](https://github.com/kriollo/versaSecurityTest/discussions)
 
 ## 🎯 Roadmap
 
@@ -411,6 +411,6 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
 **🔐 VersaSecurityTest - Porque la seguridad web importa**
 
-[⭐ Dale una estrella si te gusta el proyecto](https://github.com/tuusuario/versaSecurityTest)
+[⭐ Dale una estrella si te gusta el proyecto](https://github.com/kriollo/versaSecurityTest)
 
 </div>
