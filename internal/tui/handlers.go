@@ -172,6 +172,12 @@ func (m Model) handleTestsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		for i := range m.tests {
 			m.tests[i].Selected = m.tests[i].Recommended
 		}
+	case "v":
+		// Toggle verbose mode
+		m.verbose = !m.verbose
+	case "x":
+		// Toggle advanced tests mode
+		m.useAdvancedTests = !m.useAdvancedTests
 	case "enter":
 		// Verificar que al menos un test esté seleccionado
 		hasSelected := false
@@ -241,8 +247,8 @@ func (m Model) handleConfirmKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 			m.state = StateScanning
 			m.scanning = true
-			m = m.initializeProgress() // Inicializar progreso aquí
-			return m, m.startScanWithProgress()
+			m.scanProgress.StartTime = time.Now() // Inicializar tiempo de inicio
+			return m, m.startScan()               // Usar función centralizada
 		} else {
 			// Cancelar: volver a formato
 			m.state = StateFormat
@@ -267,11 +273,16 @@ func (m Model) handleScanningKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Toggle verbose mode
 		m.verbose = !m.verbose
 		return m, nil
-	case "d":
-		// Mostrar detalles del progreso actual
-		m.showModal = true
-		m.modalTitle = "Progreso del Escaneo"
-		m.modalContent = m.generateProgressReport()
+	case "s":
+		// Enviar comando de skip al scanner
+		if m.skipChannel != nil {
+			select {
+			case m.skipChannel <- true:
+				// Skip enviado exitosamente
+			default:
+				// Canal lleno, skip ya está siendo procesado
+			}
+		}
 		return m, nil
 	}
 	return m, nil
@@ -284,13 +295,19 @@ func (m Model) handleResultsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Reiniciar escaneo
 		m.state = StateScanning
 		m.scanning = true
-		m = m.initializeProgress()
-		return m, m.startScanWithProgress()
+		m.scanProgress.StartTime = time.Now() // Reinicializar tiempo de inicio
+		return m, m.startScan()               // Usar función centralizada
 	case "d", "enter":
 		// Mostrar detalles en modal
 		m.showModal = true
 		m.modalTitle = "📊 Detalles Completos del Escaneo"
-		m.modalContent = m.generateDetailedReport()
+		if m.scanResult != nil {
+			m.modalContent = fmt.Sprintf("URL: %s\nTests ejecutados: %d\nTests pasados: %d\nTests fallidos: %d\nPuntuación: %.1f/10 (%s)",
+				m.scanResult.URL, m.scanResult.TestsExecuted, m.scanResult.TestsPassed,
+				m.scanResult.TestsFailed, m.scanResult.SecurityScore.Value, m.scanResult.SecurityScore.Risk)
+		} else {
+			m.modalContent = "No hay resultados disponibles"
+		}
 		return m, nil
 	case "s":
 		// Guardar resultado

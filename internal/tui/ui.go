@@ -70,17 +70,19 @@ type Model struct {
 	height int
 
 	// Configuración
-	useHTTPS   bool
-	url        string
-	tests      []TestItem
-	formats    []FormatItem
-	verbose    bool
-	outputFile string
+	useHTTPS         bool
+	url              string
+	tests            []TestItem
+	formats          []FormatItem
+	verbose          bool
+	useAdvancedTests bool
+	outputFile       string
 
 	// Escaneo
 	scanning     bool
 	scanProgress ScanProgress
 	scanResult   *scanner.ScanResult
+	skipChannel  chan bool // Canal para enviar comandos de skip durante el escaneo
 
 	// Finalización
 	finishingSpinner int
@@ -207,66 +209,29 @@ func (m Model) View() string {
 
 // NewModel crea un nuevo modelo inicializado
 func NewModel() Model {
-	tests := []TestItem{
-		// Categoría INFO - Recolección de información
-		{ID: "info_gathering", Name: "INFO-01: Information Gathering", Description: "Recolección de información del servidor", Category: "INFO", Recommended: true},
-		{ID: "dir_enum", Name: "INFO-06: Directory Enumeration", Description: "Enumeración de directorios comunes", Category: "INFO", Recommended: true},
-		{ID: "http_methods", Name: "INFO-07: HTTP Methods", Description: "Métodos HTTP habilitados", Category: "INFO", Recommended: false},
-
-		// Categoría CONF - Configuración
-		{ID: "configuration", Name: "CONF-01: Configuration", Description: "Verificación de configuración", Category: "CONF", Recommended: true},
-		{ID: "default_pages", Name: "CONF-04: Default Pages", Description: "Páginas por defecto expuestas", Category: "CONF", Recommended: true},
-		{ID: "error_handling", Name: "CONF-05: Error Handling", Description: "Manejo de errores", Category: "CONF", Recommended: false},
-
-		// Categoría IDNT - Gestión de identidad
-		{ID: "identity_mgmt", Name: "IDNT-01: Identity Management", Description: "Mecanismos de gestión de identidad", Category: "IDNT", Recommended: false},
-		{ID: "user_enum", Name: "IDNT-05: User Enumeration", Description: "Enumeración de usuarios", Category: "IDNT", Recommended: false},
-
-		// Categoría ATHN - Autenticación
-		{ID: "bruteforce", Name: "ATHN-04: Brute Force", Description: "Vulnerabilidades de fuerza bruta", Category: "ATHN", Recommended: true},
-
-		// Categoría ATHZ - Autorización
-		{ID: "authorization", Name: "ATHZ-01: Authorization", Description: "Control de acceso y autorización", Category: "ATHZ", Recommended: true},
-		{ID: "direct_object_ref", Name: "ATHZ-04: Direct Object Reference", Description: "Referencias directas inseguras", Category: "ATHZ", Recommended: true},
-
-		// Categoría SESS - Gestión de sesiones
-		{ID: "session_mgmt", Name: "SESS-01: Session Management", Description: "Gestión de sesiones y tokens", Category: "SESS", Recommended: true},
-
-		// Categoría INPV - Validación de entrada
-		{ID: "input_validation", Name: "INPV-01: Input Validation", Description: "Validación y saneamiento de entradas", Category: "INPV", Recommended: true},
-		{ID: "data_validation", Name: "INPV-05: Data Validation", Description: "Validación de tipos de datos", Category: "INPV", Recommended: false},
-		{ID: "sql_injection", Name: "INPV-07: SQL Injection", Description: "Inyección SQL", Category: "INPV", Recommended: true},
-		{ID: "xss", Name: "INPV-11: Cross-Site Scripting", Description: "XSS reflejado y almacenado", Category: "INPV", Recommended: true},
-		{ID: "dirtraversal", Name: "INPV-12: Directory Traversal", Description: "Vulnerabilidades de path traversal", Category: "INPV", Recommended: true},
-
-		// Categoría ERRH - Manejo de errores
-		{ID: "error_leakage", Name: "ERRH-01: Error Information Leakage", Description: "Filtración de información en errores", Category: "ERRH", Recommended: false},
-
-		// Categoría CRYP - Criptografía
-		{ID: "ssl_tls", Name: "CRYP-01: SSL/TLS Security", Description: "Configuración SSL/TLS", Category: "CRYP", Recommended: true},
-		{ID: "cryptography", Name: "CRYP-02: Cryptography", Description: "Uso correcto de criptografía", Category: "CRYP", Recommended: false},
-
-		// Categoría BUSL - Lógica de negocio
-		{ID: "business_logic", Name: "BUSL-01: Business Logic", Description: "Lógica de negocio y procesos", Category: "BUSL", Recommended: false},
-
-		// Categoría CLNT - Cliente
-		{ID: "client_side", Name: "CLNT-01: Client-Side Security", Description: "Seguridad del lado del cliente", Category: "CLNT", Recommended: true},
-		{ID: "http_headers", Name: "CLNT-02: Security Headers", Description: "Headers de seguridad HTTP", Category: "CLNT", Recommended: true},
-
-		// Categoría APIT - APIs
-		{ID: "api_security", Name: "APIT-01: API Security", Description: "Seguridad en APIs REST/GraphQL", Category: "APIT", Recommended: true},
-
-		// Tests adicionales
-		{ID: "csrf", Name: "CSRF Protection", Description: "Protección contra CSRF", Category: "MISC", Recommended: false},
-		{ID: "fileupload", Name: "File Upload Security", Description: "Seguridad en carga de archivos", Category: "MISC", Recommended: false},
-		{ID: "info_disclosure", Name: "Information Disclosure", Description: "Revelación de información sensible", Category: "MISC", Recommended: false},
+	// Cargar configuración principal desde config.json
+	mainConfig, err := config.LoadConfig("config.json")
+	if err != nil {
+		// Si hay error cargando config, usar valores por defecto
+		mainConfig = config.DefaultConfig()
 	}
 
-	// Marcar tests recomendados como seleccionados por defecto
-	for i := range tests {
-		tests[i].Selected = tests[i].Recommended
+	// Generar lista de tests desde la fuente unificada
+	availableTests := config.GetAvailableTests()
+	tests := make([]TestItem, len(availableTests))
+
+	for i, testDef := range availableTests {
+		tests[i] = TestItem{
+			ID:          testDef.ID,
+			Name:        testDef.Name,
+			Description: testDef.Description,
+			Category:    testDef.Category,
+			Recommended: testDef.Recommended,
+			Selected:    mainConfig.IsTestEnabled(testDef.ID), // Cargar estado desde config.json
+		}
 	}
 
+	// Configurar formatos de salida
 	formats := []FormatItem{
 		{ID: "json", Name: "JSON", Description: "Formato estructurado para integración"},
 		{ID: "table", Name: "Tabla ASCII", Description: "Visualización clara en terminal"},
@@ -290,15 +255,16 @@ func NewModel() Model {
 	}
 
 	return Model{
-		state:         initialState,
-		useHTTPS:      initialHTTPS,
-		url:           initialURL,
-		tests:         tests,
-		formats:       formats,
-		verbose:       false,
-		scrollOffset:  0,
-		testsPerPage:  15, // Valor inicial que se ajustará dinámicamente
-		showScrollbar: false,
+		state:            initialState,
+		useHTTPS:         initialHTTPS,
+		url:              initialURL,
+		tests:            tests,
+		formats:          formats,
+		verbose:          mainConfig.Verbose,                // Cargar desde config.json
+		useAdvancedTests: mainConfig.Tests.UseAdvancedTests, // Cargar desde config.json
+		scrollOffset:     0,
+		testsPerPage:     15, // Valor inicial que se ajustará dinámicamente
+		showScrollbar:    false,
 	}
 }
 

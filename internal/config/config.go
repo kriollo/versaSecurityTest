@@ -42,7 +42,7 @@ type TestConfig struct {
 	SSLAnalysis    bool `json:"ssl_analysis"`
 	CSRFProtection bool `json:"csrf_protection"`
 	FileUpload     bool `json:"file_upload"`
-	DirTraversal   bool `json:"dir_traversal"`
+	DirTraversal   bool `json:"directory_traversal"` // Corregir nombre del campo
 	InfoDisclosure bool `json:"info_disclosure"`
 
 	// Nuevas categorías OWASP
@@ -145,13 +145,152 @@ func DefaultConfig() *Config {
 	}
 }
 
+// TestDefinition representa la definición de un test disponible
+type TestDefinition struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Category    string `json:"category"`
+	Recommended bool   `json:"recommended"`
+	HasAdvanced bool   `json:"has_advanced"` // Indica si este test tiene versión avanzada
+}
+
+// GetAvailableTests retorna todos los tests disponibles en el sistema
+func GetAvailableTests() []TestDefinition {
+	return []TestDefinition{
+		// Tests específicos con versiones avanzadas
+		{ID: "sql_injection", Name: "SQL Injection", Description: "Inyección SQL en parámetros", Category: "INPV", Recommended: true, HasAdvanced: true},
+		{ID: "xss", Name: "Cross-Site Scripting", Description: "XSS reflejado y almacenado", Category: "INPV", Recommended: true, HasAdvanced: true},
+		{ID: "http_headers", Name: "Security Headers", Description: "Headers de seguridad HTTP", Category: "CLNT", Recommended: true, HasAdvanced: true},
+		{ID: "directory_traversal", Name: "Directory Traversal", Description: "Vulnerabilidades de path traversal", Category: "INPV", Recommended: true, HasAdvanced: true},
+
+		// Tests categóricos OWASP
+		{ID: "info_gathering", Name: "Information Gathering", Description: "Recolección de información del servidor", Category: "INFO", Recommended: true, HasAdvanced: false},
+		{ID: "configuration", Name: "Configuration", Description: "Verificación de configuración", Category: "CONF", Recommended: true, HasAdvanced: false},
+		{ID: "identity_mgmt", Name: "Identity Management", Description: "Mecanismos de gestión de identidad", Category: "IDNT", Recommended: false, HasAdvanced: false},
+		{ID: "authentication", Name: "Authentication", Description: "Mecanismos de autenticación", Category: "ATHN", Recommended: false, HasAdvanced: false},
+		{ID: "authorization", Name: "Authorization", Description: "Control de acceso y autorización", Category: "ATHZ", Recommended: true, HasAdvanced: false},
+		{ID: "session_mgmt", Name: "Session Management", Description: "Gestión de sesiones y tokens", Category: "SESS", Recommended: true, HasAdvanced: false},
+		{ID: "input_validation", Name: "Input Validation", Description: "Validación y saneamiento de entradas", Category: "INPV", Recommended: true, HasAdvanced: false},
+		{ID: "error_handling", Name: "Error Handling", Description: "Manejo de errores", Category: "ERRH", Recommended: false, HasAdvanced: false},
+		{ID: "cryptography", Name: "Cryptography", Description: "Uso correcto de criptografía", Category: "CRYP", Recommended: false, HasAdvanced: false},
+		{ID: "business_logic", Name: "Business Logic", Description: "Lógica de negocio y procesos", Category: "BUSL", Recommended: false, HasAdvanced: false},
+		{ID: "client_side", Name: "Client-Side Security", Description: "Seguridad del lado del cliente", Category: "CLNT", Recommended: true, HasAdvanced: false},
+		{ID: "api_security", Name: "API Security", Description: "Seguridad en APIs REST/GraphQL", Category: "APIT", Recommended: true, HasAdvanced: false},
+
+		// Tests adicionales
+		{ID: "brute_force", Name: "Brute Force", Description: "Vulnerabilidades de fuerza bruta", Category: "ATHN", Recommended: false, HasAdvanced: false},
+		{ID: "csrf_protection", Name: "CSRF Protection", Description: "Protección contra CSRF", Category: "SESS", Recommended: false, HasAdvanced: false},
+		{ID: "file_upload", Name: "File Upload Security", Description: "Seguridad en carga de archivos", Category: "INPV", Recommended: false, HasAdvanced: false},
+		{ID: "ssl_analysis", Name: "SSL/TLS Analysis", Description: "Análisis de configuración SSL/TLS", Category: "CRYP", Recommended: true, HasAdvanced: false},
+		{ID: "info_disclosure", Name: "Information Disclosure", Description: "Revelación de información sensible", Category: "ERRH", Recommended: false, HasAdvanced: false},
+	}
+}
+
+// IsTestEnabled verifica si un test está habilitado en la configuración
+func (c *Config) IsTestEnabled(testID string) bool {
+	switch testID {
+	case "sql_injection":
+		return c.Tests.SQLInjection
+	case "xss":
+		return c.Tests.XSS
+	case "brute_force":
+		return c.Tests.BruteForce
+	case "http_headers":
+		return c.Tests.HTTPHeaders
+	case "ssl_analysis":
+		return c.Tests.SSLAnalysis
+	case "csrf_protection":
+		return c.Tests.CSRFProtection
+	case "file_upload":
+		return c.Tests.FileUpload
+	case "directory_traversal":
+		return c.Tests.DirTraversal
+	case "info_disclosure":
+		return c.Tests.InfoDisclosure
+	case "info_gathering":
+		return c.Tests.InfoGathering
+	case "configuration":
+		return c.Tests.Configuration
+	case "identity_mgmt":
+		return c.Tests.IdentityMgmt
+	case "authentication":
+		return c.Tests.Authentication
+	case "authorization":
+		return c.Tests.Authorization
+	case "session_mgmt":
+		return c.Tests.SessionMgmt
+	case "input_validation":
+		return c.Tests.InputValidation
+	case "error_handling":
+		return c.Tests.ErrorHandling
+	case "cryptography":
+		return c.Tests.Cryptography
+	case "business_logic":
+		return c.Tests.BusinessLogic
+	case "client_side":
+		return c.Tests.ClientSide
+	case "api_security":
+		return c.Tests.APISecurity
+	default:
+		return false
+	}
+}
+
+// SetTestEnabled habilita o deshabilita un test en la configuración
+func (c *Config) SetTestEnabled(testID string, enabled bool) {
+	switch testID {
+	case "sql_injection":
+		c.Tests.SQLInjection = enabled
+	case "xss":
+		c.Tests.XSS = enabled
+	case "brute_force":
+		c.Tests.BruteForce = enabled
+	case "http_headers":
+		c.Tests.HTTPHeaders = enabled
+	case "ssl_analysis":
+		c.Tests.SSLAnalysis = enabled
+	case "csrf_protection":
+		c.Tests.CSRFProtection = enabled
+	case "file_upload":
+		c.Tests.FileUpload = enabled
+	case "directory_traversal":
+		c.Tests.DirTraversal = enabled
+	case "info_disclosure":
+		c.Tests.InfoDisclosure = enabled
+	case "info_gathering":
+		c.Tests.InfoGathering = enabled
+	case "configuration":
+		c.Tests.Configuration = enabled
+	case "identity_mgmt":
+		c.Tests.IdentityMgmt = enabled
+	case "authentication":
+		c.Tests.Authentication = enabled
+	case "authorization":
+		c.Tests.Authorization = enabled
+	case "session_mgmt":
+		c.Tests.SessionMgmt = enabled
+	case "input_validation":
+		c.Tests.InputValidation = enabled
+	case "error_handling":
+		c.Tests.ErrorHandling = enabled
+	case "cryptography":
+		c.Tests.Cryptography = enabled
+	case "business_logic":
+		c.Tests.BusinessLogic = enabled
+	case "client_side":
+		c.Tests.ClientSide = enabled
+	case "api_security":
+		c.Tests.APISecurity = enabled
+	}
+}
+
 // SaveConfig guarda la configuración en un archivo JSON
 func (c *Config) SaveConfig(filename string) error {
 	data, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		return err
 	}
-
 	return os.WriteFile(filename, data, 0644)
 }
 

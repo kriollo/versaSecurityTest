@@ -1,7 +1,10 @@
 package report
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -11,7 +14,7 @@ import (
 // GenerateTableReport genera un reporte en formato tabla
 func GenerateTableReport(result *scanner.ScanResult) string {
 	var output strings.Builder
-	
+
 	// Header del reporte
 	output.WriteString("┌─────────────────────────────────────────────────────────────────┐\n")
 	output.WriteString("│                    REPORTE DE SEGURIDAD WEB                     │\n")
@@ -20,14 +23,14 @@ func GenerateTableReport(result *scanner.ScanResult) string {
 	output.WriteString(fmt.Sprintf("│ Fecha: %-56s │\n", result.ScanDate.Format("2006-01-02 15:04:05")))
 	output.WriteString(fmt.Sprintf("│ Duración: %-53s │\n", result.Duration.Round(time.Millisecond).String()))
 	output.WriteString("├─────────────────────────────────────────────────────────────────┤\n")
-	
+
 	// Resumen
 	output.WriteString("│                           RESUMEN                               │\n")
 	output.WriteString("├─────────────────────────────────────────────────────────────────┤\n")
 	output.WriteString(fmt.Sprintf("│ Tests Ejecutados: %-44d │\n", result.TestsExecuted))
 	output.WriteString(fmt.Sprintf("│ Tests Pasados: %-47d │\n", result.TestsPassed))
 	output.WriteString(fmt.Sprintf("│ Tests Fallidos: %-46d │\n", result.TestsFailed))
-	
+
 	// Agregar información de tests saltados y timeout si existen
 	if result.TestsSkipped > 0 {
 		output.WriteString(fmt.Sprintf("│ Tests Saltados: %-46d │\n", result.TestsSkipped))
@@ -35,15 +38,15 @@ func GenerateTableReport(result *scanner.ScanResult) string {
 	if result.TestsTimeout > 0 {
 		output.WriteString(fmt.Sprintf("│ Tests Timeout: %-47d │\n", result.TestsTimeout))
 	}
-	
-	output.WriteString(fmt.Sprintf("│ Puntuación de Seguridad: %.1f/10 (%s)%-20s │\n", 
+
+	output.WriteString(fmt.Sprintf("│ Puntuación de Seguridad: %.1f/10 (%s)%-20s │\n",
 		result.SecurityScore.Value, result.SecurityScore.Risk, ""))
 	output.WriteString("├─────────────────────────────────────────────────────────────────┤\n")
-	
+
 	// Resultados detallados
 	output.WriteString("│                      RESULTADOS DETALLADOS                     │\n")
 	output.WriteString("├─────────────────────────────────────────────────────────────────┤\n")
-	
+
 	for _, test := range result.TestResults {
 		var status string
 		switch test.Status {
@@ -56,11 +59,11 @@ func GenerateTableReport(result *scanner.ScanResult) string {
 		default:
 			status = "❌ FALLÓ"
 		}
-		
+
 		output.WriteString(fmt.Sprintf("│ %s %-42s │\n", status, truncateString(test.TestName, 42)))
 		output.WriteString(fmt.Sprintf("│   Severidad: %-50s │\n", test.Severity))
 		output.WriteString(fmt.Sprintf("│   %s │\n", truncateAndWrap(test.Description, 63)))
-		
+
 		if len(test.Details) > 0 {
 			output.WriteString("│   Detalles:                                                     │\n")
 			for _, detail := range test.Details {
@@ -72,12 +75,12 @@ func GenerateTableReport(result *scanner.ScanResult) string {
 		}
 		output.WriteString("├─────────────────────────────────────────────────────────────────┤\n")
 	}
-	
+
 	// Recomendaciones
 	if len(result.Recommendations) > 0 {
 		output.WriteString("│                       RECOMENDACIONES                           │\n")
 		output.WriteString("├─────────────────────────────────────────────────────────────────┤\n")
-		
+
 		for i, rec := range result.Recommendations {
 			lines := wrapText(fmt.Sprintf("%d. %s", i+1, rec), 63)
 			for j, line := range lines {
@@ -90,17 +93,17 @@ func GenerateTableReport(result *scanner.ScanResult) string {
 		}
 		output.WriteString("├─────────────────────────────────────────────────────────────────┤\n")
 	}
-	
+
 	output.WriteString("│                     FIN DEL REPORTE                            │\n")
 	output.WriteString("└─────────────────────────────────────────────────────────────────┘\n")
-	
+
 	return output.String()
 }
 
 // GenerateHTMLReport genera un reporte en formato HTML
 func GenerateHTMLReport(result *scanner.ScanResult) string {
 	var output strings.Builder
-	
+
 	output.WriteString(`<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -230,54 +233,54 @@ func GenerateHTMLReport(result *scanner.ScanResult) string {
             <h1>🔐 Reporte de Seguridad Web</h1>
             <p>Generado por VersaSecurityTest</p>
         </div>
-        
+
         <div class="summary">
             <div class="summary-card">
                 <h3>URL Objetivo</h3>
                 <div class="value" style="font-size: 1.2em;">`)
-	
+
 	output.WriteString(result.URL)
 	output.WriteString(`</div>
             </div>
             <div class="summary-card">
                 <h3>Fecha de Escaneo</h3>
                 <div class="value" style="font-size: 1.2em;">`)
-	
+
 	output.WriteString(result.ScanDate.Format("2006-01-02 15:04"))
 	output.WriteString(`</div>
             </div>
             <div class="summary-card">
                 <h3>Duración</h3>
                 <div class="value">`)
-	
+
 	output.WriteString(result.Duration.Round(time.Millisecond).String())
 	output.WriteString(`</div>
             </div>
             <div class="summary-card">
                 <h3>Tests Ejecutados</h3>
                 <div class="value">`)
-	
+
 	output.WriteString(fmt.Sprintf("%d", result.TestsExecuted))
 	output.WriteString(`</div>
             </div>
             <div class="summary-card">
                 <h3>Tests Pasados</h3>
                 <div class="value" style="color: #28a745;">`)
-	
+
 	output.WriteString(fmt.Sprintf("%d", result.TestsPassed))
 	output.WriteString(`</div>
             </div>
             <div class="summary-card">
                 <h3>Tests Fallidos</h3>
                 <div class="value" style="color: #dc3545;">`)
-	
+
 	output.WriteString(fmt.Sprintf("%d", result.TestsFailed))
 	output.WriteString(`</div>
             </div>
             <div class="summary-card">
                 <h3>Puntuación de Seguridad</h3>
                 <div class="value security-score risk-`)
-	
+
 	output.WriteString(strings.ToLower(result.SecurityScore.Risk))
 	output.WriteString(`">`)
 	output.WriteString(fmt.Sprintf("%.1f/10", result.SecurityScore.Value))
@@ -287,10 +290,10 @@ func GenerateHTMLReport(result *scanner.ScanResult) string {
 	output.WriteString(`</div>
             </div>
         </div>
-        
+
         <div class="tests-section">
             <h2>Resultados Detallados</h2>`)
-	
+
 	for _, test := range result.TestResults {
 		statusClass := "test-passed"
 		statusIcon := "✅"
@@ -298,12 +301,12 @@ func GenerateHTMLReport(result *scanner.ScanResult) string {
 			statusClass = "test-failed"
 			statusIcon = "❌"
 		}
-		
+
 		severityClass := "severity-" + strings.ToLower(test.Severity)
 		if test.Severity == "None" {
 			severityClass = "severity-none"
 		}
-		
+
 		output.WriteString(fmt.Sprintf(`
             <div class="test-result">
                 <div class="test-header %s">
@@ -313,7 +316,7 @@ func GenerateHTMLReport(result *scanner.ScanResult) string {
                 <div class="test-body">
                     <p><strong>Descripción:</strong> %s</p>`,
 			statusClass, statusIcon, test.TestName, severityClass, test.Severity, test.Description))
-		
+
 		if len(test.Details) > 0 {
 			output.WriteString(`
                     <div class="details">
@@ -326,36 +329,36 @@ func GenerateHTMLReport(result *scanner.ScanResult) string {
                         </ul>
                     </div>`)
 		}
-		
+
 		output.WriteString(`
                 </div>
             </div>`)
 	}
-	
+
 	output.WriteString(`
         </div>`)
-	
+
 	// Recomendaciones
 	if len(result.Recommendations) > 0 {
 		output.WriteString(`
         <div class="recommendations">
             <h2>🎯 Recomendaciones de Seguridad</h2>
             <ol>`)
-		
+
 		for _, rec := range result.Recommendations {
 			output.WriteString(fmt.Sprintf("<li>%s</li>", rec))
 		}
-		
+
 		output.WriteString(`
             </ol>
         </div>`)
 	}
-	
+
 	output.WriteString(`
     </div>
 </body>
 </html>`)
-	
+
 	return output.String()
 }
 
@@ -381,7 +384,7 @@ func wrapText(text string, width int) []string {
 	if len(words) == 0 {
 		return []string{""}
 	}
-	
+
 	currentLine := words[0]
 	for _, word := range words[1:] {
 		if len(currentLine)+1+len(word) <= width {
@@ -392,6 +395,138 @@ func wrapText(text string, width int) []string {
 		}
 	}
 	lines = append(lines, currentLine)
-	
+
 	return lines
+}
+
+// ReportOptions contiene las opciones para generar y guardar reportes
+type ReportOptions struct {
+	Format        string // "json", "html", "table"
+	OutputFile    string // ruta específica del archivo, si está vacía se genera automáticamente
+	AutoSave      bool   // si se debe auto-guardar
+	UseReportsDir bool   // si se debe usar el directorio reports/
+}
+
+// GenerateReport genera un reporte en el formato especificado
+func GenerateReport(result *scanner.ScanResult, format string) (string, error) {
+	switch format {
+	case "json":
+		jsonBytes, err := json.MarshalIndent(result, "", "  ")
+		if err != nil {
+			return "", fmt.Errorf("error generando reporte JSON: %w", err)
+		}
+		return string(jsonBytes), nil
+
+	case "html":
+		return GenerateHTMLReport(result), nil
+
+	case "table":
+		return GenerateTableReport(result), nil
+
+	default:
+		return "", fmt.Errorf("formato no soportado: %s", format)
+	}
+}
+
+// GenerateReportFilename genera un nombre de archivo automático basado en la URL y formato
+func GenerateReportFilename(targetURL, format string, useReportsDir bool) string {
+	// Limpiar la URL para usar como nombre de archivo
+	cleanURL := cleanURLForFilename(targetURL)
+
+	// Timestamp
+	timestamp := time.Now().Format("2006-01-02_15-04-05")
+
+	// Extensión según formato
+	var ext string
+	switch format {
+	case "html":
+		ext = ".html"
+	case "table":
+		ext = ".txt"
+	default:
+		ext = ".json"
+	}
+
+	// Construir nombre del archivo
+	filename := fmt.Sprintf("scan_%s_%s%s", cleanURL, timestamp, ext)
+
+	// Si se debe usar directorio reports/, crearlo y agregar al path
+	if useReportsDir {
+		reportsDir := "reports"
+		os.MkdirAll(reportsDir, 0755)
+		filename = filepath.Join(reportsDir, filename)
+	}
+
+	return filename
+}
+
+// SaveReport guarda un reporte con las opciones especificadas
+func SaveReport(result *scanner.ScanResult, options ReportOptions) (string, error) {
+	// Generar contenido del reporte
+	content, err := GenerateReport(result, options.Format)
+	if err != nil {
+		return "", err
+	}
+
+	// Determinar nombre del archivo
+	var filename string
+	if options.OutputFile != "" {
+		filename = options.OutputFile
+		// Si se especifica UseReportsDir y el archivo no tiene ruta, agregarlo al directorio reports/
+		if options.UseReportsDir && !strings.Contains(filename, string(filepath.Separator)) {
+			reportsDir := "reports"
+			os.MkdirAll(reportsDir, 0755)
+			filename = filepath.Join(reportsDir, filename)
+		}
+	} else {
+		// Generar nombre automático
+		filename = GenerateReportFilename(result.URL, options.Format, options.UseReportsDir)
+	}
+
+	// Guardar archivo
+	err = os.WriteFile(filename, []byte(content), 0644)
+	if err != nil {
+		return "", fmt.Errorf("error guardando archivo %s: %w", filename, err)
+	}
+
+	return filename, nil
+}
+
+// AutoSaveReport guarda automáticamente el reporte en formato JSON en el directorio reports/
+func AutoSaveReport(result *scanner.ScanResult) (string, error) {
+	options := ReportOptions{
+		Format:        "json",
+		AutoSave:      true,
+		UseReportsDir: true,
+	}
+	return SaveReport(result, options)
+}
+
+// cleanURLForFilename limpia una URL para usarla como nombre de archivo
+func cleanURLForFilename(url string) string {
+	cleanURL := strings.ReplaceAll(url, "://", "_")
+	cleanURL = strings.ReplaceAll(cleanURL, "/", "_")
+	cleanURL = strings.ReplaceAll(cleanURL, "?", "_")
+	cleanURL = strings.ReplaceAll(cleanURL, "&", "_")
+	cleanURL = strings.ReplaceAll(cleanURL, "=", "_")
+	cleanURL = strings.ReplaceAll(cleanURL, ":", "_")
+	cleanURL = strings.ReplaceAll(cleanURL, " ", "_")
+	cleanURL = strings.ReplaceAll(cleanURL, "%", "_")
+	cleanURL = strings.ReplaceAll(cleanURL, "#", "_")
+	cleanURL = strings.ReplaceAll(cleanURL, "@", "_")
+
+	// Remover caracteres especiales adicionales
+	cleanURL = strings.ReplaceAll(cleanURL, "[", "_")
+	cleanURL = strings.ReplaceAll(cleanURL, "]", "_")
+	cleanURL = strings.ReplaceAll(cleanURL, "{", "_")
+	cleanURL = strings.ReplaceAll(cleanURL, "}", "_")
+	cleanURL = strings.ReplaceAll(cleanURL, "(", "_")
+	cleanURL = strings.ReplaceAll(cleanURL, ")", "_")
+
+	// Limitar longitud del nombre
+	if len(cleanURL) > 50 {
+		cleanURL = cleanURL[:50]
+	}
+
+	return cleanURL
 }

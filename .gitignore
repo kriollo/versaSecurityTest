@@ -65,3 +65,4 @@ go.sum.bak
 secrets.json
 
 tui_config.json
+security_report*.txt

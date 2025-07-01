@@ -153,7 +153,13 @@ func (m Model) renderTestsStep() string {
 		sb.WriteString("🔍 Modo verbose: DESACTIVADO (presione 'v' para activar)\n")
 	}
 
-	sb.WriteString("💡 Atajos: [SPACE] Seleccionar | [A] Todos | [N] Ninguno | [R] Recomendados | [V] Verbose\n")
+	if m.useAdvancedTests {
+		sb.WriteString("🚀 Tests avanzados: " + successStyle.Render("ACTIVADOS") + " (técnicas agresivas y evasión)\n")
+	} else {
+		sb.WriteString("� Tests avanzados: DESACTIVADOS (presione 'x' para activar)\n")
+	}
+
+	sb.WriteString("�� Atajos: [SPACE] Seleccionar | [A] Todos | [N] Ninguno | [R] Recomendados | [V] Verbose | [X] Avanzados\n")
 	sb.WriteString("   ⭐ = Recomendado | ☑ = Seleccionado | → = Cursor actual\n")
 
 	return sb.String()
@@ -421,7 +427,7 @@ func (m Model) renderScanningStep() string {
 
 	// Controles
 	sb.WriteString("\n💡 CONTROLES:\n")
-	sb.WriteString("   [Q] Cancelar escaneo | [V] Toggle verbose | [D] Ver detalles\n")
+	sb.WriteString("   [Q] Cancelar escaneo | [V] Toggle verbose | [S] Saltar test actual | [D] Ver detalles\n")
 
 	return sb.String()
 }
@@ -559,7 +565,7 @@ func (m Model) renderFooter() string {
 	case StateURL:
 		help.WriteString("Escribir URL | Enter Continuar | Esc Volver | Q Salir")
 	case StateTests:
-		help.WriteString("↑↓ Navegar | PgUp/PgDn Página | Space Seleccionar | A Todos | N Ninguno | R Recomendados | Enter Continuar")
+		help.WriteString("↑↓ Navegar | PgUp/PgDn Página | Space Seleccionar | A Todos | N Ninguno | R Recomendados | V Verbose | X Avanzados | Enter Continuar")
 	case StateFormat:
 		help.WriteString("↑↓ Navegar | Space Seleccionar | V Verbose | Enter Continuar")
 	case StateConfirm:
