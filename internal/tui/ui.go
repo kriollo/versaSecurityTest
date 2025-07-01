@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -16,6 +17,7 @@ type State int
 const (
 	StateProtocol State = iota
 	StateURL
+	StateProfile // Nuevo estado para selección de perfil
 	StateTests
 	StateFormat
 	StateConfirm
@@ -39,6 +41,17 @@ type FormatItem struct {
 	ID          string
 	Name        string
 	Description string
+	Selected    bool
+}
+
+// ProfileItem representa un perfil de escaneo
+type ProfileItem struct {
+	ID          string
+	Name        string
+	Description string
+	Timeout     time.Duration
+	Concurrent  int
+	TestCount   int
 	Selected    bool
 }
 
@@ -72,6 +85,7 @@ type Model struct {
 	// Configuración
 	useHTTPS         bool
 	url              string
+	profiles         []ProfileItem
 	tests            []TestItem
 	formats          []FormatItem
 	verbose          bool
@@ -82,7 +96,9 @@ type Model struct {
 	scanning     bool
 	scanProgress ScanProgress
 	scanResult   *scanner.ScanResult
-	skipChannel  chan bool // Canal para enviar comandos de skip durante el escaneo
+	skipChannel  chan bool          // Canal para enviar comandos de skip durante el escaneo
+	scanContext  context.Context    // Context para cancelar el escaneo
+	scanCancel   context.CancelFunc // Función para cancelar el escaneo
 
 	// Finalización
 	finishingSpinner int
@@ -147,6 +163,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleProtocolKeys(msg)
 		case StateURL:
 			return m.handleURLKeys(msg)
+		case StateProfile:
+			return m.handleProfileKeys(msg)
 		case StateTests:
 			return m.handleTestsKeys(msg)
 		case StateFormat:
@@ -181,6 +199,8 @@ func (m Model) View() string {
 		s.WriteString(m.renderProtocolStep())
 	case StateURL:
 		s.WriteString(m.renderURLStep())
+	case StateProfile:
+		s.WriteString(m.renderProfileStep())
 	case StateTests:
 		s.WriteString(m.renderTestsStep())
 	case StateFormat:
@@ -239,6 +259,37 @@ func NewModel() Model {
 	}
 	formats[1].Selected = true // Tabla ASCII por defecto
 
+	// Configurar perfiles de escaneo
+	profiles := []ProfileItem{
+		{
+			ID:          "basic",
+			Name:        mainConfig.ScanProfiles.Basic.Name,
+			Description: mainConfig.ScanProfiles.Basic.Description,
+			Timeout:     mainConfig.ScanProfiles.Basic.Timeout,
+			Concurrent:  mainConfig.ScanProfiles.Basic.Concurrent,
+			TestCount:   mainConfig.CountEnabledTests("basic"),
+			Selected:    false,
+		},
+		{
+			ID:          "standard",
+			Name:        mainConfig.ScanProfiles.Standard.Name,
+			Description: mainConfig.ScanProfiles.Standard.Description,
+			Timeout:     mainConfig.ScanProfiles.Standard.Timeout,
+			Concurrent:  mainConfig.ScanProfiles.Standard.Concurrent,
+			TestCount:   mainConfig.CountEnabledTests("standard"),
+			Selected:    true, // Estándar por defecto
+		},
+		{
+			ID:          "advanced",
+			Name:        mainConfig.ScanProfiles.Advanced.Name,
+			Description: mainConfig.ScanProfiles.Advanced.Description,
+			Timeout:     mainConfig.ScanProfiles.Advanced.Timeout,
+			Concurrent:  mainConfig.ScanProfiles.Advanced.Concurrent,
+			TestCount:   mainConfig.CountEnabledTests("advanced"),
+			Selected:    false,
+		},
+	}
+
 	// Cargar configuración TUI guardada
 	tuiConfig := config.LoadTUIConfig()
 
@@ -248,16 +299,28 @@ func NewModel() Model {
 	var initialHTTPS bool = true
 
 	// Si hay configuración guardada y AutoStart está activo, cargar datos
+	// SIEMPRE pasar por StateProfile para selección de perfil
 	if tuiConfig.AutoStart && tuiConfig.LastUsedURL != "" {
-		initialState = StateTests
+		initialState = StateProfile // Cambiado: siempre pasar por selección de perfil
 		initialURL = tuiConfig.LastUsedURL
 		initialHTTPS = tuiConfig.LastProtocol
 	}
 
+	// Encontrar el cursor inicial basado en el perfil seleccionado por defecto
+	initialCursor := 0
+	for i, profile := range profiles {
+		if profile.Selected {
+			initialCursor = i
+			break
+		}
+	}
+
 	return Model{
 		state:            initialState,
+		cursor:           initialCursor, // Cursor sincronizado con perfil seleccionado
 		useHTTPS:         initialHTTPS,
 		url:              initialURL,
+		profiles:         profiles,
 		tests:            tests,
 		formats:          formats,
 		verbose:          mainConfig.Verbose,                // Cargar desde config.json

@@ -52,7 +52,26 @@ func main() {
 	printBanner()
 
 	fmt.Printf("🎯 Iniciando escaneo de seguridad para: %s\n", *targetURL)
-	fmt.Printf("⚙️  Configuración: %d hilos, timeout %v\n", *concurrent, *timeout)
+
+	// Cargar configuración desde archivo para timeout y otras configuraciones
+	cfg, err := config.LoadConfig(*configFile)
+	if err != nil {
+		fmt.Printf("⚠️  Error cargando configuración: %v, usando valores por defecto\n", err)
+		cfg = config.DefaultConfig()
+	}
+
+	// Usar valores de configuración con posibilidad de override desde CLI
+	actualConcurrent := *concurrent
+	if actualConcurrent == 10 { // Valor por defecto del flag
+		actualConcurrent = cfg.Concurrent
+	}
+
+	actualTimeout := *timeout
+	if actualTimeout == 30*time.Second { // Valor por defecto del flag
+		actualTimeout = time.Duration(cfg.Timeout)
+	}
+
+	fmt.Printf("⚙️  Configuración: %d hilos, timeout %v\n", actualConcurrent, actualTimeout)
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 	// Ejecutar escaneo usando funciones unificadas
@@ -60,11 +79,11 @@ func main() {
 		TargetURL:        *targetURL,
 		ConfigFile:       *configFile,
 		Verbose:          *verbose,
-		Concurrent:       *concurrent,
-		Timeout:          *timeout,
-		UseAdvancedTests: false, // CLI por defecto no usa tests avanzados
-		EnabledTests:     nil,   // Usar configuración del archivo config.json
-		SkipChannel:      nil,   // CLI usa canal interno
+		Concurrent:       actualConcurrent,
+		Timeout:          actualTimeout,
+		UseAdvancedTests: cfg.Tests.UseAdvancedTests, // Usar configuración de config.json
+		EnabledTests:     nil,                        // Usar configuración del archivo config.json
+		SkipChannel:      nil,                        // CLI usa canal interno
 	}
 
 	startTime := time.Now()
@@ -100,7 +119,6 @@ func main() {
 	}
 
 	// Auto-guardar si está configurado y no se especificó archivo de salida
-	cfg, _ := config.LoadConfig(*configFile)
 	if (cfg != nil && cfg.AutoSave) && *outputFile == "" {
 		autoFilename, err := report.AutoSaveReport(scanResult)
 		if err != nil {

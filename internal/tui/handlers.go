@@ -86,7 +86,7 @@ func (m Model) handleURLKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "enter":
 		if m.url != "" {
-			m.state = StateTests
+			m.state = StateProfile
 			m.cursor = 0
 		}
 	case "backspace":
@@ -107,6 +107,42 @@ func (m Model) handleURLKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.url += char
 			}
 		}
+	}
+	return m, nil
+}
+
+// handleProfileKeys maneja las teclas en el paso de selección de perfil
+func (m Model) handleProfileKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "up", "k":
+		if m.cursor > 0 {
+			m.cursor--
+		}
+	case "down", "j":
+		if m.cursor < len(m.profiles)-1 {
+			m.cursor++
+		}
+	case " ":
+		// Deseleccionar todos los perfiles y seleccionar el actual
+		for i := range m.profiles {
+			m.profiles[i].Selected = false
+		}
+		m.profiles[m.cursor].Selected = true
+
+		// Aplicar el perfil seleccionado
+		return m.applySelectedProfile()
+	case "enter":
+		// Aplicar perfil y continuar a tests
+		m, cmd := m.applySelectedProfile()
+		if cmd != nil {
+			return m, cmd
+		}
+		m.state = StateTests
+		m.cursor = 0
+		return m, nil // Importante: retornar explícitamente
+	case "esc":
+		m.state = StateURL
+		m.cursor = 0
 	}
 	return m, nil
 }
@@ -264,8 +300,11 @@ func (m Model) handleConfirmKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // handleScanningKeys maneja las teclas durante el escaneo
 func (m Model) handleScanningKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "q":
-		// Permitir cancelar escaneo
+	case "q", "esc":
+		// Cancelar escaneo completamente
+		if m.scanCancel != nil {
+			m.scanCancel() // Cancelar el context del escaneo
+		}
 		m.scanning = false
 		m.state = StateConfirm
 		return m, nil
@@ -291,6 +330,25 @@ func (m Model) handleScanningKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // handleResultsKeys maneja las teclas en la pantalla de resultados
 func (m Model) handleResultsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
+	case "up", "k":
+		if m.scrollOffset > 0 {
+			m.scrollOffset--
+		}
+	case "down", "j":
+		// Permitir scroll hacia abajo (se calculará el límite en renderizado)
+		m.scrollOffset++
+	case "pgup":
+		m.scrollOffset -= 10
+		if m.scrollOffset < 0 {
+			m.scrollOffset = 0
+		}
+	case "pgdn":
+		m.scrollOffset += 10
+	case "home":
+		m.scrollOffset = 0
+	case "end":
+		// Se ajustará en el renderizado
+		m.scrollOffset = 1000 // Valor alto que se limitará después
 	case "r":
 		// Reiniciar escaneo
 		m.state = StateScanning
@@ -330,6 +388,7 @@ func (m Model) handleResultsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Volver al inicio - reinicio completo del estado
 		m.state = StateProtocol
 		m.cursor = 0
+		m.scrollOffset = 0 // Resetear scroll
 		m.scanResult = nil
 		m.scanning = false
 		m.showModal = false
@@ -710,4 +769,57 @@ func max(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// applySelectedProfile aplica el perfil seleccionado a la configuración
+func (m Model) applySelectedProfile() (Model, tea.Cmd) {
+	// Encontrar el perfil seleccionado
+	var selectedProfileID string
+	for _, profile := range m.profiles {
+		if profile.Selected {
+			selectedProfileID = profile.ID
+			break
+		}
+	}
+
+	if selectedProfileID == "" {
+		// Si no hay perfil seleccionado, usar estándar por defecto
+		selectedProfileID = "standard"
+		for i := range m.profiles {
+			m.profiles[i].Selected = false
+			if m.profiles[i].ID == "standard" {
+				m.profiles[i].Selected = true
+			}
+		}
+	}
+
+	// Cargar configuración y aplicar perfil
+	cfg, err := config.LoadConfig("config.json")
+	if err != nil {
+		cfg = config.DefaultConfig()
+	}
+
+	// Aplicar el perfil seleccionado
+	err = cfg.ApplyProfile(selectedProfileID)
+	if err != nil {
+		// Si hay error aplicando perfil, usar configuración actual
+		return m, nil
+	}
+
+	// Actualizar tests basado en el perfil
+	for i, test := range m.tests {
+		m.tests[i].Selected = cfg.IsTestEnabled(test.ID)
+	}
+
+	// Actualizar configuración global
+	m.useAdvancedTests = cfg.Tests.UseAdvancedTests
+	m.verbose = cfg.Verbose
+
+	// Guardar configuración actualizada
+	err = cfg.SaveConfig("config.json")
+	if err != nil {
+		// Si no se puede guardar, continuar sin error
+	}
+
+	return m, nil
 }

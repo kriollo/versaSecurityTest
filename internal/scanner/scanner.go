@@ -59,11 +59,11 @@ func NewWebScanner(cfg *config.Config) *WebScanner {
 
 // ScanURL ejecuta todos los tests de seguridad en la URL objetivo
 func (ws *WebScanner) ScanURL(targetURL string) *ScanResult {
-	return ws.ScanURLWithOptions(targetURL, nil)
+	return ws.ScanURLWithOptions(targetURL, nil, nil)
 }
 
-// ScanURLWithOptions ejecuta el escaneo con opciones adicionales como canal de skip
-func (ws *WebScanner) ScanURLWithOptions(targetURL string, skipChannel chan bool) *ScanResult {
+// ScanURLWithOptions ejecuta el escaneo con opciones adicionales como canal de skip y callback de progreso
+func (ws *WebScanner) ScanURLWithOptions(targetURL string, skipChannel chan bool, progressCallback ProgressCallback) *ScanResult {
 	// Validar URL
 	_, err := url.Parse(targetURL)
 	if err != nil {
@@ -90,16 +90,23 @@ func (ws *WebScanner) ScanURLWithOptions(targetURL string, skipChannel chan bool
 	startTime := time.Now()
 	completedTests := 0
 	var progressMutex sync.Mutex
+	var resultMutex sync.Mutex
 
 	// Función para mostrar progreso con instrucciones
 	showProgress := func(testName string, completed, total int) {
 		progressMutex.Lock()
 		defer progressMutex.Unlock()
 
+		// Si hay callback de progreso (TUI), usarlo
+		if progressCallback != nil {
+			progressCallback(testName, completed, total)
+		}
+
+		// También mostrar progreso en CLI siempre
 		elapsed := time.Since(startTime)
 		percent := float64(completed) / float64(total) * 100
-		fmt.Printf("\r🔍 [%s] Test: %s | Progreso: %.1f%% [%d/%d] | Tiempo: %v | 'S'+Enter=Saltar",
-			time.Now().Format("15:04:05"), testName, percent, completed, total, elapsed.Round(time.Second))
+		fmt.Printf("\r🔍 [%s] Test: %s | Progreso: %.1f%% [%d/%d] | Tiempo: %v | Hilos: %d | 'S'+Enter=Saltar",
+			time.Now().Format("15:04:05"), testName, percent, completed, total, elapsed.Round(time.Second), ws.config.Concurrent)
 	}
 
 	// Configurar canal de skip
@@ -121,13 +128,13 @@ func (ws *WebScanner) ScanURLWithOptions(targetURL string, skipChannel chan bool
 					inputMutex.Unlock()
 
 					if input == "s" || input == "skip" {
-						fmt.Printf("\n🚨 Comando de salto detectado - cancelando test actual...\n")
+						fmt.Printf("\n🚨 Comando de salto detectado - cancelando tests pendientes...\n")
 						select {
 						case skipChan <- true:
-							fmt.Printf("✅ Test será saltado\n")
+							fmt.Printf("✅ Tests pendientes serán saltados\n")
 						default:
 							// Canal lleno, test ya está siendo cancelado
-							fmt.Printf("⚠️  Test ya está siendo cancelado\n")
+							fmt.Printf("⚠️  Tests ya están siendo cancelados\n")
 						}
 					}
 				}
@@ -141,88 +148,273 @@ func (ws *WebScanner) ScanURLWithOptions(targetURL string, skipChannel chan bool
 
 	// Mostrar instrucciones iniciales
 	fmt.Printf("\n💡 INSTRUCCIONES PARA SALTAR TESTS:\n")
-	fmt.Printf("   • Escribe 'S' (o 'skip') y presiona Enter para saltar el test actual\n")
+	fmt.Printf("   • Escribe 'S' (o 'skip') y presiona Enter para saltar tests pendientes\n")
 	fmt.Printf("   • El comando será procesado inmediatamente\n")
 	fmt.Printf("   • Tests saltados se marcan como 'Skipped' en el reporte\n")
+	fmt.Printf("   • Ejecutando con %d hilos concurrentes\n", ws.config.Concurrent)
 	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
 
 	// Mostrar progreso inicial
-	showProgress("Iniciando escaneo...", 0, len(testRunners))
+	showProgress("Iniciando escaneo paralelo...", 0, len(testRunners))
 
-	// Ejecutar tests uno por uno (secuencial para permitir cancelación)
-	for i, testRunner := range testRunners {
-		// Timeout por test individual (máximo 2 minutos por test)
-		testTimeout := 2 * time.Minute
-		testCtx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	// Configurar timeout global desde config.json (ya en nanosegundos)
+	globalTimeout := time.Duration(ws.config.Timeout)
+	globalCtx, globalCancel := context.WithTimeout(context.Background(), globalTimeout)
+	defer globalCancel()
 
-		testResult := make(chan tests.TestResult, 1)
-		testStartTime := time.Now()
+	// Worker Pool Setup
+	concurrency := ws.config.Concurrent
+	if concurrency <= 0 {
+		concurrency = 1 // Fallback de seguridad
+	}
 
-		// Ejecutar test en goroutine
-		go func(tr TestRunner) {
-			result := tr.Run(targetURL, ws.client, ws.payloads)
-			select {
-			case testResult <- result:
-			case <-testCtx.Done():
-				// Test cancelado o timeout
+	// Canales para el worker pool
+	testJobs := make(chan TestRunner, len(testRunners))
+	testResults := make(chan tests.TestResult, len(testRunners))
+	workerWg := sync.WaitGroup{}
+
+	// Función para procesar un test individual
+	processTest := func(testRunner TestRunner) tests.TestResult {
+		// Verificar si el contexto global ya está cancelado
+		select {
+		case <-globalCtx.Done():
+			testName := getTestName(testRunner)
+			return tests.TestResult{
+				TestName:    fmt.Sprintf("%s (Cancelado)", testName),
+				Status:      "Skipped",
+				Description: "Test cancelado antes de ejecutar",
+				Severity:    "Info",
+				Details:     []string{"Escaneo fue cancelado o timeout global"},
 			}
-		}(testRunner)
+		default:
+		}
 
-		// Obtener nombre del test para mostrar progreso
-		testName := getTestName(testRunner)
+		// Timeout individual por test (optimizado para eficiencia)
+		testTimeout := 25 * time.Second // Aumentado de 20s para permitir tests más complejos
+		if ws.config.Tests.UseAdvancedTests {
+			testTimeout = 60 * time.Second // Aumentado de 45s para tests avanzados intensivos
+		}
 
-		// Esperar resultado del test, cancelación o timeout
-		var finalResult tests.TestResult
-		testCompleted := false
-
-		for !testCompleted {
-			select {
-			case res := <-testResult:
-				// Test completado exitosamente
-				finalResult = res
-				testCompleted = true
-
-			case <-skipChan:
-				// Usuario solicitó saltar
-				cancel()
-				finalResult = tests.TestResult{
-					TestName:    fmt.Sprintf("%s (Saltado)", testName),
-					Status:      "Skipped",
-					Description: fmt.Sprintf("Test saltado por usuario después de %v", time.Since(testStartTime).Round(time.Second)),
-					Severity:    "Info",
-					Details:     []string{"Usuario solicitó saltar al siguiente test"},
+		// Ajustar timeout si el contexto global vence pronto
+		globalDeadline, hasDeadline := globalCtx.Deadline()
+		if hasDeadline {
+			timeLeft := time.Until(globalDeadline)
+			if timeLeft < testTimeout {
+				testTimeout = timeLeft - (5 * time.Second) // Dejar 5s de margen
+				if testTimeout <= 0 {
+					testName := getTestName(testRunner)
+					return tests.TestResult{
+						TestName:    fmt.Sprintf("%s (Sin Tiempo)", testName),
+						Status:      "Skipped",
+						Description: "Test saltado - insuficiente tiempo restante",
+						Severity:    "Info",
+						Details:     []string{fmt.Sprintf("Tiempo restante: %v", timeLeft)},
+					}
 				}
-				testCompleted = true
-				fmt.Printf("\n⏭️  Test '%s' saltado exitosamente - continuando...\n", testName)
-
-			case <-testCtx.Done():
-				// Timeout del test
-				cancel()
-				finalResult = tests.TestResult{
-					TestName:    fmt.Sprintf("%s (Timeout)", testName),
-					Status:      "Timeout",
-					Description: fmt.Sprintf("Test cancelado por timeout después de %v", testTimeout),
-					Severity:    "Warning",
-					Details:     []string{"Test excedió el tiempo límite de 2 minutos"},
-				}
-				testCompleted = true
-				fmt.Printf("\n⏰ Test cancelado por timeout\n")
-
-			default:
-				// Actualizar progreso mientras el test se ejecuta
-				showProgress(testName, i, len(testRunners))
-				time.Sleep(100 * time.Millisecond)
 			}
 		}
 
-		// Limpiar context
-		cancel()
+		testCtx, testCancel := context.WithTimeout(globalCtx, testTimeout)
+		defer testCancel()
 
-		// Procesar resultado
-		result.TestResults = append(result.TestResults, finalResult)
+		testResult := make(chan tests.TestResult, 1)
+		testStartTime := time.Now()
+		testName := getTestName(testRunner)
+
+		// Crear un HTTPClient con timeout más corto para el contexto actual
+		originalClient := ws.client
+		if _, ok := ws.client.(*tests.BasicHTTPClient); ok {
+			// Crear un cliente temporal con timeout más corto
+			tempClient := tests.NewBasicHTTPClient()
+			shortTimeout := minDuration(testTimeout/3, 12*time.Second) // 1/3 del timeout del test, máximo 12s
+			tempClient.SetTimeout(shortTimeout)
+			ws.client = tempClient
+			defer func() { ws.client = originalClient }() // Restaurar cliente original
+		}
+
+		// Ejecutar test en goroutine con cancelación mejorada
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					select {
+					case testResult <- tests.TestResult{
+						TestName:    fmt.Sprintf("%s (Error)", testName),
+						Status:      "Failed",
+						Description: fmt.Sprintf("Test falló inesperadamente: %v", r),
+						Severity:    "High",
+						Details:     []string{"Test causó un panic interno"},
+					}:
+					case <-testCtx.Done():
+						// Context cancelado, no enviar resultado
+					}
+				}
+			}()
+
+			// Canal para el resultado del test
+			testDone := make(chan tests.TestResult, 1)
+
+			// Ejecutar el test real en otra goroutine
+			go func() {
+				result := testRunner.Run(targetURL, ws.client, ws.payloads)
+				select {
+				case testDone <- result:
+				default:
+					// Canal cerrado o lleno
+				}
+			}()
+
+			// Esperar resultado o cancelación con polling más frecuente
+			ticker := time.NewTicker(1 * time.Second)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case result := <-testDone:
+					select {
+					case testResult <- result:
+					case <-testCtx.Done():
+						// Context cancelado después de completar, no enviar
+					}
+					return
+				case <-ticker.C:
+					// Verificar cancelación cada segundo
+					select {
+					case <-testCtx.Done():
+						// Forzar retorno sin resultado
+						return
+					default:
+					}
+				case <-testCtx.Done():
+					// Cancelación inmediata
+					return
+				}
+			}
+		}()
+
+		// Esperar resultado o cancelación
+		select {
+		case result := <-testResult:
+			return result
+		case <-testCtx.Done():
+			elapsed := time.Since(testStartTime)
+			// Determinar el tipo de cancelación
+			if globalCtx.Err() == context.DeadlineExceeded {
+				return tests.TestResult{
+					TestName:    fmt.Sprintf("%s (Timeout Global)", testName),
+					Status:      "Timeout",
+					Description: fmt.Sprintf("Test cancelado por timeout global después de %v", elapsed.Round(time.Second)),
+					Severity:    "Warning",
+					Details:     []string{"Escaneo completo excedió el tiempo límite"},
+				}
+			} else if testCtx.Err() == context.DeadlineExceeded {
+				return tests.TestResult{
+					TestName:    fmt.Sprintf("%s (Timeout)", testName),
+					Status:      "Timeout",
+					Description: fmt.Sprintf("Test cancelado por timeout individual después de %v (límite: %v)", elapsed.Round(time.Second), testTimeout.Round(time.Second)),
+					Severity:    "Warning",
+					Details:     []string{"Test excedió el tiempo límite individual"},
+				}
+			} else {
+				return tests.TestResult{
+					TestName:    fmt.Sprintf("%s (Cancelado)", testName),
+					Status:      "Skipped",
+					Description: fmt.Sprintf("Test cancelado por usuario después de %v", elapsed.Round(time.Second)),
+					Severity:    "Info",
+					Details:     []string{"Escaneo fue cancelado por el usuario"},
+				}
+			}
+		}
+	}
+
+	// Lanzar workers
+	for i := 0; i < concurrency; i++ {
+		workerWg.Add(1)
+		go func(workerID int) {
+			defer workerWg.Done()
+			for testRunner := range testJobs {
+				// Verificar si debemos cancelar
+				select {
+				case <-globalCtx.Done():
+					// Timeout global o cancelación
+					testName := getTestName(testRunner)
+					testResults <- tests.TestResult{
+						TestName:    fmt.Sprintf("%s (Cancelado)", testName),
+						Status:      "Skipped",
+						Description: "Test cancelado por timeout global o solicitud de usuario",
+						Severity:    "Info",
+						Details:     []string{"Escaneo fue cancelado antes de ejecutar este test"},
+					}
+					continue
+				default:
+				}
+
+				// Procesar test
+				result := processTest(testRunner)
+				testResults <- result
+			}
+		}(i)
+	}
+
+	// Goroutine para manejar skip
+	skipDetected := false
+	go func() {
+		select {
+		case <-skipChan:
+			// Usuario solicitó saltar
+			skipDetected = true
+			globalCancel() // Cancelar todos los workers
+			fmt.Printf("\n⏭️  Usuario solicitó saltar - cancelando tests pendientes...\n")
+		case <-globalCtx.Done():
+			// Timeout global o finalización normal
+		}
+	}()
+
+	// Enviar todos los tests a la cola de trabajos
+	go func() {
+		defer close(testJobs)
+		for _, testRunner := range testRunners {
+			select {
+			case testJobs <- testRunner:
+			case <-globalCtx.Done():
+				return // Cancelado
+			}
+		}
+	}()
+
+	// Goroutine para actualizar progreso
+	go func() {
+		ticker := time.NewTicker(200 * time.Millisecond)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				progressMutex.Lock()
+				current := completedTests
+				progressMutex.Unlock()
+
+				if current < len(testRunners) {
+					showProgress("Ejecutando tests en paralelo...", current, len(testRunners))
+				}
+			case <-globalCtx.Done():
+				return
+			}
+		}
+	}()
+
+	// Esperar que los workers terminen
+	go func() {
+		workerWg.Wait()
+		close(testResults)
+	}()
+
+	// Recolectar resultados
+	for testResult := range testResults {
+		resultMutex.Lock()
+		result.TestResults = append(result.TestResults, testResult)
 
 		// Actualizar contadores según el resultado
-		switch finalResult.Status {
+		switch testResult.Status {
 		case "Passed":
 			result.TestsPassed++
 		case "Skipped":
@@ -233,27 +425,33 @@ func (ws *WebScanner) ScanURLWithOptions(targetURL string, skipChannel chan bool
 			result.TestsFailed++
 		}
 
-		// Actualizar progreso final del test
+		// Actualizar progreso
 		completedTests++
-		showProgress(finalResult.TestName, completedTests, len(testRunners))
+		resultMutex.Unlock()
+
+		// Mostrar progreso actualizado
+		showProgress(testResult.TestName, completedTests, len(testRunners))
 
 		if ws.config.Verbose {
 			status := "✅"
-			if finalResult.Status != "Passed" {
-				if finalResult.Status == "Skipped" {
+			if testResult.Status != "Passed" {
+				if testResult.Status == "Skipped" {
 					status = "⏭️"
-				} else if finalResult.Status == "Timeout" {
+				} else if testResult.Status == "Timeout" {
 					status = "⏰"
 				} else {
 					status = "❌"
 				}
 			}
-			fmt.Printf("\n%s %s: %s", status, finalResult.TestName, finalResult.Description)
+			fmt.Printf("\n%s %s: %s", status, testResult.TestName, testResult.Description)
 		}
 	}
 
 	// Finalizar línea de progreso
 	fmt.Printf("\n")
+	if skipDetected {
+		fmt.Printf("🚨 Escaneo cancelado por usuario\n")
+	}
 	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
 
 	// Finalizar información de duración
@@ -667,6 +865,9 @@ func getTestName(testRunner TestRunner) string {
 	}
 }
 
+// ProgressCallback define la función de callback para reportar progreso
+type ProgressCallback func(testName string, completed int, total int)
+
 // ScanOptions contiene las opciones para configurar un escaneo
 type ScanOptions struct {
 	TargetURL        string
@@ -675,8 +876,9 @@ type ScanOptions struct {
 	Concurrent       int
 	Timeout          time.Duration
 	UseAdvancedTests bool
-	EnabledTests     map[string]bool // mapa de test_id -> enabled
-	SkipChannel      chan bool       // canal para recibir comandos de skip (opcional)
+	EnabledTests     map[string]bool  // mapa de test_id -> enabled
+	SkipChannel      chan bool        // canal para recibir comandos de skip (opcional)
+	ProgressCallback ProgressCallback // callback para reportar progreso (opcional)
 }
 
 // CreateScanConfig crea una configuración de scanner unificada
@@ -719,12 +921,20 @@ func ExecuteScan(options ScanOptions) (*ScanResult, error) {
 	// Crear scanner
 	webScanner := NewWebScanner(cfg)
 
-	// Ejecutar escaneo con canal de skip si está disponible
-	result := webScanner.ScanURLWithOptions(options.TargetURL, options.SkipChannel)
+	// Ejecutar escaneo con las opciones completas (incluye callback y skip channel)
+	result := webScanner.ScanURLWithOptions(options.TargetURL, options.SkipChannel, options.ProgressCallback)
 
 	// Completar información del resultado
 	result.URL = options.TargetURL
 	result.ScanDate = time.Now()
 
 	return result, nil
+}
+
+// minDuration retorna la menor de dos duraciones
+func minDuration(a, b time.Duration) time.Duration {
+	if a < b {
+		return a
+	}
+	return b
 }

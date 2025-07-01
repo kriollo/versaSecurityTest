@@ -16,11 +16,11 @@ type BasicTest struct{}
 
 // TestResult representa el resultado de un test
 type TestResult struct {
-	TestName    string    `json:"test_name"`
-	Status      string    `json:"status"`
-	Description string    `json:"description"`
-	Severity    string    `json:"severity"`
-	Details     []string  `json:"details,omitempty"`
+	TestName    string     `json:"test_name"`
+	Status      string     `json:"status"`
+	Description string     `json:"description"`
+	Severity    string     `json:"severity"`
+	Details     []string   `json:"details,omitempty"`
 	Evidence    []Evidence `json:"evidence,omitempty"`
 }
 
@@ -69,6 +69,16 @@ func (c *BasicHTTPClient) Do(req *http.Request) (*http.Response, error) {
 // PostForm realiza una petición POST con datos de formulario
 func (c *BasicHTTPClient) PostForm(url string, data url.Values) (*http.Response, error) {
 	return c.client.PostForm(url, data)
+}
+
+// SetTimeout permite cambiar el timeout del cliente HTTP
+func (c *BasicHTTPClient) SetTimeout(timeout time.Duration) {
+	c.client.Timeout = timeout
+}
+
+// GetTimeout retorna el timeout actual del cliente
+func (c *BasicHTTPClient) GetTimeout() time.Duration {
+	return c.client.Timeout
 }
 
 // ReadResponseBody lee el cuerpo de una respuesta HTTP
@@ -344,11 +354,11 @@ func (t *XSSTest) Run(targetURL string, client HTTPClient, payloads *config.Payl
 			}
 
 			result.Evidence = append(result.Evidence, Evidence{
-				Type:        "Cross-Site Scripting",
-				URL:         testURL,
-				Payload:     payload,
-				StatusCode:  resp.StatusCode,
-				Response:    fmt.Sprintf("%s. Línea afectada: %s", vulnReason, reflectedLine),
+				Type:       "Cross-Site Scripting",
+				URL:        testURL,
+				Payload:    payload,
+				StatusCode: resp.StatusCode,
+				Response:   fmt.Sprintf("%s. Línea afectada: %s", vulnReason, reflectedLine),
 			})
 
 			result.Details = append(result.Details,

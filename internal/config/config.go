@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"time"
 )
@@ -25,11 +26,12 @@ type Config struct {
 	Verbose bool `json:"verbose"`
 
 	// Configuraciones avanzadas
-	Language    string `json:"language"`      // Idioma de la interfaz
-	LastUsedURL string `json:"last_used_url"` // Última URL escaneada
-	AutoSave    bool   `json:"auto_save"`     // Guardar configuración automáticamente
-	Theme       string `json:"theme"`         // Tema de la interfaz
-	Tutorial    bool   `json:"tutorial"`      // Mostrar tutorial en primer uso
+	Language     string       `json:"language"`      // Idioma de la interfaz
+	LastUsedURL  string       `json:"last_used_url"` // Última URL escaneada
+	AutoSave     bool         `json:"auto_save"`     // Guardar configuración automáticamente
+	Theme        string       `json:"theme"`         // Tema de la interfaz
+	Tutorial     bool         `json:"tutorial"`      // Mostrar tutorial en primer uso
+	ScanProfiles ScanProfiles `json:"scan_profiles"` // Perfiles de escaneo predefinidos
 }
 
 // TestConfig configura qué tests ejecutar
@@ -61,6 +63,23 @@ type TestConfig struct {
 
 	// Configuración de agresividad
 	UseAdvancedTests bool `json:"use_advanced_tests"` // Usar tests agresivos y exhaustivos
+}
+
+// ScanProfile representa un perfil de escaneo predefinido
+type ScanProfile struct {
+	Name             string        `json:"name"`
+	Description      string        `json:"description"`
+	Timeout          time.Duration `json:"timeout"`
+	Concurrent       int           `json:"concurrent"`
+	UseAdvancedTests bool          `json:"use_advanced_tests"`
+	Tests            TestConfig    `json:"tests"`
+}
+
+// ScanProfiles contiene todos los perfiles de escaneo
+type ScanProfiles struct {
+	Basic    ScanProfile `json:"basic"`
+	Standard ScanProfile `json:"standard"`
+	Advanced ScanProfile `json:"advanced"`
 }
 
 // PayloadConfig contiene los payloads para diferentes ataques
@@ -431,4 +450,125 @@ func SaveTUIConfig(config *TUIConfig) error {
 	}
 
 	return os.WriteFile("tui_config.json", data, 0644)
+}
+
+// ApplyProfile aplica un perfil de escaneo a la configuración actual
+func (c *Config) ApplyProfile(profileID string) error {
+	var profile ScanProfile
+
+	switch profileID {
+	case "basic":
+		profile = c.ScanProfiles.Basic
+	case "standard":
+		profile = c.ScanProfiles.Standard
+	case "advanced":
+		profile = c.ScanProfiles.Advanced
+	default:
+		return fmt.Errorf("perfil desconocido: %s", profileID)
+	}
+
+	// Aplicar configuración del perfil
+	c.Timeout = profile.Timeout
+	c.Concurrent = profile.Concurrent
+	c.Tests.UseAdvancedTests = profile.UseAdvancedTests
+	c.Tests = profile.Tests
+
+	return nil
+}
+
+// GetProfileInfo retorna información sobre un perfil específico
+func (c *Config) GetProfileInfo(profileID string) (*ScanProfile, error) {
+	switch profileID {
+	case "basic":
+		return &c.ScanProfiles.Basic, nil
+	case "standard":
+		return &c.ScanProfiles.Standard, nil
+	case "advanced":
+		return &c.ScanProfiles.Advanced, nil
+	default:
+		return nil, fmt.Errorf("perfil desconocido: %s", profileID)
+	}
+}
+
+// CountEnabledTests cuenta cuántos tests están habilitados en un perfil
+func (c *Config) CountEnabledTests(profileID string) int {
+	profile, err := c.GetProfileInfo(profileID)
+	if err != nil {
+		return 0
+	}
+
+	count := 0
+	tests := profile.Tests
+
+	// Contar tests habilitados
+	if tests.SQLInjection {
+		count++
+	}
+	if tests.XSS {
+		count++
+	}
+	if tests.BruteForce {
+		count++
+	}
+	if tests.HTTPHeaders {
+		count++
+	}
+	if tests.SSLAnalysis {
+		count++
+	}
+	if tests.CSRFProtection {
+		count++
+	}
+	if tests.FileUpload {
+		count++
+	}
+	if tests.DirTraversal {
+		count++
+	}
+	if tests.InfoDisclosure {
+		count++
+	}
+	if tests.InfoGathering {
+		count++
+	}
+	if tests.Configuration {
+		count++
+	}
+	if tests.IdentityMgmt {
+		count++
+	}
+	if tests.Authentication {
+		count++
+	}
+	if tests.Authorization {
+		count++
+	}
+	if tests.SessionMgmt {
+		count++
+	}
+	if tests.InputValidation {
+		count++
+	}
+	if tests.ErrorHandling {
+		count++
+	}
+	if tests.Cryptography {
+		count++
+	}
+	if tests.BusinessLogic {
+		count++
+	}
+	if tests.ClientSide {
+		count++
+	}
+	if tests.APISecurity {
+		count++
+	}
+
+	return count
+}
+
+// GetAvailableProfiles retorna lista de todos los perfiles disponibles
+func (c *Config) GetAvailableProfiles() []string {
+	return []string{"basic", "standard", "advanced"}
 }
