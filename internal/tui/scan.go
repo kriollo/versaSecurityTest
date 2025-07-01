@@ -55,7 +55,7 @@ type ScanCompleteMsg struct {
 	Error  error
 }
 
-// ScanStartedMsg es el mensaje enviado cuando el escaneo inicia 
+// ScanStartedMsg es el mensaje enviado cuando el escaneo inicia
 type ScanStartedMsg struct {
 	Options     scanner.ScanOptions
 	SkipChannel chan bool
@@ -173,7 +173,7 @@ func (m Model) updateWithScanMessages(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.skipChannel = msg.SkipChannel
 		// Iniciar escaneo en background
 		return m, m.executeBackgroundScan(msg.Options)
-		
+
 	case ScanCompleteMsg:
 		return m.handleScanComplete(msg)
 	}

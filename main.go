@@ -57,11 +57,14 @@ func main() {
 
 	// Ejecutar escaneo usando funciones unificadas
 	scanOptions := scanner.ScanOptions{
-		TargetURL:  *targetURL,
-		ConfigFile: *configFile,
-		Verbose:    *verbose,
-		Concurrent: *concurrent,
-		Timeout:    *timeout,
+		TargetURL:        *targetURL,
+		ConfigFile:       *configFile,
+		Verbose:          *verbose,
+		Concurrent:       *concurrent,
+		Timeout:          *timeout,
+		UseAdvancedTests: false, // CLI por defecto no usa tests avanzados
+		EnabledTests:     nil,   // Usar configuración del archivo config.json
+		SkipChannel:      nil,   // CLI usa canal interno
 	}
 
 	startTime := time.Now()
