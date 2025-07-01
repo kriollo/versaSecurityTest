@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"math"
 	"net/url"
 	"os"
 	"strings"
@@ -388,77 +389,101 @@ func (ws *WebScanner) calculateSecurityScore(result *ScanResult) SecurityScore {
 		return SecurityScore{Value: 0, Risk: "Unknown"}
 	}
 
-	// Calcular puntuación base - solo contar tests que realmente se completaron
+	// Contar tests según su resultado
+	passedCount := 0
+	warningCount := 0
+	failedCount := 0
 	completedTests := 0
-	totalPoints := 0.0
+	criticalFailures := 0
+	highFailures := 0
+	mediumFailures := 0
+	lowFailures := 0
 
 	for _, test := range result.TestResults {
 		fmt.Printf("DEBUG: Test '%s' - Status: %s, Severity: %s\n", test.TestName, test.Status, test.Severity)
 		if test.Status != "Skipped" && test.Status != "Timeout" {
 			completedTests++
-			// Asignar puntos según el resultado
 			switch test.Status {
 			case "Passed":
-				totalPoints += 1.0 // Punto completo
+				passedCount++
 			case "Warning":
-				totalPoints += 0.5 // Medio punto para warnings
+				warningCount++
 			case "Failed":
-				totalPoints += 0.0 // Sin puntos para fallos
+				failedCount++
+				// Contar failures por severidad
+				switch test.Severity {
+				case "Critical":
+					criticalFailures++
+				case "High":
+					highFailures++
+				case "Medium":
+					mediumFailures++
+				case "Low":
+					lowFailures++
+				}
 			}
 		}
 	}
 
-	fmt.Printf("DEBUG: Tests completados: %d, Puntos totales: %.1f\n", completedTests, totalPoints)
+	fmt.Printf("DEBUG: Passed: %d, Warning: %d, Failed: %d (Critical: %d, High: %d, Medium: %d, Low: %d)\n",
+		passedCount, warningCount, failedCount, criticalFailures, highFailures, mediumFailures, lowFailures)
 
-	var baseScore float64
-	if completedTests > 0 {
-		baseScore = (totalPoints / float64(completedTests)) * 10
-	} else {
-		// Si no hay tests completados, usar una puntuación baja pero no 0
-		baseScore = 2.0
+	if completedTests == 0 {
+		return SecurityScore{Value: 2.0, Risk: "Unknown"}
 	}
 
-	fmt.Printf("DEBUG: Score base: %.2f\n", baseScore)
+	// Calcular score base como porcentaje de éxito
+	successRate := float64(passedCount+warningCount) / float64(completedTests)
+	baseScore := successRate * 10
 
-	// Aplicar penalizaciones por severidad de tests fallidos
-	for _, test := range result.TestResults {
-		if test.Status == "Failed" {
-			fmt.Printf("DEBUG: Aplicando penalización para test fallido '%s' - Severity: %s\n", test.TestName, test.Severity)
-			switch test.Severity {
-			case "Critical":
-				baseScore -= 1.5 // Reducir penalización crítica
-				fmt.Printf("DEBUG: Penalización Critical: -1.5, nuevo score: %.2f\n", baseScore)
-			case "High":
-				baseScore -= 1.0 // Reducir penalización alta
-				fmt.Printf("DEBUG: Penalización High: -1.0, nuevo score: %.2f\n", baseScore)
-			case "Medium":
-				baseScore -= 0.5 // Reducir penalización media
-				fmt.Printf("DEBUG: Penalización Medium: -0.5, nuevo score: %.2f\n", baseScore)
-			case "Low":
-				baseScore -= 0.2 // Reducir penalización baja
-				fmt.Printf("DEBUG: Penalización Low: -0.2, nuevo score: %.2f\n", baseScore)
-			}
-		}
+	fmt.Printf("DEBUG: Success rate: %.2f%%, Score base inicial: %.2f\n", successRate*100, baseScore)
+
+	// Aplicar penalizaciones moderadas por severity - pero sin eliminar todo el progreso
+	// Las penalizaciones son proporcionales y no excesivas
+	totalPenalty := 0.0
+	if criticalFailures > 0 {
+		penalty := float64(criticalFailures) * 0.8 // Penalización moderada por crítico
+		totalPenalty += penalty
+		fmt.Printf("DEBUG: Penalización por %d failures críticos: -%.2f\n", criticalFailures, penalty)
+	}
+	if highFailures > 0 {
+		penalty := float64(highFailures) * 0.5 // Penalización moderada por alto
+		totalPenalty += penalty
+		fmt.Printf("DEBUG: Penalización por %d failures altos: -%.2f\n", highFailures, penalty)
+	}
+	if mediumFailures > 0 {
+		penalty := float64(mediumFailures) * 0.3 // Penalización pequeña por medio
+		totalPenalty += penalty
+		fmt.Printf("DEBUG: Penalización por %d failures medios: -%.2f\n", mediumFailures, penalty)
+	}
+	if lowFailures > 0 {
+		penalty := float64(lowFailures) * 0.1 // Penalización mínima por bajo
+		totalPenalty += penalty
+		fmt.Printf("DEBUG: Penalización por %d failures bajos: -%.2f\n", lowFailures, penalty)
 	}
 
-	// Penalización mínima por tests saltados (el usuario decidió saltarlos)
-	skippedCount := 0
-	for _, test := range result.TestResults {
-		if test.Status == "Skipped" || test.Status == "Timeout" {
-			skippedCount++
-		}
-	}
+	fmt.Printf("DEBUG: Penalización total: -%.2f\n", totalPenalty)
+	baseScore -= totalPenalty
 
-	// Reducir score mínimamente por tests no completados
+	// Penalización muy pequeña por tests saltados
+	skippedCount := result.TestsSkipped + result.TestsTimeout
 	if skippedCount > 0 {
-		penaltyPerSkipped := 0.1 // Penalización muy pequeña
-		baseScore -= float64(skippedCount) * penaltyPerSkipped
-		fmt.Printf("DEBUG: Penalización por %d tests saltados: -%.2f\n", skippedCount, float64(skippedCount)*penaltyPerSkipped)
+		skippedPenalty := float64(skippedCount) * 0.05 // Penalización muy pequeña
+		baseScore -= skippedPenalty
+		fmt.Printf("DEBUG: Penalización por %d tests saltados: -%.2f\n", skippedCount, skippedPenalty)
 	}
 
-	// Asegurar que la puntuación esté entre 0 y 10
-	if baseScore < 0 {
-		baseScore = 0
+	// Establecer un mínimo razonable: si pasaron algunos tests, el score no puede ser 0
+	minScore := 0.0
+	if passedCount > 0 {
+		// Score mínimo basado en cuántos tests pasaron
+		minScore = math.Max(1.0, float64(passedCount)*0.3)
+		fmt.Printf("DEBUG: Score mínimo calculado: %.2f (basado en %d tests pasados)\n", minScore, passedCount)
+	}
+
+	// Aplicar límites
+	if baseScore < minScore {
+		baseScore = minScore
 	}
 	if baseScore > 10 {
 		baseScore = 10
