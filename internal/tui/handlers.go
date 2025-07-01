@@ -329,14 +329,31 @@ func (m Model) handleScanningKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // handleResultsKeys maneja las teclas en la pantalla de resultados
 func (m Model) handleResultsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Calcular límites de scroll
+	maxScroll := 0
+	if m.scanResult != nil {
+		content := m.renderScrollableResults()
+		lines := strings.Split(content, "\n")
+		totalLines := len(lines)
+		availableHeight := m.height - 20 // Mismo cálculo que en renderResultsStep
+		if availableHeight < 5 {
+			availableHeight = 5
+		}
+		maxScroll = totalLines - availableHeight
+		if maxScroll < 0 {
+			maxScroll = 0
+		}
+	}
+
 	switch msg.String() {
 	case "up", "k":
 		if m.scrollOffset > 0 {
 			m.scrollOffset--
 		}
 	case "down", "j":
-		// Permitir scroll hacia abajo (se calculará el límite en renderizado)
-		m.scrollOffset++
+		if m.scrollOffset < maxScroll {
+			m.scrollOffset++
+		}
 	case "pgup":
 		m.scrollOffset -= 10
 		if m.scrollOffset < 0 {
@@ -344,11 +361,13 @@ func (m Model) handleResultsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	case "pgdn":
 		m.scrollOffset += 10
+		if m.scrollOffset > maxScroll {
+			m.scrollOffset = maxScroll
+		}
 	case "home":
 		m.scrollOffset = 0
 	case "end":
-		// Se ajustará en el renderizado
-		m.scrollOffset = 1000 // Valor alto que se limitará después
+		m.scrollOffset = maxScroll
 	case "r":
 		// Reiniciar escaneo
 		m.state = StateScanning

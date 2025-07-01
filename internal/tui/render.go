@@ -436,17 +436,22 @@ func (m Model) renderResultsStep() string {
 		endLine = totalLines
 	}
 
-	if startLine >= totalLines {
-		startLine = totalLines - 1
+	// Asegurar que startLine no sea mayor que totalLines
+	if startLine >= totalLines && totalLines > 0 {
+		startLine = totalLines - availableHeight
 		if startLine < 0 {
 			startLine = 0
 		}
-		m.scrollOffset = startLine
 	}
 
 	// Mostrar líneas visibles
-	visibleLines := lines[startLine:endLine]
-	scrollContent := strings.Join(visibleLines, "\n")
+	var scrollContent string
+	if startLine < totalLines && endLine > startLine {
+		visibleLines := lines[startLine:endLine]
+		scrollContent = strings.Join(visibleLines, "\n")
+	} else {
+		scrollContent = "No hay contenido para mostrar"
+	}
 
 	// Agregar indicadores de scroll visuales e intuitivos
 	if totalLines > availableHeight {
