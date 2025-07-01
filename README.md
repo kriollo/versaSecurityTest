@@ -60,9 +60,9 @@ go build -o versaSecurityTest          # Linux/macOS
 ### Usar binarios precompilados
 El proyecto incluye binarios precompilados en la carpeta `releases/`:
 - Windows: `versaSecurityTest-v1.1.0-windows-amd64.exe`
-- Linux: `versaSecurityTest-v1.0.0-linux-amd64`
-- macOS Intel: `versaSecurityTest-v1.0.0-darwin-amd64`
-- macOS ARM: `versaSecurityTest-v1.0.0-darwin-arm64`
+- Linux: `versaSecurityTest-v1.1.0-linux-amd64`
+- macOS Intel: `versaSecurityTest-v1.1.0-darwin-amd64`
+- macOS ARM: `versaSecurityTest-v1.1.0-darwin-arm64`
 
 ## 🎮 Modos de Uso
 
