@@ -16,36 +16,40 @@ import (
 func main() {
 	// Configuración de flags
 	var (
-		targetURL  = flag.String("url", "", "URL objetivo para escanear (requerido)")
+		targetURL  = flag.String("url", "", "URL objetivo para escanear (modo CLI)")
 		outputFile = flag.String("output", "", "Archivo de salida para el reporte (opcional)")
 		configFile = flag.String("config", "config.json", "Archivo de configuración")
 		verbose    = flag.Bool("verbose", false, "Modo verbose para debugging")
 		format     = flag.String("format", "json", "Formato de salida (json, table, html)")
 		concurrent = flag.Int("concurrent", 10, "Número de requests concurrentes")
 		timeout    = flag.Duration("timeout", 30*time.Second, "Timeout por request")
-		tui        = flag.Bool("tui", false, "Ejecutar en modo TUI moderno")
+		cli        = flag.Bool("cli", false, "Forzar modo CLI (por defecto usa TUI)")
 	)
 	flag.Parse()
 
-	// Verificar modos de ejecución
-	if *tui {
-		// Ejecutar TUI moderna
+	// Determinar modo de ejecución
+	// Si se especifica URL o se fuerza CLI, usar modo CLI
+	// De lo contrario, usar TUI como predeterminado
+	if *targetURL != "" || *cli {
+		// Modo CLI
+		if *targetURL == "" {
+			fmt.Println("❌ Error: URL objetivo es requerida para modo CLI")
+			fmt.Println("")
+			fmt.Println("📖 Opciones de uso:")
+			fmt.Println("   • Modo TUI (predeterminado): ./versaSecurityTest.exe")
+			fmt.Println("   • Modo CLI:                  ./versaSecurityTest.exe -url https://ejemplo.com")
+			fmt.Println("   • Forzar CLI:                ./versaSecurityTest.exe -cli")
+			fmt.Println("")
+			flag.PrintDefaults()
+			os.Exit(1)
+		}
+		// Continuar con modo CLI...
+	} else {
+		// Modo TUI predeterminado
 		if err := tuiPackage.RunTUI(); err != nil {
 			log.Fatalf("Error ejecutando TUI: %v", err)
 		}
 		return
-	}
-
-	// Validar URL requerida para modo CLI
-	if *targetURL == "" {
-		fmt.Println("❌ Error: URL objetivo es requerida")
-		fmt.Println("")
-		fmt.Println("📖 Opciones de uso:")
-		fmt.Println("   • Modo TUI:     go run main.go -tui")
-		fmt.Println("   • Modo CLI:     go run main.go -url https://ejemplo.com")
-		fmt.Println("")
-		flag.PrintDefaults()
-		os.Exit(1)
 	}
 
 	// Banner del programa
@@ -147,7 +151,7 @@ func printBanner() {
   ╚═══╝  ╚══════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝
 
 🔐 VersaSecurityTest - Automated Web Security Scanner
-📅 Version 1.1.0 - CLI & TUI Modes Available
+📅 Version 1.1.0 - TUI Mode (Default) | CLI Mode Available
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `
 	fmt.Println(banner)

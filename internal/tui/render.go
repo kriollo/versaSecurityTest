@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
+	"github.com/versaSecurityTest/internal/scanner/tests"
 )
 
 // renderHeader renderiza el header de la aplicación
@@ -18,67 +18,14 @@ func (m Model) renderHeader() string {
  ╚████╔╝ ███████╗██║  ██║███████║██║  ██║███████║███████╗╚██████╗
   ╚═══╝  ╚══════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝`
 
-	head // Agregar indicadores de scro	// Agregar indicadores de scroll visuales e intuitivos
-	scrollContent := strings.Join(visibleLines, "\n")
-	if totalLines > availableHeight {
-		// Indicadores llamativos arriba y abajo
-		if m.scrollOffset > 0 {
-			scrollContent = "▲▲▲ HAY MÁS CONTENIDO ARRIBA - Presiona ↑ o PgUp ▲▲▲\n" + scrollContent
-		}
+	header := headerStyle.Render(banner)
+	version := normalStyle.Render("v1.1.0 - Security Testing Tool")
 
-		if endLine < totalLines {
-			scrollContent += "\n▼▼▼ HAY MÁS CONTENIDO ABAJO - Presiona ↓ o PgDn ▼▼▼"
-		}
-
-		// Barra de progreso visual
-		progressPercent := float64(endLine) / float64(totalLines) * 100
-		progressBar := "["
-		barWidth := 20
-		filled := int(progressPercent / 100 * float64(barWidth))
-		for i := 0; i < barWidth; i++ {
-			if i < filled {
-				progressBar += "█"
-			} else {
-				progressBar += "░"
-			}
-		}
-		progressBar += "]"
-
-		scrollContent += fmt.Sprintf("\n\n📜 SCROLL: %s %.1f%% | Líneas %d-%d de %d",
-			progressBar, progressPercent, startLine+1, endLine, totalLines)
-		scrollContent += fmt.Sprintf("\n🎮 ↑↓ Línea | PgUp/PgDn Página | Home/End Inicio/Final")
-	}
-
-	sb.WriteString(scrollContent)
-	return sb.String()
+	return header + "\n" + version + "\n"
 }
 
-// renderURLStep renderiza el paso de entrada de URL
-		}
-		progressBar += "]"
-
-		// Información de navegación detallada con estilo
-		scrollContent += fmt.Sprintf("\n\n📜 NAVEGACIÓN DE RESULTADOS:")
-		scrollContent += fmt.Sprintf("\n   %s %.1f%% - Mostrando líneas %d-%d de %d total",
-			progressBar, float64(endLine)/float64(totalLines)*100, startLine+1, endLine, totalLines)
-		scrollContent += fmt.Sprintf("\n   🎮 ↑↓ Scroll línea por línea | PgUp/PgDn Scroll página completa | Home/End Ir al inicio/final")
-
-		// Indicador de posición específico
-		if m.scrollOffset == 0 {
-			scrollContent += "\n   📍 Estás viendo el INICIO del reporte"
-		} else if endLine >= totalLines {
-			scrollContent += "\n   📍 Estás viendo el FINAL del reporte"
-		} else {
-			scrollContent += fmt.Sprintf("\n   📍 Posición actual: %.1f%% del reporte completo", float64(startLine+availableHeight/2)/float64(totalLines)*100)
-		}
-	}
-
-	sb.WriteString(scrollContent)
-	return sb.String()
-}
-
-// renderURLStep renderiza el paso de entrada de URL
-func (m Model) renderURLStep() string {
+// renderProtocolStep renderiza el paso de selección de protocolo
+func (m Model) renderProtocolStep() string {
 	var sb strings.Builder
 
 	sb.WriteString(titleStyle.Render("PASO 1: SELECCIÓN DE PROTOCOLO"))
@@ -119,7 +66,7 @@ func (m Model) renderURLStep() string {
 func (m Model) renderURLStep() string {
 	var sb strings.Builder
 
-	sb.WriteString(titleStyle.Render("PASO 2: INGRESO DE URL"))
+	sb.WriteString(titleStyle.Render("PASO 2: INGRESE LA URL O DOMINIO"))
 	sb.WriteString("\n\n")
 
 	protocol := "https://"
@@ -131,233 +78,160 @@ func (m Model) renderURLStep() string {
 	sb.WriteString("Ingrese la URL objetivo (sin protocolo):\n")
 	sb.WriteString("Ejemplos: localhost:8080, www.ejemplo.com, api.ejemplo.com/v1\n\n")
 
-	// Campo de entrada
-	urlField := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#7D56F4")).
-		Padding(0, 1).
-		Width(50)
-
-	fullURL := protocol + m.url
-	if m.url == "" {
-		fullURL = protocol + "▋" // Cursor
-	} else {
-		fullURL += "▋" // Cursor al final
-	}
-
-	sb.WriteString(urlField.Render(fullURL))
+	sb.WriteString(fmt.Sprintf("URL completa: %s%s\n", protocol, m.url))
+	sb.WriteString(focusedStyle.Render(fmt.Sprintf("Escriba aquí: %s", m.url)))
 	sb.WriteString("\n\n")
 
-	if m.url != "" {
-		sb.WriteString(fmt.Sprintf("URL completa: %s\n", successStyle.Render(protocol+m.url)))
-	}
+	sb.WriteString("💡 Ejemplos:\n")
+	sb.WriteString("   • example.com\n")
+	sb.WriteString("   • www.example.com\n")
+	sb.WriteString("   • example.com:8080\n")
+	sb.WriteString("   • 192.168.1.100\n")
 
 	return sb.String()
 }
 
-// renderProfileStep renderiza el paso de selección de perfil de escaneo
+// renderProfileStep renderiza el paso de selección de perfil
 func (m Model) renderProfileStep() string {
 	var sb strings.Builder
 
 	sb.WriteString(titleStyle.Render("PASO 3: SELECCIÓN DE PERFIL DE ESCANEO"))
 	sb.WriteString("\n\n")
+	sb.WriteString("Seleccione el perfil de escaneo:\n\n")
 
-	protocol := "https://"
-	if !m.useHTTPS {
-		protocol = "http://"
-	}
-
-	sb.WriteString(fmt.Sprintf("🎯 URL objetivo: %s\n\n", successStyle.Render(protocol+m.url)))
-
-	sb.WriteString("Seleccione el nivel de escaneo que desea realizar:\n\n")
-
-	// Renderizar cada perfil
 	for i, profile := range m.profiles {
-		var style lipgloss.Style
-		var marker string
-		var prefix string
-
+		marker := "[ ]"
+		style := normalStyle
 		if profile.Selected {
 			marker = "[X]"
-			style = focusedStyle
-		} else {
-			marker = "[ ]"
-			style = normalStyle
+			style = selectedStyle
 		}
-
 		if i == m.cursor {
-			prefix = "→"
-			style = style.Bold(true)
-		} else {
-			prefix = " "
+			style = focusedStyle
 		}
 
-		// Formatear timeout
-		timeoutStr := fmt.Sprintf("%.0fs", profile.Timeout.Seconds())
-
-		sb.WriteString(style.Render(fmt.Sprintf("%s%s %s", prefix, marker, profile.Name)))
+		sb.WriteString(style.Render(fmt.Sprintf("%s %s", marker, profile.Name)))
 		sb.WriteString("\n")
-		sb.WriteString(style.Render(fmt.Sprintf("     %s", profile.Description)))
+		sb.WriteString(style.Render(fmt.Sprintf("    %s", profile.Description)))
 		sb.WriteString("\n")
-		sb.WriteString(style.Render(fmt.Sprintf("     📊 %d tests | ⏱️ %s | 🧵 %d hilos",
-			profile.TestCount, timeoutStr, profile.Concurrent)))
+		sb.WriteString(style.Render(fmt.Sprintf("    ⏱️  Timeout: %v | 🔄 Concurrencia: %d | 🎯 Tests: %d activos",
+			profile.Timeout, profile.Concurrent, profile.TestCount)))
 		sb.WriteString("\n\n")
 	}
 
-	sb.WriteString("\n")
-	sb.WriteString("💡 NAVEGACIÓN: [↑↓] Perfil anterior/siguiente | [SPACE] Seleccionar | [Enter] Continuar\n")
-	sb.WriteString("\n")
-	sb.WriteString("🎮 CONTROLES: ↑↓ Navegar | Space Seleccionar | Enter Continuar | Esc Volver")
+	sb.WriteString("💡 Consejos:\n")
+	sb.WriteString("   • Básico: Rápido y esencial para evaluaciones iniciales\n")
+	sb.WriteString("   • Estándar: Equilibrio entre velocidad y cobertura\n")
+	sb.WriteString("   • Avanzado: Escaneo completo y exhaustivo\n")
 
 	return sb.String()
 }
 
-// renderTestsStep renderiza el paso de selección de tests en columnas compactas
+// renderTestsStep renderiza el paso de selección de tests
 func (m Model) renderTestsStep() string {
 	var sb strings.Builder
 
-	sb.WriteString(titleStyle.Render("PASO 3: SELECCIÓN DE TESTS DE SEGURIDAD OWASP"))
+	sb.WriteString(titleStyle.Render("PASO 4: SELECCIÓN DE TESTS"))
 	sb.WriteString("\n\n")
 
+	if len(m.tests) == 0 {
+		sb.WriteString(errorStyle.Render("⚠️  No hay tests disponibles"))
+		return sb.String()
+	}
+
+	sb.WriteString("Seleccione los tests a ejecutar:\n\n")
+
+	// Mostrar tests en columnas para mejor visualización
+	sb.WriteString(m.renderTestsInColumns())
+
+	// Mostrar estadísticas
 	selectedCount := 0
-	recommendedCount := 0
 	for _, test := range m.tests {
 		if test.Selected {
 			selectedCount++
 		}
-		if test.Recommended {
-			recommendedCount++
-		}
 	}
 
-	url := "https://"
-	if !m.useHTTPS {
-		url = "http://"
+	sb.WriteString(fmt.Sprintf("\n📊 Tests seleccionados: %d de %d disponibles\n", selectedCount, len(m.tests)))
+
+	if selectedCount == 0 {
+		sb.WriteString(warningStyle.Render("⚠️  Debe seleccionar al menos un test para continuar"))
 	}
-	url += m.url
-
-	sb.WriteString(fmt.Sprintf("🎯 URL objetivo: %s\n", successStyle.Render(url)))
-	sb.WriteString(fmt.Sprintf("📊 Tests seleccionados: %s | Recomendados: %d\n\n",
-		successStyle.Render(fmt.Sprintf("%d/%d", selectedCount, len(m.tests))), recommendedCount))
-
-	// Renderizar tests en columnas compactas
-	sb.WriteString(m.renderTestsInColumns())
-
-	// Mostrar descripción del test enfocado
-	if m.cursor >= 0 && m.cursor < len(m.tests) {
-		focusedTest := m.tests[m.cursor]
-		sb.WriteString("\n")
-		sb.WriteString(warningStyle.Render("─────────────────────────────────────────────────────────────────────"))
-		sb.WriteString("\n")
-		sb.WriteString(warningStyle.Render(fmt.Sprintf("📋 %s", focusedTest.Description)))
-		sb.WriteString("\n")
-		sb.WriteString(warningStyle.Render(fmt.Sprintf("🏷️ Categoría: %s (%s)", focusedTest.Category, getCategoryDescription(focusedTest.Category))))
-		sb.WriteString("\n")
-		sb.WriteString(warningStyle.Render("─────────────────────────────────────────────────────────────────────"))
-		sb.WriteString("\n")
-	}
-
-	sb.WriteString("\n")
-	if m.verbose {
-		sb.WriteString("🔍 Modo verbose: " + successStyle.Render("ACTIVADO") + " (mostrará detalles completos)\n")
-	} else {
-		sb.WriteString("🔍 Modo verbose: DESACTIVADO (presione 'v' para activar)\n")
-	}
-
-	if m.useAdvancedTests {
-		sb.WriteString("🚀 Tests avanzados: " + successStyle.Render("ACTIVADOS") + " (técnicas agresivas y evasión)\n")
-	} else {
-		sb.WriteString("� Tests avanzados: DESACTIVADOS (presione 'x' para activar)\n")
-	}
-
-	sb.WriteString("�� Atajos: [SPACE] Seleccionar | [A] Todos | [N] Ninguno | [R] Recomendados | [V] Verbose | [X] Avanzados\n")
-	sb.WriteString("   ⭐ = Recomendado | ☑ = Seleccionado | → = Cursor actual\n")
 
 	return sb.String()
 }
 
-// getCategoryDescription devuelve una descripción breve de la categoría OWASP
-func getCategoryDescription(category string) string {
-	descriptions := map[string]string{
-		"INFO": "Recolección de Info",
-		"CONF": "Configuración",
-		"IDNT": "Identidad",
-		"ATHN": "Autenticación",
-		"ATHZ": "Autorización",
-		"SESS": "Sesiones",
-		"INPV": "Validación Entrada",
-		"ERRH": "Manejo Errores",
-		"CRYP": "Criptografía",
-		"BUSL": "Lógica Negocio",
-		"CLNT": "Cliente",
-		"APIT": "APIs",
-		"MISC": "Adicionales",
-	}
+// renderTestsInColumns renderiza los tests en columnas
+func (m Model) renderTestsInColumns() string {
+	var sb strings.Builder
 
-	if desc, exists := descriptions[category]; exists {
-		return desc
-	}
-	return "Otros"
-}
+	const columnsCount = 2
+	const columnWidth = 35
 
-// getGlobalTestIndex encuentra el índice global de un test por su ID
-func getGlobalTestIndex(tests []TestItem, id string) int {
-	for i, test := range tests {
-		if test.ID == id {
-			return i
+	for i := 0; i < len(m.tests); i += columnsCount {
+		for col := 0; col < columnsCount && i+col < len(m.tests); col++ {
+			idx := i + col
+			test := m.tests[idx]
+
+			marker := "[ ]"
+			style := normalStyle
+			if test.Selected {
+				marker = "[X]"
+			}
+			if idx == m.cursor {
+				style = focusedStyle
+			}
+
+			// Truncar nombre si es muy largo
+			displayName := test.Name
+			if len(displayName) > columnWidth-6 {
+				displayName = displayName[:columnWidth-9] + "..."
+			}
+
+			testLine := style.Render(fmt.Sprintf("%s %s", marker, displayName))
+
+			// Añadir padding para alinear columnas
+			padding := columnWidth - len(fmt.Sprintf("%s %s", marker, displayName))
+			if padding > 0 {
+				testLine += strings.Repeat(" ", padding)
+			}
+
+			sb.WriteString(testLine)
+
+			if col < columnsCount-1 && i+col+1 < len(m.tests) {
+				sb.WriteString("  ")
+			}
 		}
+		sb.WriteString("\n")
 	}
-	return -1
+
+	return sb.String()
 }
 
 // renderFormatStep renderiza el paso de selección de formato
 func (m Model) renderFormatStep() string {
 	var sb strings.Builder
 
-	sb.WriteString(titleStyle.Render("PASO 4: FORMATO DE SALIDA"))
+	sb.WriteString(titleStyle.Render("PASO 5: FORMATO DE REPORTE"))
 	sb.WriteString("\n\n")
+	sb.WriteString("Seleccione el formato del reporte:\n\n")
 
 	for i, format := range m.formats {
-		checkbox := "[ ]"
-		if format.Selected {
-			checkbox = "[X]"
-		}
-
+		marker := "[ ]"
 		style := normalStyle
-		if m.cursor == i {
-			style = focusedStyle
-		} else if format.Selected {
+		if format.Selected {
+			marker = "[X]"
 			style = selectedStyle
 		}
-
-		line := fmt.Sprintf("%s %s", checkbox, format.Name)
-		sb.WriteString(style.Render(line))
-		sb.WriteString("\n")
-
-		if m.cursor == i {
-			desc := fmt.Sprintf("   📝 %s", format.Description)
-			sb.WriteString(warningStyle.Render(desc))
-			sb.WriteString("\n")
+		if i == m.cursor {
+			style = focusedStyle
 		}
+
+		sb.WriteString(style.Render(fmt.Sprintf("%s %s", marker, format.Name)))
 		sb.WriteString("\n")
+		sb.WriteString(style.Render(fmt.Sprintf("    %s", format.Description)))
+		sb.WriteString("\n\n")
 	}
-
-	// Configuraciones adicionales
-	sb.WriteString(titleStyle.Render("CONFIGURACIONES ADICIONALES"))
-	sb.WriteString("\n\n")
-
-	verboseCheckbox := "[ ]"
-	if m.verbose {
-		verboseCheckbox = "[X]"
-	}
-	verboseStyle := normalStyle
-	if m.verbose {
-		verboseStyle = selectedStyle
-	}
-	sb.WriteString(verboseStyle.Render(fmt.Sprintf("%s Modo Verbose (mostrar detalles adicionales)", verboseCheckbox)))
-	sb.WriteString("\n\n")
-
-	sb.WriteString("💡 Presione [V] para activar/desactivar el modo verbose en cualquier momento\n")
 
 	return sb.String()
 }
@@ -366,30 +240,40 @@ func (m Model) renderFormatStep() string {
 func (m Model) renderConfirmStep() string {
 	var sb strings.Builder
 
-	sb.WriteString(titleStyle.Render("PASO 5: CONFIRMACIÓN"))
+	sb.WriteString(titleStyle.Render("PASO 6: CONFIRMACIÓN"))
 	sb.WriteString("\n\n")
 
-	// Resumen de configuración
+	// Mostrar resumen de configuración
 	protocol := "https://"
 	if !m.useHTTPS {
 		protocol = "http://"
 	}
 
-	sb.WriteString("📋 RESUMEN DE CONFIGURACIÓN:\n")
-	sb.WriteString(strings.Repeat("─", 50) + "\n")
-	sb.WriteString(fmt.Sprintf("🎯 URL Objetivo:     %s\n", successStyle.Render(protocol+m.url)))
+	sb.WriteString("📋 Resumen de configuración:\n\n")
+	sb.WriteString(fmt.Sprintf("🌐 URL objetivo: %s%s\n", protocol, m.url))
 
-	selectedTests := []string{}
-	for _, test := range m.tests {
-		if test.Selected {
-			selectedTests = append(selectedTests, test.Name)
+	// Mostrar perfil seleccionado
+	selectedProfile := ""
+	for _, profile := range m.profiles {
+		if profile.Selected {
+			selectedProfile = profile.Name
+			break
 		}
 	}
-	sb.WriteString(fmt.Sprintf("🔍 Tests (%d):        %s\n", len(selectedTests), strings.Join(selectedTests[:min(3, len(selectedTests))], ", ")))
-	if len(selectedTests) > 3 {
-		sb.WriteString(fmt.Sprintf("                     ... y %d más\n", len(selectedTests)-3))
+	if selectedProfile != "" {
+		sb.WriteString(fmt.Sprintf("⚙️  Perfil: %s\n", selectedProfile))
 	}
 
+	// Contar tests seleccionados
+	selectedCount := 0
+	for _, test := range m.tests {
+		if test.Selected {
+			selectedCount++
+		}
+	}
+	sb.WriteString(fmt.Sprintf("🎯 Tests seleccionados: %d\n", selectedCount))
+
+	// Mostrar formato seleccionado
 	selectedFormat := ""
 	for _, format := range m.formats {
 		if format.Selected {
@@ -397,49 +281,44 @@ func (m Model) renderConfirmStep() string {
 			break
 		}
 	}
-	sb.WriteString(fmt.Sprintf("📊 Formato:          %s\n", selectedFormat))
-	sb.WriteString(fmt.Sprintf("🔍 Modo Verbose:     %v\n", m.verbose))
-	sb.WriteString(strings.Repeat("─", 50) + "\n\n")
-
-	// Opciones de confirmación
-	confirmStyle := normalStyle
-	cancelStyle := normalStyle
-
-	if m.cursor == 0 {
-		confirmStyle = focusedStyle
-	} else {
-		cancelStyle = focusedStyle
+	if selectedFormat != "" {
+		sb.WriteString(fmt.Sprintf("📄 Formato de reporte: %s\n", strings.ToUpper(selectedFormat)))
 	}
 
-	sb.WriteString("¿Desea proceder con el escaneo?\n\n")
-	sb.WriteString(confirmStyle.Render("[ ] ✅ Confirmar y ejecutar escaneo"))
 	sb.WriteString("\n")
-	sb.WriteString(cancelStyle.Render("[ ] ❌ Cancelar y volver atrás"))
+	sb.WriteString(successStyle.Render("✅ Presione Enter para iniciar el escaneo"))
 	sb.WriteString("\n")
+	sb.WriteString(normalStyle.Render("   o Escape para volver atrás"))
 
 	return sb.String()
 }
 
-// renderScanningStep renderiza el paso de escaneo en progreso
+// renderScanningStep renderiza el paso de escaneo
 func (m Model) renderScanningStep() string {
 	var sb strings.Builder
 
-	sb.WriteString(titleStyle.Render("🔍 ESCANEO EN PROGRESO"))
+	sb.WriteString(titleStyle.Render("ESCANEANDO..."))
 	sb.WriteString("\n\n")
 
-	// Mostrar información del objetivo
+	// Mostrar URL objetivo
 	protocol := "https://"
 	if !m.useHTTPS {
 		protocol = "http://"
 	}
-	fullURL := protocol + m.url
+	sb.WriteString(fmt.Sprintf("🎯 Objetivo: %s%s\n", protocol, m.url))
 
-	sb.WriteString(fmt.Sprintf("🎯 Objetivo: %s\n", successStyle.Render(fullURL)))
-	sb.WriteString(fmt.Sprintf("📊 Tests seleccionados: %d\n", countSelectedTests(m.tests)))
+	// Mostrar perfil usado
+	selectedProfile := ""
+	for _, profile := range m.profiles {
+		if profile.Selected {
+			selectedProfile = profile.Name
+			break
+		}
+	}
+	if selectedProfile != "" {
+		sb.WriteString(fmt.Sprintf("⚙️  Perfil: %s\n", selectedProfile))
+	}
 
-	// Mostrar tiempo transcurrido
-	elapsed := time.Since(m.scanProgress.StartTime)
-	sb.WriteString(fmt.Sprintf("⏱️  Tiempo transcurrido: %s\n", elapsed.Round(time.Second)))
 	sb.WriteString("\n")
 
 	// Mostrar progreso si está disponible
@@ -448,34 +327,32 @@ func (m Model) renderScanningStep() string {
 		sb.WriteString(fmt.Sprintf("📈 Progreso: %.1f%% [%d/%d]\n",
 			percent, m.scanProgress.Completed, m.scanProgress.Total))
 
-		// Barra de progreso visual
-		progressBarWidth := 50
+		// Barra de progreso visual simple
+		progressBarWidth := 40
 		filledWidth := int(percent / 100 * float64(progressBarWidth))
 		emptyWidth := progressBarWidth - filledWidth
 
 		progressBar := strings.Repeat("█", filledWidth) + strings.Repeat("░", emptyWidth)
-		sb.WriteString(fmt.Sprintf("█%s█ %.1f%%\n", progressBar, percent))
+		sb.WriteString(fmt.Sprintf("[%s] %.1f%%\n", progressBar, percent))
 		sb.WriteString("\n")
+	}
 
-		// Test actual si está disponible
-		if m.scanProgress.CurrentTest != "" {
-			sb.WriteString(fmt.Sprintf("🔄 Test actual: %s\n", warningStyle.Render(m.scanProgress.CurrentTest)))
-		}
-	} else {
-		// Spinner de carga si no hay progreso específico
-		spinners := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
-		spinner := spinners[int(elapsed.Seconds())%len(spinners)]
-		sb.WriteString(fmt.Sprintf("%s Ejecutando tests de seguridad...\n", spinner))
+	// Mostrar estado actual
+	if m.scanProgress.CurrentTest != "" {
+		sb.WriteString(fmt.Sprintf("🔍 Ejecutando: %s\n", m.scanProgress.CurrentTest))
+	}
+
+	// Mostrar tiempo transcurrido
+	elapsed := time.Since(m.scanProgress.StartTime)
+	sb.WriteString(fmt.Sprintf("⏱️  Tiempo transcurrido: %s\n", elapsed.Round(time.Second)))
+
+	// Información de progreso
+	if m.scanProgress.Completed > 0 {
+		sb.WriteString(fmt.Sprintf("✅ Tests completados: %d\n", m.scanProgress.Completed))
 	}
 
 	sb.WriteString("\n")
-	sb.WriteString(warningStyle.Render("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"))
-	sb.WriteString("\n")
-	sb.WriteString("💡 CONTROLES DURANTE EL ESCANEO:\n")
-	sb.WriteString("   • Presiona 'S' para saltar el test actual\n")
-	sb.WriteString("   • Presiona 'Q' o 'Esc' para cancelar el escaneo\n")
-	sb.WriteString("   • Presiona 'V' para activar/desactivar modo verbose\n")
-	sb.WriteString(warningStyle.Render("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"))
+	sb.WriteString(warningStyle.Render("⚠️  Presione 'q' o Ctrl+C para cancelar"))
 
 	return sb.String()
 }
@@ -484,389 +361,267 @@ func (m Model) renderScanningStep() string {
 func (m Model) renderFinishingStep() string {
 	var sb strings.Builder
 
-	sb.WriteString(titleStyle.Render("⏳ FINALIZANDO ESCANEO"))
+	sb.WriteString(titleStyle.Render("FINALIZANDO ESCANEO..."))
 	sb.WriteString("\n\n")
 
-	// Spinner de finalización
-	spinners := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
-	elapsed := time.Since(m.finishingStart)
-	spinner := spinners[int(elapsed.Milliseconds()/100)%len(spinners)]
+	sb.WriteString("🔄 Generando reporte...\n")
+	sb.WriteString("📊 Calculando puntuación de seguridad...\n")
+	sb.WriteString("💾 Guardando resultados...\n\n")
 
-	sb.WriteString(fmt.Sprintf("%s Generando reporte y calculando puntuación de seguridad...\n", spinner))
-	sb.WriteString(fmt.Sprintf("⏱️  Tiempo de procesamiento: %s\n", elapsed.Round(time.Millisecond*100)))
+	sb.WriteString(normalStyle.Render("Por favor espere..."))
 
 	return sb.String()
 }
 
-// renderResultsStep renderiza el paso de resultados con scroll
+// renderResultsStep renderiza los resultados del escaneo con scroll mejorado
 func (m Model) renderResultsStep() string {
 	var sb strings.Builder
 
-	sb.WriteString(titleStyle.Render("📊 RESULTADOS DEL ESCANEO"))
-	sb.WriteString("\n\n")
-
 	if m.scanResult == nil {
-		sb.WriteString(errorStyle.Render("No hay resultados disponibles"))
+		sb.WriteString(errorStyle.Render("❌ No hay resultados disponibles"))
 		return sb.String()
 	}
 
-	// Generar todo el contenido primero
-	var fullContent strings.Builder
+	// Header de resultados
+	sb.WriteString(titleStyle.Render("RESULTADOS DEL ESCANEO"))
+	sb.WriteString("\n\n")
 
-	// Resumen principal
-	fullContent.WriteString("📋 RESUMEN EJECUTIVO:\n")
-	fullContent.WriteString(strings.Repeat("═", 60) + "\n")
-
+	// Información básica
 	protocol := "https://"
 	if !m.useHTTPS {
 		protocol = "http://"
 	}
+	sb.WriteString(fmt.Sprintf("🎯 Objetivo: %s%s\n", protocol, m.url))
 
-	fullContent.WriteString(fmt.Sprintf("🎯 URL Escaneada:    %s\n", protocol+m.url))
-	fullContent.WriteString(fmt.Sprintf("📅 Fecha/Hora:       %s\n", m.scanResult.ScanDate.Format("2006-01-02 15:04:05")))
-	fullContent.WriteString(fmt.Sprintf("⏱️  Duración:         %v\n", m.scanResult.Duration.Round(time.Millisecond)))
-	fullContent.WriteString(fmt.Sprintf("🔍 Tests Ejecutados: %d\n", m.scanResult.TestsExecuted))
-	fullContent.WriteString(fmt.Sprintf("✅ Tests Pasados:    %s\n", successStyle.Render(fmt.Sprintf("%d", m.scanResult.TestsPassed))))
-	fullContent.WriteString(fmt.Sprintf("❌ Tests Fallidos:   %s\n", errorStyle.Render(fmt.Sprintf("%d", m.scanResult.TestsFailed))))
-	fullContent.WriteString(strings.Repeat("═", 60) + "\n\n")
-
-	// Puntuación de seguridad
-	score := m.scanResult.SecurityScore.Value
-	risk := m.scanResult.SecurityScore.Risk
-
-	scoreStyle := successStyle
-	if score < 7.0 {
-		scoreStyle = warningStyle
-	}
-	if score < 4.0 {
-		scoreStyle = errorStyle
-	}
-
-	fullContent.WriteString("🛡️  PUNTUACIÓN DE SEGURIDAD:\n")
-	fullContent.WriteString(strings.Repeat("─", 30) + "\n")
-	fullContent.WriteString(fmt.Sprintf("Puntuación: %s/10\n", scoreStyle.Render(fmt.Sprintf("%.1f", score))))
-	fullContent.WriteString(fmt.Sprintf("Nivel de Riesgo: %s\n\n", scoreStyle.Render(risk)))
-
-	// Resultados resumidos por categoría
-	if len(m.scanResult.TestResults) > 0 {
-		fullContent.WriteString("📝 RESULTADOS POR TEST:\n")
-		fullContent.WriteString(strings.Repeat("─", 40) + "\n")
-
-		for _, result := range m.scanResult.TestResults {
-			status := errorStyle.Render("❌ FALLÓ")
-			if result.Status == "Passed" {
-				status = successStyle.Render("✅ PASÓ")
-			}
-
-			fullContent.WriteString(fmt.Sprintf("%s %s\n", status, result.TestName))
-			if result.Description != "" && result.Status != "Passed" {
-				fullContent.WriteString(fmt.Sprintf("    %s\n", warningStyle.Render(result.Description)))
-			}
-
-			// Agregar detalle adicional cuando el test falla
-			if result.Status == "Failed" && len(result.Evidence) > 0 {
-				fullContent.WriteString("    🔴 Detalles del fallo:\n")
-
-				// Mostrar la primera evidencia como ejemplo
-				evidence := result.Evidence[0]
-				fullContent.WriteString(fmt.Sprintf("      📝 Tipo: %s\n", errorStyle.Render(evidence.Type)))
-				fullContent.WriteString(fmt.Sprintf("      💬 Payload: %s\n", warningStyle.Render(evidence.Payload)))
-				fullContent.WriteString(fmt.Sprintf("      📞 Respuesta: %s\n", normalStyle.Render(evidence.Response)))
-
-				if len(result.Evidence) > 1 {
-					fullContent.WriteString(fmt.Sprintf("      ℹ️  ... y %d evidencias más (ver detalles completos)\n", len(result.Evidence)-1))
-				}
-				fullContent.WriteString("\n")
-			} else if result.Status == "Failed" {
-				// Fallback si no hay evidencias específicas
-				fullContent.WriteString("    🔴 Ejemplos de lo que se detectó:\n")
-				switch result.TestName {
-				case "SQL Injection":
-					fullContent.WriteString(fmt.Sprintf("      💬 Payload usado: %s\n", warningStyle.Render("' OR '1'='1")))
-					fullContent.WriteString(fmt.Sprintf("      📞 Respuesta: %s\n", errorStyle.Render("Error SQL o comportamiento anormal")))
-				case "Cross-Site Scripting":
-					fullContent.WriteString(fmt.Sprintf("      💬 Payload usado: %s\n", warningStyle.Render("<script>alert('XSS')</script>")))
-					fullContent.WriteString(fmt.Sprintf("      📞 Respuesta: %s\n", errorStyle.Render("Script reflejado sin sanitización")))
-				case "Headers de Seguridad":
-					fullContent.WriteString(fmt.Sprintf("      💬 Header faltante: %s\n", warningStyle.Render("X-Frame-Options")))
-					fullContent.WriteString(fmt.Sprintf("      📞 Riesgo: %s\n", errorStyle.Render("Posible clickjacking")))
-				default:
-					fullContent.WriteString(fmt.Sprintf("      📞 Resultado: %s\n", errorStyle.Render("Vulnerabilidad detectada")))
-				}
-				fullContent.WriteString("\n")
-			}
+	// Mostrar perfil usado
+	selectedProfile := ""
+	for _, profile := range m.profiles {
+		if profile.Selected {
+			selectedProfile = profile.Name
+			break
 		}
-		fullContent.WriteString("\n")
+	}
+	if selectedProfile != "" {
+		sb.WriteString(fmt.Sprintf("⚙️  Perfil usado: %s\n", selectedProfile))
 	}
 
-	// Recomendaciones principales
-	if len(m.scanResult.Recommendations) > 0 {
-		fullContent.WriteString("💡 RECOMENDACIONES PRINCIPALES:\n")
-		fullContent.WriteString(strings.Repeat("─", 40) + "\n")
-		maxRecs := min(5, len(m.scanResult.Recommendations))
-		for i := 0; i < maxRecs; i++ {
-			fullContent.WriteString(fmt.Sprintf("%d. %s\n", i+1, m.scanResult.Recommendations[i]))
-		}
-		if len(m.scanResult.Recommendations) > 5 {
-			fullContent.WriteString(fmt.Sprintf("   ... y %d recomendaciones más (ver detalles)\n", len(m.scanResult.Recommendations)-5))
-		}
-		fullContent.WriteString("\n")
-	}
+	sb.WriteString(fmt.Sprintf("📅 Fecha: %s\n", m.scanResult.ScanDate.Format("2006-01-02 15:04:05")))
+	sb.WriteString(fmt.Sprintf("⏱️  Duración: %s\n", m.scanResult.Duration))
 
-	fullContent.WriteString("🎮 OPCIONES:\n")
-	fullContent.WriteString("   [D/Enter] Ver detalles completos\n")
-	fullContent.WriteString("   [R] Repetir escaneo\n")
-	fullContent.WriteString("   [S] Guardar reporte\n")
-	fullContent.WriteString("   [Backspace] Nuevo escaneo\n")
-	fullContent.WriteString("   [Q/Esc] Salir\n")
+	// Resumen de vulnerabilidades
+	sb.WriteString(fmt.Sprintf("🔍 Tests ejecutados: %d\n", m.scanResult.TestsExecuted))
 
-	// Aplicar scroll - dividir contenido en líneas
-	lines := strings.Split(fullContent.String(), "\n")
+	sb.WriteString(fmt.Sprintf("🚨 Tests fallidos: %s | Tests pasados: %s\n",
+		errorStyle.Render(fmt.Sprintf("%d", m.scanResult.TestsFailed)),
+		successStyle.Render(fmt.Sprintf("%d", m.scanResult.TestsPassed))))
+
+	sb.WriteString("\n")
+
+	// Contenido con scroll mejorado
+	content := m.renderScrollableResults()
+
+	// Calcular dimensiones para scroll
+	lines := strings.Split(content, "\n")
 	totalLines := len(lines)
+	availableHeight := m.height - 20 // Reservar espacio para header y footer
 
-	// Calcular cuántas líneas caben en la pantalla (reservar espacio para header y footer)
-	availableHeight := m.height - 6 // Header + footer + márgenes
-	if availableHeight < 10 {
-		availableHeight = 10 // Mínimo
+	if availableHeight < 5 {
+		availableHeight = 5
 	}
 
-	// Ajustar scrollOffset para no ir más allá del contenido
-	maxScroll := totalLines - availableHeight
-	if maxScroll < 0 {
-		maxScroll = 0
-	}
-	if m.scrollOffset > maxScroll {
-		// Actualizar el modelo (necesario para reflejar el cambio)
-		// Nota: Esto es un poco hacky, pero necesario para limitar el scroll
-		m.scrollOffset = maxScroll
-	}
-
-	// Seleccionar las líneas visibles
 	startLine := m.scrollOffset
 	endLine := startLine + availableHeight
+
 	if endLine > totalLines {
 		endLine = totalLines
 	}
 
-	visibleLines := lines[startLine:endLine]
+	if startLine >= totalLines {
+		startLine = totalLines - 1
+		if startLine < 0 {
+			startLine = 0
+		}
+		m.scrollOffset = startLine
+	}
 
-	// Agregar indicador de scroll si es necesario
+	// Mostrar líneas visibles
+	visibleLines := lines[startLine:endLine]
 	scrollContent := strings.Join(visibleLines, "\n")
+
+	// Agregar indicadores de scroll visuales e intuitivos
 	if totalLines > availableHeight {
-		scrollContent += fmt.Sprintf("\n\n💡 NAVEGACIÓN: [↑↓] Línea | [PgUp/PgDn] Página | [Home/End] Inicio/Final | Línea %d-%d de %d",
-			startLine+1, endLine, totalLines)
+		// Indicadores llamativos arriba y abajo
+		if m.scrollOffset > 0 {
+			scrollContent = "▲▲▲ HAY MÁS CONTENIDO ARRIBA - Presiona ↑ o PgUp ▲▲▲\n" + scrollContent
+		}
+
+		if endLine < totalLines {
+			scrollContent += "\n▼▼▼ HAY MÁS CONTENIDO ABAJO - Presiona ↓ o PgDn ▼▼▼"
+		}
+
+		// Barra de progreso visual
+		progressPercent := float64(endLine) / float64(totalLines) * 100
+		progressBar := "["
+		barWidth := 20
+		filled := int(progressPercent / 100 * float64(barWidth))
+		for i := 0; i < barWidth; i++ {
+			if i < filled {
+				progressBar += "█"
+			} else {
+				progressBar += "░"
+			}
+		}
+		progressBar += "]"
+
+		scrollContent += fmt.Sprintf("\n\n📜 SCROLL: %s %.1f%% | Líneas %d-%d de %d",
+			progressBar, progressPercent, startLine+1, endLine, totalLines)
+		scrollContent += fmt.Sprintf("\n🎮 ↑↓ Línea | PgUp/PgDn Página | Home/End Inicio/Final")
 	}
 
 	sb.WriteString(scrollContent)
+
 	return sb.String()
 }
 
-// renderFooter renderiza el footer con ayuda
+// renderScrollableResults genera el contenido completo de resultados para scroll
+func (m Model) renderScrollableResults() string {
+	var sb strings.Builder
+
+	if len(m.scanResult.TestResults) == 0 {
+		sb.WriteString("✅ No se encontraron vulnerabilidades.\n")
+		return sb.String()
+	}
+
+	// Mostrar resultados por test
+	failedResults := []tests.TestResult{}
+	passedResults := []tests.TestResult{}
+
+	for _, result := range m.scanResult.TestResults {
+		if result.Status == "Failed" {
+			failedResults = append(failedResults, result)
+		} else {
+			passedResults = append(passedResults, result)
+		}
+	}
+
+	// Mostrar tests fallidos primero
+	if len(failedResults) > 0 {
+		sb.WriteString(errorStyle.Render("🚨 TESTS FALLIDOS"))
+		sb.WriteString("\n")
+		sb.WriteString(strings.Repeat("=", 50))
+		sb.WriteString("\n\n")
+
+		for i, result := range failedResults {
+			sb.WriteString(fmt.Sprintf("%d. %s\n", i+1, result.TestName))
+			sb.WriteString(fmt.Sprintf("   📋 Descripción: %s\n", result.Description))
+			sb.WriteString(fmt.Sprintf("   ⚠️  Severidad: %s\n", result.Severity))
+			if len(result.Evidence) > 0 {
+				sb.WriteString(fmt.Sprintf("   🔍 Evidencia: %s\n", result.Evidence[0].Payload))
+			}
+			if len(result.Details) > 0 {
+				sb.WriteString(fmt.Sprintf("   📝 Detalles: %s\n", strings.Join(result.Details, ", ")))
+			}
+			sb.WriteString("\n")
+		}
+	}
+
+	// Mostrar tests pasados
+	if len(passedResults) > 0 {
+		sb.WriteString(successStyle.Render("✅ TESTS PASADOS"))
+		sb.WriteString("\n")
+		sb.WriteString(strings.Repeat("=", 50))
+		sb.WriteString("\n\n")
+
+		for i, result := range passedResults {
+			sb.WriteString(fmt.Sprintf("%d. %s\n", i+1, result.TestName))
+			sb.WriteString(fmt.Sprintf("   📋 Descripción: %s\n", result.Description))
+			sb.WriteString(fmt.Sprintf("   ✅ Estado: %s\n", result.Status))
+			sb.WriteString("\n")
+		}
+	}
+
+	// Información adicional
+	sb.WriteString(strings.Repeat("=", 50))
+	sb.WriteString("\n")
+	sb.WriteString(successStyle.Render("📊 RESUMEN DE SEGURIDAD"))
+	sb.WriteString("\n\n")
+
+	if len(failedResults) > 0 {
+		sb.WriteString("🚨 CRÍTICO: Se encontraron vulnerabilidades que deben ser resueltas.\n")
+	} else {
+		sb.WriteString("✅ EXCELENTE: No se encontraron vulnerabilidades críticas.\n")
+	}
+
+	sb.WriteString(fmt.Sprintf("\n📄 Reporte completo guardado en: reports/\n"))
+	sb.WriteString(fmt.Sprintf("📈 Puntuación de seguridad: %.1f/10\n", m.scanResult.SecurityScore.Value))
+
+	return sb.String()
+}
+
+// renderFooter renderiza el footer con ayuda contextual
 func (m Model) renderFooter() string {
 	var help strings.Builder
 
-	help.WriteString("🎮 CONTROLES: ")
-
 	switch m.state {
-	case StateProtocol:
-		help.WriteString("↑↓ Navegar | Space Seleccionar | Enter Continuar | Q Salir")
 	case StateURL:
-		help.WriteString("Escribir URL | Enter Continuar | Esc Volver | Q Salir")
+		help.WriteString("🎮 Tab: Cambiar protocolo | Enter: Continuar | Esc: Salir")
+	case StateProfile:
+		help.WriteString("🎮 ↑↓: Navegar perfiles | Enter: Seleccionar | Esc: Volver")
 	case StateTests:
-		help.WriteString("↑↓ Navegar | PgUp/PgDn Página | Space Seleccionar | A Todos | N Ninguno | R Recomendados | V Verbose | X Avanzados | Enter Continuar")
+		help.WriteString("🎮 ↑↓: Navegar | Space: Seleccionar/Deseleccionar | a: Todos | n: Ninguno | Enter: Continuar | Esc: Volver")
 	case StateFormat:
-		help.WriteString("↑↓ Navegar | Space Seleccionar | V Verbose | Enter Continuar")
+		help.WriteString("🎮 ↑↓: Navegar formatos | Enter: Continuar | Esc: Volver")
 	case StateConfirm:
-		help.WriteString("↑↓ Navegar | Space Seleccionar | Enter Confirmar | Esc Volver")
+		help.WriteString("🎮 Enter: Iniciar escaneo | Esc: Volver")
 	case StateScanning:
-		help.WriteString("Q Cancelar escaneo")
-	case StateFinishing:
-		help.WriteString("Generando reporte... Por favor espere")
+		help.WriteString("🎮 q: Cancelar escaneo | Ctrl+C: Salir forzado")
 	case StateResults:
-		help.WriteString("↑↓ Scroll | PgUp/PgDn Página | D Detalles | R Repetir | S Guardar | Backspace Nuevo | Q Salir")
+		help.WriteString("🎮 ↑↓: Scroll línea | PgUp/PgDn: Scroll página | Home/End: Inicio/Final | Enter: Nuevo escaneo | Esc: Salir")
+	default:
+		help.WriteString("🎮 Navegación con ↑↓ | Enter: Seleccionar | Esc: Volver/Salir")
 	}
 
-	if m.verbose {
-		help.WriteString(" | 🔍 VERBOSE ACTIVO")
-	}
-
-	footerStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#888888")).
-		Background(lipgloss.Color("#1a1a1a")).
-		Padding(0, 1)
-
-	return footerStyle.Render(help.String())
+	return normalStyle.Render(help.String())
 }
 
-// renderModal renderiza un modal sobre el contenido principal
+// renderModal renderiza un modal centrado
 func (m Model) renderModal(content string) string {
-	// Crear el contenido del modal
-	modalWidth := min(m.width-10, 100)
-	modalHeight := min(m.height-10, 30)
+	modal := modalStyle.Render(content)
 
-	// Procesar el contenido para que quepa en el modal
-	lines := strings.Split(m.modalContent, "\n")
-	modalLines := []string{}
-
+	// Centrar el modal
+	lines := strings.Split(modal, "\n")
+	modalHeight := len(lines)
+	modalWidth := 0
 	for _, line := range lines {
-		if len(line) <= modalWidth-4 {
-			modalLines = append(modalLines, line)
-		} else {
-			// Partir líneas largas
-			for len(line) > modalWidth-4 {
-				modalLines = append(modalLines, line[:modalWidth-4])
-				line = line[modalWidth-4:]
-			}
-			if len(line) > 0 {
-				modalLines = append(modalLines, line)
-			}
-		}
-
-		if len(modalLines) >= modalHeight-4 {
-			modalLines = append(modalLines, "... (contenido truncado)")
-			break
+		if len(line) > modalWidth {
+			modalWidth = len(line)
 		}
 	}
 
-	modalContent := strings.Join(modalLines, "\n")
-
-	// Crear el modal
-	modal := modalStyle.
-		Width(modalWidth).
-		Height(modalHeight).
-		Render(fmt.Sprintf("%s\n\n%s\n\n%s",
-			titleStyle.Render(m.modalTitle),
-			modalContent,
-			normalStyle.Render("Presione ESC o Q para cerrar")))
-
-	// Posicionar el modal en el centro
-	_ = (m.width - modalWidth) / 2   // modalX no se usa
-	_ = (m.height - modalHeight) / 2 // modalY no se usa
-
-	// Crear el overlay
-	overlay := lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, modal)
-
-	return overlay
-}
-
-// min retorna el menor de dos enteros
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-// renderTestsInColumns renderiza los tests en formato de columnas compactas con scroll
-func (m Model) renderTestsInColumns() string {
-	var sb strings.Builder
-
-	// Asegurar que el modelo tenga scroll configurado
-	model := m.adjustScrollPosition()
-
-	// Configuración de visualización
-	testsToShow := model.testsPerPage
-	if testsToShow == 0 {
-		testsToShow = max(5, model.height-25) // Fallback
+	// Calcular posición centrada con valores mínimos de 0
+	topPadding := (m.height - modalHeight) / 2
+	if topPadding < 0 {
+		topPadding = 0
 	}
 
-	// Determinar qué tests mostrar basado en el scroll
-	startIndex := model.scrollOffset
-	endIndex := min(len(model.tests), startIndex+testsToShow)
-
-	// Mostrar indicador de scroll si es necesario
-	if model.showScrollbar && len(model.tests) > testsToShow {
-		totalTests := len(model.tests)
-		currentPos := startIndex + 1
-		endPos := min(totalTests, startIndex+testsToShow)
-
-		sb.WriteString(fmt.Sprintf("📄 Mostrando tests %d-%d de %d total",
-			currentPos, endPos, totalTests))
-
-		// Barra de scroll visual
-		scrollBarWidth := 20
-		scrollProgress := float64(startIndex) / float64(totalTests-testsToShow)
-		scrollPos := int(scrollProgress * float64(scrollBarWidth))
-
-		scrollBar := strings.Repeat("─", scrollPos) + "█" + strings.Repeat("─", scrollBarWidth-scrollPos)
-		sb.WriteString(fmt.Sprintf(" [%s]\n", scrollBar))
-		sb.WriteString("\n")
+	leftPadding := (m.width - modalWidth) / 2
+	if leftPadding < 0 {
+		leftPadding = 0
 	}
 
-	// Configuración de columnas
-	columnsCount := 2       // Reducir a 2 columnas para más espacio
-	maxTestNameLength := 35 // Aumentar longitud del nombre
+	var result strings.Builder
 
-	// Crear una lista simple de tests a mostrar
-	visibleTests := model.tests[startIndex:endIndex]
-
-	// Renderizar en columnas simples
-	for i := 0; i < len(visibleTests); i += columnsCount {
-		for col := 0; col < columnsCount; col++ {
-			if i+col >= len(visibleTests) {
-				break
-			}
-
-			test := visibleTests[i+col]
-			globalIndex := startIndex + i + col // Índice real en la lista completa
-
-			// Crear el contenido del test
-			marker := "☐"
-			if test.Selected {
-				marker = "☑"
-			}
-
-			recommended := ""
-			if test.Recommended {
-				recommended = " ⭐"
-			}
-
-			// Truncar nombre si es muy largo
-			testName := test.Name
-			if len(testName) > maxTestNameLength {
-				testName = testName[:maxTestNameLength-3] + "..."
-			}
-
-			// Determinar estilo
-			style := normalStyle
-			prefix := " "
-			if globalIndex == model.cursor {
-				style = focusedStyle
-				prefix = "→"
-			}
-
-			// Crear la línea del test con padding fijo
-			testLine := fmt.Sprintf("%s%s %s%s", prefix, marker, testName, recommended)
-			paddedLine := fmt.Sprintf("%-50s", testLine) // Padding fijo de 50 caracteres
-
-			sb.WriteString(style.Render(paddedLine))
-
-			// Agregar separador entre columnas (excepto en la última)
-			if col < columnsCount-1 && i+col+1 < len(visibleTests) {
-				sb.WriteString(" | ")
-			}
-		}
-		sb.WriteString("\n")
+	// Añadir padding superior
+	for i := 0; i < topPadding; i++ {
+		result.WriteString("\n")
 	}
 
-	// Mostrar descripción del test enfocado
-	if model.cursor >= 0 && model.cursor < len(model.tests) {
-		focusedTest := model.tests[model.cursor]
-		sb.WriteString("\n")
-		sb.WriteString(warningStyle.Render("─────────────────────────────────────────────────────────────────────"))
-		sb.WriteString("\n")
-		sb.WriteString(warningStyle.Render(fmt.Sprintf("📋 %s", focusedTest.Description)))
-		sb.WriteString("\n")
-		sb.WriteString(warningStyle.Render(fmt.Sprintf("🏷️ Categoría: %s (%s)", focusedTest.Category, getCategoryDescription(focusedTest.Category))))
-		sb.WriteString("\n")
-		sb.WriteString(warningStyle.Render("─────────────────────────────────────────────────────────────────────"))
-		sb.WriteString("\n")
+	// Añadir contenido con padding izquierdo
+	for _, line := range lines {
+		result.WriteString(strings.Repeat(" ", leftPadding))
+		result.WriteString(line)
+		result.WriteString("\n")
 	}
 
-	// Mostrar controles de scroll si es necesario
-	if model.showScrollbar {
-		sb.WriteString("\n💡 NAVEGACIÓN: [↑↓] Test anterior/siguiente | [PgUp/PgDn] Página anterior/siguiente | [Home/End] Inicio/Final\n")
-	}
-
-	return sb.String()
+	return result.String()
 }
