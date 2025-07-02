@@ -4,8 +4,8 @@
 *.dll
 *.so
 *.dylib
-versaSecurityTest
-versaSecurityTest.exe
+./versaSecurityTest
+./versaSecurityTest.exe
 
 # Archivos de test
 *.test
