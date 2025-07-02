@@ -332,6 +332,18 @@ func (m Model) renderScanningStep() string {
 		filledWidth := int(percent / 100 * float64(progressBarWidth))
 		emptyWidth := progressBarWidth - filledWidth
 
+		// Asegurar que los valores no sean negativos
+		if filledWidth < 0 {
+			filledWidth = 0
+		}
+		if emptyWidth < 0 {
+			emptyWidth = 0
+		}
+		if filledWidth > progressBarWidth {
+			filledWidth = progressBarWidth
+			emptyWidth = 0
+		}
+
 		progressBar := strings.Repeat("█", filledWidth) + strings.Repeat("░", emptyWidth)
 		sb.WriteString(fmt.Sprintf("[%s] %.1f%%\n", progressBar, percent))
 		sb.WriteString("\n")
@@ -469,6 +481,15 @@ func (m Model) renderResultsStep() string {
 		progressBar := "["
 		barWidth := 20
 		filled := int(progressPercent / 100 * float64(barWidth))
+
+		// Asegurar que filled esté en el rango válido
+		if filled < 0 {
+			filled = 0
+		}
+		if filled > barWidth {
+			filled = barWidth
+		}
+
 		for i := 0; i < barWidth; i++ {
 			if i < filled {
 				progressBar += "█"
@@ -480,7 +501,7 @@ func (m Model) renderResultsStep() string {
 
 		scrollContent += fmt.Sprintf("\n\n📜 SCROLL: %s %.1f%% | Líneas %d-%d de %d",
 			progressBar, progressPercent, startLine+1, endLine, totalLines)
-		scrollContent += fmt.Sprintf("\n🎮 ↑↓ Línea | PgUp/PgDn Página | Home/End Inicio/Final")
+		scrollContent += fmt.Sprintf("\n🎮 ↑↓ Línea | PgUp/PgDn Página | Home/End Inicio/Final | Enter: Nuevo escaneo | s: Guardar | Esc: Salir")
 	}
 
 	sb.WriteString(scrollContent)
@@ -623,7 +644,12 @@ func (m Model) renderModal(content string) string {
 
 	// Añadir contenido con padding izquierdo
 	for _, line := range lines {
-		result.WriteString(strings.Repeat(" ", leftPadding))
+		// Doble verificación para evitar valores negativos
+		safePadding := leftPadding
+		if safePadding < 0 {
+			safePadding = 0
+		}
+		result.WriteString(strings.Repeat(" ", safePadding))
 		result.WriteString(line)
 		result.WriteString("\n")
 	}

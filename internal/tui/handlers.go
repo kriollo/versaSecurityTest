@@ -368,37 +368,16 @@ func (m Model) handleResultsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.scrollOffset = 0
 	case "end":
 		m.scrollOffset = maxScroll
-	case "r":
-		// Reiniciar escaneo
+	case "r", "enter":
+		// Reiniciar escaneo (tanto con 'r' como con 'Enter')
 		m.state = StateScanning
 		m.scanning = true
 		m.scanProgress.StartTime = time.Now() // Reinicializar tiempo de inicio
 		return m, m.startScan()               // Usar función centralizada
-	case "d", "enter":
-		// Mostrar detalles en modal
-		m.showModal = true
-		m.modalTitle = "📊 Detalles Completos del Escaneo"
-		if m.scanResult != nil {
-			m.modalContent = fmt.Sprintf("URL: %s\nTests ejecutados: %d\nTests pasados: %d\nTests fallidos: %d\nPuntuación: %.1f/10 (%s)",
-				m.scanResult.URL, m.scanResult.TestsExecuted, m.scanResult.TestsPassed,
-				m.scanResult.TestsFailed, m.scanResult.SecurityScore.Value, m.scanResult.SecurityScore.Risk)
-		} else {
-			m.modalContent = "No hay resultados disponibles"
-		}
-		return m, nil
 	case "s":
-		// Guardar resultado
+		// Guardar resultado silenciosamente sin modal
 		if m.scanResult != nil {
-			err := m.saveReport()
-			if err != nil {
-				m.showModal = true
-				m.modalTitle = "❌ Error al Guardar"
-				m.modalContent = fmt.Sprintf("Error guardando reporte:\n\n%s", err.Error())
-			} else {
-				m.showModal = true
-				m.modalTitle = "✅ Reporte Guardado"
-				m.modalContent = "El reporte se ha guardado exitosamente en el directorio actual."
-			}
+			_ = m.saveReport() // Guardar sin mostrar modal
 		}
 		return m, nil
 	case "q", "esc":
@@ -410,9 +389,6 @@ func (m Model) handleResultsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.scrollOffset = 0 // Resetear scroll
 		m.scanResult = nil
 		m.scanning = false
-		m.showModal = false
-		m.modalContent = ""
-		m.modalTitle = ""
 
 		// Limpiar completamente el progreso del escaneo anterior
 		m.scanProgress = ScanProgress{}
@@ -445,17 +421,6 @@ func (m Model) handleResultsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, nil
-	}
-	return m, nil
-}
-
-// handleModalKeys maneja las teclas cuando hay un modal abierto
-func (m Model) handleModalKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "esc", "q", "enter":
-		m.showModal = false
-		m.modalContent = ""
-		m.modalTitle = ""
 	}
 	return m, nil
 }

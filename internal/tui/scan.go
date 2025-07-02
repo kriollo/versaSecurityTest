@@ -114,10 +114,7 @@ func (m Model) handleScanComplete(msg ScanCompleteMsg) (Model, tea.Cmd) {
 
 	if msg.Error != nil {
 		m.err = msg.Error
-		// Podríamos mostrar un modal de error
-		m.showModal = true
-		m.modalTitle = "Error en el Escaneo"
-		m.modalContent = fmt.Sprintf("Se produjo un error durante el escaneo:\n\n%s", msg.Error.Error())
+		// Error durante el escaneo - continuar sin modal
 		return m, nil
 	}
 
@@ -134,15 +131,10 @@ func (m Model) handleScanComplete(msg ScanCompleteMsg) (Model, tea.Cmd) {
 	if cfg.AutoSave {
 		err := m.autoSaveReport()
 		if err != nil {
-			// Mostrar advertencia pero no bloquear
-			m.showModal = true
-			m.modalTitle = "⚠️ Auto-guardado"
-			m.modalContent = fmt.Sprintf("El escaneo se completó exitosamente, pero hubo un problema con el auto-guardado:\n\n%s\n\nPuede guardar manualmente presionando 's'.", err.Error())
+			// Auto-guardado falló silenciosamente
+			// El usuario puede guardar manualmente presionando 's'
 		} else {
-			// Notificar que se guardó automáticamente
-			m.showModal = true
-			m.modalTitle = "✅ Escaneo Completado"
-			m.modalContent = "El escaneo se completó exitosamente y el reporte se guardó automáticamente en el directorio 'reports'.\n\nPresione Enter para continuar o 's' para guardar en otro formato."
+			// Se guardó automáticamente sin notificación
 		}
 	}
 

@@ -110,11 +110,6 @@ type Model struct {
 	testsPerPage  int  // Número de tests por página
 	showScrollbar bool // Mostrar indicador de scroll
 
-	// Modal
-	showModal    bool
-	modalContent string
-	modalTitle   string
-
 	// Error
 	err error
 }
@@ -143,11 +138,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
-		// Si hay un modal abierto, manejarlo primero
-		if m.showModal {
-			return m.handleModalKeys(msg)
-		}
-
 		// Teclas globales
 		switch msg.String() {
 		case "ctrl+c":
@@ -218,11 +208,6 @@ func (m Model) View() string {
 	// Footer
 	s.WriteString("\n\n")
 	s.WriteString(m.renderFooter())
-
-	// Modal si está activo
-	if m.showModal {
-		return m.renderModal(s.String())
-	}
 
 	return s.String()
 }
