@@ -2,7 +2,7 @@
 
 **VersaSecurityTest** es un scanner de seguridad web automático desarrollado en Go, diseñado para identificar vulnerabilidades comunes en aplicaciones web de manera rápida y eficiente.
 
-![VersaSecurityTest Banner](https://img.shields.io/badge/VersaSecurityTest-v1.1.0-blue.svg)
+![VersaSecurityTest Banner](https://img.shields.io/badge/VersaSecurityTest-v1.2.0-blue.svg)
 ![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)
@@ -28,8 +28,13 @@
 - **HTML**: Reporte profesional con diseño responsivo
 
 ### 🎮 Modos de Funcionamiento
+- **TUI Mode**: Interfaz de terminal moderna e interactiva (modo por defecto)
 - **CLI Mode**: Interfaz de línea de comandos directa
-- **TUI Mode**: Interfaz de terminal moderna e interactiva
+
+### 📈 Perfiles de Escaneo
+- **Básico**: Escaneo rápido con tests fundamentales (5s timeout, 3 concurrent)
+- **Estándar**: Escaneo balanceado con tests principales (30s timeout, 5 concurrent)
+- **Avanzado**: Escaneo completo con todos los tests (60s timeout, 10 concurrent)
 
 ### ⚙️ Configuración Flexible
 - Archivo de configuración JSON personalizable
@@ -59,32 +64,34 @@ go build -o versaSecurityTest          # Linux/macOS
 
 ### Usar binarios precompilados
 El proyecto incluye binarios precompilados en la carpeta `releases/`:
-- Windows: `versaSecurityTest-v1.1.0-windows-amd64.exe`
-- Linux: `versaSecurityTest-v1.1.0-linux-amd64`
-- macOS Intel: `versaSecurityTest-v1.1.0-darwin-amd64`
-- macOS ARM: `versaSecurityTest-v1.1.0-darwin-arm64`
+- Windows: `versaSecurityTest-v1.2.0-windows-amd64.exe`
+- Linux: `versaSecurityTest-v1.2.0-linux-amd64`
+- macOS Intel: `versaSecurityTest-v1.2.0-darwin-amd64`
+- macOS ARM: `versaSecurityTest-v1.2.0-darwin-arm64`
 
 ## 🎮 Modos de Uso
 
-### 1. 🎨 Modo TUI (Terminal User Interface)
+### 1. 🎨 Modo TUI (Terminal User Interface) - POR DEFECTO
 
 Interfaz moderna e interactiva con navegación visual:
 
 ```bash
-# Windows
-.\versaSecurityTest.exe -tui
+# Windows - Modo por defecto (sin parámetros)
+.\versaSecurityTest.exe
 
-# Linux/macOS
-./versaSecurityTest -tui
+# Linux/macOS - Modo por defecto (sin parámetros)
+./versaSecurityTest
 ```
 
 **Características del Modo TUI:**
 - Selección visual de protocolo (HTTP/HTTPS)
 - Ingreso de URL con validación
+- **Selección de perfil de escaneo** (Básico/Estándar/Avanzado)
 - Selección múltiple de tests de seguridad
 - Configuración de formato de salida
 - Progreso en tiempo real durante el escaneo
-- Vista de resultados interactiva
+- Vista de resultados interactiva con scroll
+- Guardado silencioso de reportes (sin diálogos modales)
 
 **Controles TUI:**
 - `↑↓←→`: Navegación entre opciones
@@ -92,25 +99,27 @@ Interfaz moderna e interactiva con navegación visual:
 - `Enter`: Continuar/Confirmar
 - `A`: Seleccionar todos los tests
 - `N`: Deseleccionar todos los tests
+- `R`: Seleccionar solo tests recomendados
 - `V`: Activar/Desactivar modo verbose
-- `S`: Saltar test actual (durante escaneo)
+- `S`: Guardar reporte (en pantalla de resultados)
+- `Backspace`: Volver al inicio (reinicio completo)
 - `Q/Ctrl+C`: Salir de la aplicación
 
 ### 2. ⚡ Modo CLI Directo
 
-Ejecución directa con parámetros (requiere URL):
+Ejecución directa con parámetros (requiere -url o -cli):
 
 ```bash
-# Escaneo básico
+# Escaneo básico con CLI
 .\versaSecurityTest.exe -url https://ejemplo.com
 
-# Con configuración personalizada
-.\versaSecurityTest.exe -url https://ejemplo.com -format table -verbose
+# Forzar modo CLI explícitamente
+.\versaSecurityTest.exe -cli -url https://ejemplo.com -format table -verbose
 ```
 
-### 3. 🔄 Modo por Defecto
+### 3. 🔄 Modo por Defecto (TUI)
 
-Sin parámetros (muestra ayuda):
+Sin parámetros (inicia TUI):
 
 ```bash
 .\versaSecurityTest.exe
@@ -122,8 +131,8 @@ Sin parámetros (muestra ayuda):
 Usage of versaSecurityTest:
   -url string
         URL objetivo para escanear (requerido para modo CLI)
-  -tui
-        Activar modo Terminal User Interface
+  -cli
+        Forzar modo CLI (línea de comandos)
   -output string
         Archivo de salida para el reporte (opcional)
   -config string
@@ -133,21 +142,23 @@ Usage of versaSecurityTest:
   -format string
         Formato de salida (json, table, html) (default "json")
   -concurrent int
-        Número de requests concurrentes (default 10)
+        Número de requests concurrentes (default 5)
   -timeout duration
         Timeout por request (default 30s)
+  -profile string
+        Perfil de escaneo (basic, standard, advanced) (default "standard")
 ```
 
 ## 💡 Ejemplos de Uso
 
 ```bash
-# Modo TUI (recomendado)
-.\versaSecurityTest.exe -tui
+# Modo TUI (por defecto - recomendado)
+.\versaSecurityTest.exe
 
-# Escaneo básico con salida JSON
+# Escaneo básico CLI con salida JSON
 .\versaSecurityTest.exe -url https://httpbin.org/get
 
-# Escaneo con formato de tabla
+# Escaneo CLI con formato de tabla
 .\versaSecurityTest.exe -url https://ejemplo.com -format table
 
 # Generar reporte HTML
@@ -155,6 +166,9 @@ Usage of versaSecurityTest:
 
 # Modo verbose con configuración personalizada
 .\versaSecurityTest.exe -url https://ejemplo.com -verbose -concurrent 5 -timeout 45s
+
+# Usando perfil de escaneo específico
+.\versaSecurityTest.exe -url https://ejemplo.com -profile advanced
 
 # Usando archivo de configuración personalizado
 .\versaSecurityTest.exe -url https://ejemplo.com -config mi-config.json
@@ -168,7 +182,7 @@ Usage of versaSecurityTest:
 {
   "concurrent": 5,
   "timeout": 30000000000,
-  "user_agent": "VersaSecurityTest/1.1 (Security Scanner)",
+  "user_agent": "VersaSecurityTest/1.2 (Security Scanner)",
   "headers": {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.5",
@@ -185,7 +199,61 @@ Usage of versaSecurityTest:
     "file_upload": false,
     "http_headers": true,
     "ssl": false,
-    "information_disclosure": true
+    "information_disclosure": true,
+    "use_advanced_tests": false
+  },
+  "scan_profiles": {
+    "basic": {
+      "timeout": 5000000000,
+      "concurrent": 3,
+      "enabled_tests": {
+        "basic": true,
+        "sql_injection": false,
+        "xss": false,
+        "brute_force": false,
+        "csrf": false,
+        "directory_traversal": false,
+        "file_upload": false,
+        "http_headers": true,
+        "ssl": false,
+        "information_disclosure": false,
+        "use_advanced_tests": false
+      }
+    },
+    "standard": {
+      "timeout": 30000000000,
+      "concurrent": 5,
+      "enabled_tests": {
+        "basic": true,
+        "sql_injection": true,
+        "xss": true,
+        "brute_force": false,
+        "csrf": false,
+        "directory_traversal": false,
+        "file_upload": false,
+        "http_headers": true,
+        "ssl": false,
+        "information_disclosure": true,
+        "use_advanced_tests": false
+      }
+    },
+    "advanced": {
+      "timeout": 60000000000,
+      "concurrent": 10,
+      "enabled_tests": {
+        "basic": true,
+        "sql_injection": true,
+        "xss": true,
+        "brute_force": true,
+        "csrf": true,
+        "directory_traversal": true,
+        "file_upload": true,
+        "http_headers": true,
+        "ssl": true,
+        "information_disclosure": true,
+        "use_advanced_tests": true
+      }
+    }
   },
   "verbose": false
 }
@@ -193,18 +261,26 @@ Usage of versaSecurityTest:
 
 ### Configuración de Tests
 
-| Test | Descripción | Estado por Defecto |
-|------|-------------|-------------------|
-| `basic` | Conectividad y respuesta básica | ✅ Habilitado |
-| `sql_injection` | Detecta vulnerabilidades de inyección SQL | ✅ Habilitado |
-| `xss` | Identifica vectores de ataque XSS | ✅ Habilitado |
-| `http_headers` | Verifica headers de seguridad | ✅ Habilitado |
-| `information_disclosure` | Divulgación de información | ✅ Habilitado |
-| `brute_force` | Tests de fuerza bruta | ❌ Deshabilitado |
-| `csrf` | Vulnerabilidades CSRF | ❌ Deshabilitado |
-| `directory_traversal` | Path traversal | ❌ Deshabilitado |
-| `file_upload` | Validación de subida de archivos | ❌ Deshabilitado |
-| `ssl` | Configuración SSL/TLS | ❌ Deshabilitado |
+| Test | Descripción | Básico | Estándar | Avanzado |
+|------|-------------|---------|----------|----------|
+| `basic` | Conectividad y respuesta básica | ✅ | ✅ | ✅ |
+| `http_headers` | Verifica headers de seguridad | ✅ | ✅ | ✅ |
+| `sql_injection` | Detecta vulnerabilidades de inyección SQL | ❌ | ✅ | ✅ |
+| `xss` | Identifica vectores de ataque XSS | ❌ | ✅ | ✅ |
+| `information_disclosure` | Divulgación de información | ❌ | ✅ | ✅ |
+| `brute_force` | Tests de fuerza bruta | ❌ | ❌ | ✅ |
+| `csrf` | Vulnerabilidades CSRF | ❌ | ❌ | ✅ |
+| `directory_traversal` | Path traversal | ❌ | ❌ | ✅ |
+| `file_upload` | Validación de subida de archivos | ❌ | ❌ | ✅ |
+| `ssl` | Configuración SSL/TLS | ❌ | ❌ | ✅ |
+
+### Perfiles de Escaneo
+
+| Perfil | Timeout | Concurrencia | Tests Habilitados | Descripción |
+|--------|---------|--------------|-------------------|-------------|
+| **Básico** | 5s | 3 | 2 tests | Escaneo rápido y básico |
+| **Estándar** | 30s | 5 | 5 tests | Balance entre velocidad y cobertura |
+| **Avanzado** | 60s | 10 | 10 tests | Escaneo completo y exhaustivo |
 
 ## 📊 Interpretación de Resultados
 
@@ -413,20 +489,23 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
 ## 🎯 Roadmap
 
-### ✅ Versión 1.1.0 (Actual)
-- [x] **Interfaz TUI moderna** con navegación interactiva
-- [x] **Múltiples modos de funcionamiento** (CLI, TUI)
-- [x] **Tests de seguridad centralizados** con lógica unificada
-- [x] **Generación de reportes** en múltiples formatos
-- [x] **Funcionalidad de skip** durante ejecución de tests
-- [x] **Cálculo correcto de security score**
+### ✅ Versión 1.2.0 (Actual)
+- [x] **Unificación completa CLI/TUI** con lógica centralizada de escaneado
+- [x] **Perfiles de escaneo** (Básico, Estándar, Avanzado) con configuración automática
+- [x] **TUI como modo por defecto** con interfaz mejorada
+- [x] **Pantalla de selección de perfiles** en el flujo TUI
+- [x] **Scroll mejorado y navegación** en pantalla de resultados
+- [x] **Eliminación de diálogos modales** para interfaz más limpia
+- [x] **Timeout y cancelación unificados** entre CLI y TUI
+- [x] **Corrección de panics de renderizado** y estabilidad general
+- [x] **Guardado silencioso de reportes** sin confirmaciones modales
 
-### Versión 1.2.0 (Planificada)
+### Versión 1.3.0 (Planificada)
 - [ ] Tests avanzados de SQL Injection con múltiples payloads
 - [ ] Detección mejorada de vulnerabilidades CSRF
 - [ ] Scanner de headers de seguridad más completo
 - [ ] Tests de SSL/TLS más detallados
-- [ ] Mejoras en la interfaz TUI
+- [ ] Sistema de configuración por URL/dominio
 
 ### Versión 2.0.0 (Futuro)
 - [ ] Interfaz web opcional
@@ -445,9 +524,9 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
 <div align="center">
 
-**🔐 VersaSecurityTest v1.1.0 - Scanner de Seguridad Web Unificado**
+**🔐 VersaSecurityTest v1.2.0 - Scanner de Seguridad Web Unificado**
 
-**✨ Versión 1.1**: CLI y TUI unificados, lógica centralizada, reportes precisos
+**✨ Versión 1.2**: Perfiles de escaneo, TUI por defecto, lógica unificada CLI/TUI, interfaz sin modales
 
 [⭐ Dale una estrella si te gusta el proyecto](https://github.com/kriollo/versaSecurityTest)
 
