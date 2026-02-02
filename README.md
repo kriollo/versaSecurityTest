@@ -2,7 +2,7 @@
 
 **VersaSecurityTest** es un scanner de seguridad web automático desarrollado en Go, diseñado para identificar vulnerabilidades comunes en aplicaciones web de manera rápida y eficiente.
 
-![VersaSecurityTest Banner](https://img.shields.io/badge/VersaSecurityTest-v1.2.0-blue.svg)
+![VersaSecurityTest Banner](https://img.shields.io/badge/VersaSecurityTest-v1.3.0-blue.svg)
 ![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)
@@ -11,32 +11,45 @@
 ## ✨ Características
 
 ### 🎯 Tests de Seguridad Implementados
-- **Conectividad Básica**: Verifica conectividad y respuesta del servidor objetivo
-- **SQL Injection**: Detecta vulnerabilidades de inyección SQL mediante análisis de respuestas
-- **Cross-Site Scripting (XSS)**: Identifica posibles vectores de ataque XSS
-- **Headers de Seguridad**: Verifica la presencia de headers críticos de seguridad
-- **Divulgación de Información**: Detecta exposición de información sensible del servidor
-- **SSL/TLS Security**: Evaluación básica de configuración SSL/TLS
-- **CSRF Protection**: Verificación de protecciones contra CSRF
-- **Brute Force**: Tests básicos de fuerza bruta
-- **File Upload**: Validación de controles de subida de archivos
-- **Directory Traversal**: Detección de vulnerabilidades de path traversal
+
+- **Conectividad Básica**: Verifica conectividad y respuesta del servidor objetivo.
+- **Recopilación de Información**: Identifica tecnologías y endpoints.
+- **Revisión de Configuración**: Analiza configuraciones de seguridad del servidor.
+- **Validación de Entradas**: Evalúa la sanitización de datos de entrada.
+- **Pruebas de Autenticación**: Verifica mecanismos de identidad y control de acceso.
+- **Gestión de Sesiones**: Analiza la seguridad de los tokens y cookies de sesión.
+- **Pruebas de Autorización**: Comprueba que los usuarios solo puedan acceder a los recursos permitidos.
+- **Inyección SQL**: Detecta vulnerabilidades de inyección SQL.
+- **Cross-Site Scripting (XSS)**: Identifica posibles vectores de ataque XSS.
+- **Headers de Seguridad**: Verifica la presencia de headers críticos de seguridad.
+- **Divulgación de Información Sensible**: Detecta exposición de datos sensibles.
+- **Seguridad SSL/TLS**: Evaluación de la configuración SSL/TLS.
+- **Protección CSRF**: Verificación de defensas contra Cross-Site Request Forgery.
+- **Fuerza Bruta**: Tests básicos de fuerza bruta sobre formularios de login.
+- **Subida de Archivos (File Upload)**: Valida controles en la subida de archivos.
+- **Directory Traversal**: Detección de vulnerabilidades de path traversal.
+- **Pruebas de API de Cliente**: Revisa la seguridad de las APIs expuestas al cliente.
+- **Pruebas Adicionales**: Incluye verificaciones de seguridad variadas.
 
 ### 📊 Formatos de Salida
+
 - **JSON**: Formato estructurado para integración con otras herramientas
 - **Tabla ASCII**: Visualización clara y organizada en terminal
 - **HTML**: Reporte profesional con diseño responsivo
 
 ### 🎮 Modos de Funcionamiento
+
 - **TUI Mode**: Interfaz de terminal moderna e interactiva (modo por defecto)
 - **CLI Mode**: Interfaz de línea de comandos directa
 
 ### 📈 Perfiles de Escaneo
+
 - **Básico**: Escaneo rápido con tests fundamentales (5s timeout, 3 concurrent)
 - **Estándar**: Escaneo balanceado con tests principales (30s timeout, 5 concurrent)
 - **Avanzado**: Escaneo completo con todos los tests (60s timeout, 10 concurrent)
 
 ### ⚙️ Configuración Flexible
+
 - Archivo de configuración JSON personalizable
 - Opciones de línea de comandos
 - Modo verbose para debugging detallado
@@ -45,6 +58,7 @@
 ## 🚀 Instalación
 
 ### Prerrequisitos
+
 - Go 1.21 o superior (para compilar desde código fuente)
 
 ### Compilación desde el código fuente
@@ -62,13 +76,6 @@ go build -o versaSecurityTest.exe      # Windows
 go build -o versaSecurityTest          # Linux/macOS
 ```
 
-### Usar binarios precompilados
-El proyecto incluye binarios precompilados en la carpeta `releases/`:
-- Windows: `versaSecurityTest-v1.2.0-windows-amd64.exe`
-- Linux: `versaSecurityTest-v1.2.0-linux-amd64`
-- macOS Intel: `versaSecurityTest-v1.2.0-darwin-amd64`
-- macOS ARM: `versaSecurityTest-v1.2.0-darwin-arm64`
-
 ## 🎮 Modos de Uso
 
 ### 1. 🎨 Modo TUI (Terminal User Interface) - POR DEFECTO
@@ -84,6 +91,7 @@ Interfaz moderna e interactiva con navegación visual:
 ```
 
 **Características del Modo TUI:**
+
 - Selección visual de protocolo (HTTP/HTTPS)
 - Ingreso de URL con validación
 - **Selección de perfil de escaneo** (Básico/Estándar/Avanzado)
@@ -94,6 +102,7 @@ Interfaz moderna e interactiva con navegación visual:
 - Guardado silencioso de reportes (sin diálogos modales)
 
 **Controles TUI:**
+
 - `↑↓←→`: Navegación entre opciones
 - `Space`: Seleccionar/Deseleccionar
 - `Enter`: Continuar/Confirmar
@@ -261,44 +270,45 @@ Usage of versaSecurityTest:
 
 ### Configuración de Tests
 
-| Test | Descripción | Básico | Estándar | Avanzado |
-|------|-------------|---------|----------|----------|
-| `basic` | Conectividad y respuesta básica | ✅ | ✅ | ✅ |
-| `http_headers` | Verifica headers de seguridad | ✅ | ✅ | ✅ |
-| `sql_injection` | Detecta vulnerabilidades de inyección SQL | ❌ | ✅ | ✅ |
-| `xss` | Identifica vectores de ataque XSS | ❌ | ✅ | ✅ |
-| `information_disclosure` | Divulgación de información | ❌ | ✅ | ✅ |
-| `brute_force` | Tests de fuerza bruta | ❌ | ❌ | ✅ |
-| `csrf` | Vulnerabilidades CSRF | ❌ | ❌ | ✅ |
-| `directory_traversal` | Path traversal | ❌ | ❌ | ✅ |
-| `file_upload` | Validación de subida de archivos | ❌ | ❌ | ✅ |
-| `ssl` | Configuración SSL/TLS | ❌ | ❌ | ✅ |
+| Test                     | Descripción                               | Básico | Estándar | Avanzado |
+| ------------------------ | ----------------------------------------- | ------ | -------- | -------- |
+| `basic`                  | Conectividad y respuesta básica           | ✅     | ✅       | ✅       |
+| `http_headers`           | Verifica headers de seguridad             | ✅     | ✅       | ✅       |
+| `sql_injection`          | Detecta vulnerabilidades de inyección SQL | ❌     | ✅       | ✅       |
+| `xss`                    | Identifica vectores de ataque XSS         | ❌     | ✅       | ✅       |
+| `information_disclosure` | Divulgación de información                | ❌     | ✅       | ✅       |
+| `brute_force`            | Tests de fuerza bruta                     | ❌     | ❌       | ✅       |
+| `csrf`                   | Vulnerabilidades CSRF                     | ❌     | ❌       | ✅       |
+| `directory_traversal`    | Path traversal                            | ❌     | ❌       | ✅       |
+| `file_upload`            | Validación de subida de archivos          | ❌     | ❌       | ✅       |
+| `ssl`                    | Configuración SSL/TLS                     | ❌     | ❌       | ✅       |
 
 ### Perfiles de Escaneo
 
-| Perfil | Timeout | Concurrencia | Tests Habilitados | Descripción |
-|--------|---------|--------------|-------------------|-------------|
-| **Básico** | 5s | 3 | 2 tests | Escaneo rápido y básico |
-| **Estándar** | 30s | 5 | 5 tests | Balance entre velocidad y cobertura |
-| **Avanzado** | 60s | 10 | 10 tests | Escaneo completo y exhaustivo |
+| Perfil       | Timeout | Concurrencia | Tests Habilitados | Descripción                         |
+| ------------ | ------- | ------------ | ----------------- | ----------------------------------- |
+| **Básico**   | 5s      | 3            | 2 tests           | Escaneo rápido y básico             |
+| **Estándar** | 30s     | 5            | 5 tests           | Balance entre velocidad y cobertura |
+| **Avanzado** | 60s     | 10           | 10 tests          | Escaneo completo y exhaustivo       |
 
 ## 📊 Interpretación de Resultados
 
 ### Puntuación de Seguridad
 
 El scanner asigna una puntuación de 0 a 10 basada en:
+
 - **Número de tests pasados vs fallidos**
 - **Severidad de las vulnerabilidades encontradas**
 - **Factores de penalización por tipo de problema**
 
 ### Niveles de Riesgo
 
-| Puntuación | Nivel de Riesgo | Descripción |
-|------------|-----------------|-------------|
-| 8.0 - 10.0 | 🟢 **Bajo** | Configuración de seguridad sólida |
-| 6.0 - 7.9 | 🟡 **Medio** | Algunos problemas que requieren atención |
-| 4.0 - 5.9 | 🟠 **Alto** | Vulnerabilidades significativas presentes |
-| 0.0 - 3.9 | 🔴 **Crítico** | Problemas graves de seguridad |
+| Puntuación | Nivel de Riesgo | Descripción                               |
+| ---------- | --------------- | ----------------------------------------- |
+| 8.0 - 10.0 | 🟢 **Bajo**     | Configuración de seguridad sólida         |
+| 6.0 - 7.9  | 🟡 **Medio**    | Algunos problemas que requieren atención  |
+| 4.0 - 5.9  | 🟠 **Alto**     | Vulnerabilidades significativas presentes |
+| 0.0 - 3.9  | 🔴 **Crítico**  | Problemas graves de seguridad             |
 
 ### Tipos de Evidencia
 
@@ -311,6 +321,7 @@ El scanner asigna una puntuación de 0 a 10 basada en:
 ## 📝 Ejemplo de Salida
 
 ### Formato JSON
+
 ```json
 {
   "url": "https://ejemplo.com",
@@ -347,6 +358,7 @@ El scanner asigna una puntuación de 0 a 10 basada en:
 ```
 
 ### Formato Tabla
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                    REPORTE DE SEGURIDAD WEB                     │
@@ -370,8 +382,6 @@ versaSecurityTest/
 ├── go.mod                          # Definición del módulo Go
 ├── go.sum                          # Checksums de dependencias
 ├── internal/
-│   ├── cli/
-│   │   └── types.go                # Tipos para CLI
 │   ├── config/
 │   │   └── config.go               # Manejo de configuración
 │   ├── scanner/
@@ -384,7 +394,7 @@ versaSecurityTest/
 │       ├── handlers.go             # Manejo de eventos TUI
 │       ├── render.go               # Renderizado de pantallas
 │       └── scan.go                 # Lógica de escaneo TUI
-└── releases/                       # Binarios precompilados
+└── releases/                       # Notas de lanzamiento y checksums
 ```
 
 ## ️ Desarrollo
@@ -427,6 +437,7 @@ go run main.go -url https://httpbin.org/get -verbose
 ### Reportar Bugs
 
 Usa las [GitHub Issues](https://github.com/kriollo/versaSecurityTest/issues) para reportar bugs, incluyendo:
+
 - Descripción detallada del problema
 - Pasos para reproducir
 - Salida esperada vs actual
@@ -437,6 +448,7 @@ Usa las [GitHub Issues](https://github.com/kriollo/versaSecurityTest/issues) par
 ### ⚖️ Uso Responsable
 
 **IMPORTANTE**: Este scanner está diseñado exclusivamente para:
+
 - ✅ Testing de seguridad en sistemas propios
 - ✅ Auditorías autorizadas con permiso explícito
 - ✅ Entornos de desarrollo y testing
@@ -445,6 +457,7 @@ Usa las [GitHub Issues](https://github.com/kriollo/versaSecurityTest/issues) par
 ### 🚫 Uso Prohibido
 
 **NUNCA uses esta herramienta para**:
+
 - ❌ Atacar sistemas sin autorización
 - ❌ Actividades ilegales o maliciosas
 - ❌ Violar términos de servicio
@@ -489,7 +502,8 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
 ## 🎯 Roadmap
 
-### ✅ Versión 1.2.0 (Actual)
+### ✅ Versión 1.3.0 (Actual)
+
 - [x] **Unificación completa CLI/TUI** con lógica centralizada de escaneado
 - [x] **Perfiles de escaneo** (Básico, Estándar, Avanzado) con configuración automática
 - [x] **TUI como modo por defecto** con interfaz mejorada
@@ -501,6 +515,7 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 - [x] **Guardado silencioso de reportes** sin confirmaciones modales
 
 ### Versión 1.3.0 (Planificada)
+
 - [ ] Tests avanzados de SQL Injection con múltiples payloads
 - [ ] Detección mejorada de vulnerabilidades CSRF
 - [ ] Scanner de headers de seguridad más completo
@@ -508,6 +523,7 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 - [ ] Sistema de configuración por URL/dominio
 
 ### Versión 2.0.0 (Futuro)
+
 - [ ] Interfaz web opcional
 - [ ] Base de datos de resultados históricos
 - [ ] API REST para integración
@@ -524,7 +540,7 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
 <div align="center">
 
-**🔐 VersaSecurityTest v1.2.0 - Scanner de Seguridad Web Unificado**
+**🔐 VersaSecurityTest v1.3.0 - Scanner de Seguridad Web Unificado**
 
 **✨ Versión 1.2**: Perfiles de escaneo, TUI por defecto, lógica unificada CLI/TUI, interfaz sin modales
 

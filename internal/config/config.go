@@ -60,6 +60,8 @@ type TestConfig struct {
 	BusinessLogic   bool `json:"business_logic"`   // BUSL: Lógica de negocio
 	ClientSide      bool `json:"client_side"`      // CLNT: Cliente
 	APISecurity     bool `json:"api_security"`     // APIT: APIs
+	SSRF            bool `json:"ssrf"`             // SSRF: Server-Side Request Forgery
+	OpenRedirect    bool `json:"open_redirect"`    // Open Redirect
 
 	// Configuración de agresividad
 	UseAdvancedTests bool `json:"use_advanced_tests"` // Usar tests agresivos y exhaustivos

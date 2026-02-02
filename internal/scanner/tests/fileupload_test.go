@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/versaSecurityTest/internal/config"
@@ -28,10 +29,17 @@ func (f *FileUploadTest) Run(targetURL string, client HTTPClient, payloads *conf
 		return result
 	}
 
-	body := string(resp.Body)
+	// Detectar formularios de upload
+	bodyBytes, err := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		result.Status = "Failed"
+		result.Description = "Error reading response body"
+		return result
+	}
+	body := string(bodyBytes)
 	bodyLower := strings.ToLower(body)
 
-	// Detectar formularios de upload
 	hasFileUpload := strings.Contains(bodyLower, "type=\"file\"") ||
 		strings.Contains(bodyLower, "enctype=\"multipart/form-data\"") ||
 		strings.Contains(bodyLower, "upload")
@@ -52,9 +60,13 @@ func (f *FileUploadTest) Run(targetURL string, client HTTPClient, payloads *conf
 	for _, endpoint := range uploadEndpoints {
 		uploadURL := targetURL + endpoint
 		resp, err := client.Get(uploadURL)
-		if err == nil && resp.Status == "200 OK" {
-			vulnerableEndpoints++
-			result.Details = append(result.Details, fmt.Sprintf("❌ Endpoint de upload accesible: %s", endpoint))
+		if err == nil {
+			statusOk := resp.StatusCode == 200
+			resp.Body.Close()
+			if statusOk {
+				vulnerableEndpoints++
+				result.Details = append(result.Details, fmt.Sprintf("❌ Endpoint de upload accesible: %s", endpoint))
+			}
 		}
 	}
 

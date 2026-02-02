@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/versaSecurityTest/internal/config"
@@ -10,45 +11,45 @@ import (
 	"github.com/versaSecurityTest/internal/scanner"
 )
 
-// startScan inicia el proceso de escaneo usando funciones unificadas
-func (m Model) startScan() tea.Cmd {
+// StartScan inicia el proceso de escaneo usando funciones unificadas
+func (m Model) StartScan() tea.Cmd {
 	return tea.Cmd(func() tea.Msg {
 		// Construir URL completa
 		protocol := "https://"
-		if !m.useHTTPS {
+		if !m.UseHTTPS {
 			protocol = "http://"
 		}
-		fullURL := protocol + m.url
+		fullURL := protocol + m.URL
 
-		// Crear mapa de tests habilitados
+		// Crear mapa de Tests habilitados
 		enabledTests := make(map[string]bool)
-		for _, test := range m.tests {
+		for _, test := range m.Tests {
 			enabledTests[test.ID] = test.Selected
 		}
 
 		// Cargar configuración desde archivo (como lo hace CLI)
-		cfg, err := config.LoadConfig("config.json")
-		if err != nil {
+		cfg, Err := config.LoadConfig("config.json")
+		if Err != nil {
 			cfg = config.DefaultConfig()
 		}
 
 		// ACTUALIZAR config.json con la selección del usuario antes del escaneo
 		// Esto asegura que ambos CLI y TUI usen la misma configuración
-		for _, test := range m.tests {
+		for _, test := range m.Tests {
 			cfg.SetTestEnabled(test.ID, test.Selected)
 		}
-		cfg.Tests.UseAdvancedTests = m.useAdvancedTests
-		cfg.Verbose = m.verbose
+		cfg.Tests.UseAdvancedTests = m.UseAdvancedTests
+		cfg.Verbose = m.Verbose
 
 		// Guardar la configuración actualizada en config.json
-		err = cfg.SaveConfig("config.json")
-		if err != nil {
+		Err = cfg.SaveConfig("config.json")
+		if Err != nil {
 			// Si no se puede guardar, continuar con advertencia
-			fmt.Printf("⚠️  Advertencia: No se pudo guardar configuración: %v\n", err)
+			fmt.Printf("⚠️  Advertencia: No se pudo guardar configuración: %v\n", Err)
 		}
 
 		// Crear canal de skip para TUI
-		skipChannel := make(chan bool, 1)
+		SkipChannel := make(chan bool, 1)
 
 		// Crear opciones de escaneo - AHORA SIN EnabledTests para que use config.json
 		scanOptions := scanner.ScanOptions{
@@ -59,14 +60,14 @@ func (m Model) startScan() tea.Cmd {
 			Timeout:          cfg.Timeout,
 			UseAdvancedTests: cfg.Tests.UseAdvancedTests,
 			EnabledTests:     nil, // Usar config.json (igual que CLI)
-			SkipChannel:      skipChannel,
+			SkipChannel:      SkipChannel,
 			ProgressCallback: m.createProgressCallback(), // Callback para progreso en tiempo real
 		}
 
 		// Almacenar canal en el mensaje para poder usarlo después
 		return ScanStartedMsg{
 			Options:     scanOptions,
-			SkipChannel: skipChannel,
+			SkipChannel: SkipChannel,
 		}
 	})
 }
@@ -74,7 +75,7 @@ func (m Model) startScan() tea.Cmd {
 // ScanCompleteMsg es el mensaje enviado cuando el escaneo se completa
 type ScanCompleteMsg struct {
 	Result *scanner.ScanResult
-	Error  error
+	error  error
 }
 
 // ScanStartedMsg es el mensaje enviado cuando el escaneo inicia
@@ -90,10 +91,20 @@ type ScanProgressMsg struct {
 	Total     int
 }
 
-// countSelectedTests cuenta cuántos tests están seleccionados
-func countSelectedTests(tests []TestItem) int {
+// TickMsg es el mensaje enviado para actualizar el timer cada segundo
+type TickMsg time.Time
+
+// doTick crea un comando que envía un TickMsg cada segundo
+func doTick() tea.Cmd {
+	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
+		return TickMsg(t)
+	})
+}
+
+// countSelectedTests cuenta cuántos Tests están seleccionados
+func countSelectedTests(Tests []TestItem) int {
 	count := 0
-	for _, test := range tests {
+	for _, test := range Tests {
 		if test.Selected {
 			count++
 		}
@@ -103,34 +114,34 @@ func countSelectedTests(tests []TestItem) int {
 
 // handleScanComplete maneja la finalización del escaneo
 func (m Model) handleScanComplete(msg ScanCompleteMsg) (Model, tea.Cmd) {
-	m.scanning = false
+	m.Scanning = false
 
 	// Limpiar context de cancelación
-	if m.scanCancel != nil {
-		m.scanCancel()
-		m.scanCancel = nil
-		m.scanContext = nil
+	if m.ScanCancel != nil {
+		m.ScanCancel()
+		m.ScanCancel = nil
+		m.ScanContext = nil
 	}
 
-	if msg.Error != nil {
-		m.err = msg.Error
-		// Error durante el escaneo - continuar sin modal
+	if msg.error != nil {
+		m.Err = msg.error
+		// error durante el escaneo - continuar sin modal
 		return m, nil
 	}
 
-	m.scanResult = msg.Result
-	m.state = StateResults
-	m.cursor = 0
+	m.ScanResult = msg.Result
+	m.State = StateResults
+	m.Cursor = 0
 
 	// Auto-guardar si está configurado
-	cfg, err := config.LoadConfig("config.json")
-	if err != nil {
+	cfg, Err := config.LoadConfig("config.json")
+	if Err != nil {
 		cfg = config.DefaultConfig()
 	}
 
 	if cfg.AutoSave {
-		err := m.autoSaveReport()
-		if err != nil {
+		Err := m.autoSaveReport()
+		if Err != nil {
 			// Auto-guardado falló silenciosamente
 			// El usuario puede guardar manualmente presionando 's'
 		} else {
@@ -141,15 +152,15 @@ func (m Model) handleScanComplete(msg ScanCompleteMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// saveReport guarda el reporte en el formato seleccionado
-func (m Model) saveReport() error {
-	if m.scanResult == nil {
+// SaveReport guarda el reporte en el formato seleccionado
+func (m *Model) SaveReport() error {
+	if m.ScanResult == nil {
 		return fmt.Errorf("no hay resultados para guardar")
 	}
 
 	// Determinar formato seleccionado
 	var format string = "table" // Por defecto tabla ASCII
-	for _, f := range m.formats {
+	for _, f := range m.Formats {
 		if f.Selected {
 			format = f.ID
 			break
@@ -162,51 +173,73 @@ func (m Model) saveReport() error {
 		UseReportsDir: true, // Siempre usar directorio reports/
 	}
 
-	savedFile, err := report.SaveReport(m.scanResult, options)
-	if err != nil {
-		return err
+	savedFile, Err := report.SaveReport(m.ScanResult, options)
+	if Err != nil {
+		return Err
 	}
 
-	// Informar al usuario donde se guardó
-	fmt.Printf("📄 Reporte guardado en: %s\n", savedFile)
+	// Informar al usuario donde se guardó actualizando el modelo
+	m.LastNotification = fmt.Sprintf("📄 Reporte guardado en: %s", savedFile)
+	m.NotificationTime = time.Now()
 	return nil
 }
 
-// autoSaveReport guarda automáticamente el reporte usando función unificada
-func (m Model) autoSaveReport() error {
-	if m.scanResult == nil {
+// autoSaveReport guarda automáticamente el reporte usando el formato seleccionado
+func (m *Model) autoSaveReport() error {
+	if m.ScanResult == nil {
 		return fmt.Errorf("no hay resultados para guardar")
 	}
 
-	// Usar función unificada para auto-guardado
-	savedFile, err := report.AutoSaveReport(m.scanResult)
-	if err != nil {
-		return fmt.Errorf("error guardando archivo automático: %w", err)
+	// Determinar formato seleccionado
+	var format string = "json" // Por defecto JSON para auto-guardado
+	for _, f := range m.Formats {
+		if f.Selected {
+			format = f.ID
+			break
+		}
 	}
 
-	fmt.Printf("💾 Auto-guardado: Reporte guardado en %s\n", savedFile)
+	// Usar función unificada para guardado con el formato seleccionado
+	options := report.ReportOptions{
+		Format:        format,
+		UseReportsDir: true,
+	}
+
+	savedFile, Err := report.SaveReport(m.ScanResult, options)
+	if Err != nil {
+		return fmt.Errorf("error guardando archivo automático: %w", Err)
+	}
+
+	// Notificar al modelo para que la TUI lo muestre
+	m.LastNotification = fmt.Sprintf("💾 Auto-guardado: Reporte guardado en %s", savedFile)
+	m.NotificationTime = time.Now()
 	return nil
 }
 
 // Actualizar el método Update principal para manejar mensajes de escaneo
-func (m Model) updateWithScanMessages(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m Model) UpdateWithScanMessages(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case ScanStartedMsg:
 		// Crear context con cancelación para el escaneo
 		ctx, cancel := context.WithCancel(context.Background())
-		m.scanContext = ctx
-		m.scanCancel = cancel
+		m.ScanContext = ctx
+		m.ScanCancel = cancel
 
 		// Guardar el canal de skip en el modelo
-		m.skipChannel = msg.SkipChannel
-		// Iniciar escaneo en background
-		return m, m.executeBackgroundScan(msg.Options)
+		m.SkipChannel = msg.SkipChannel
+		// Iniciar escaneo en background Y el timer
+		return m, tea.Batch(m.executeBackgroundScan(msg.Options), doTick())
 
 	case ScanCompleteMsg:
 		return m.handleScanComplete(msg)
 
 	case ScanProgressMsg:
 		return m.handleProgressUpdate(msg)
+
+	case TickMsg:
+		if m.Scanning {
+			return m, doTick()
+		}
 	}
 
 	return m, nil
@@ -229,28 +262,28 @@ func (m Model) executeBackgroundScan(options scanner.ScanOptions) tea.Cmd {
 				}
 			}()
 
-			scanResult, err := scanner.ExecuteScan(options)
-			if err != nil {
-				errorChan <- err
+			ScanResult, Err := scanner.ExecuteScan(options)
+			if Err != nil {
+				errorChan <- Err
 				return
 			}
-			resultChan <- scanResult
+			resultChan <- ScanResult
 		}()
 
 		// Esperar resultado - el scanner maneja timeout internamente
 		select {
-		case scanResult := <-resultChan:
+		case ScanResult := <-resultChan:
 			// Escaneo completado exitosamente
 			return ScanCompleteMsg{
-				Result: scanResult,
-				Error:  nil,
+				Result: ScanResult,
+				error:  nil,
 			}
 
-		case err := <-errorChan:
-			// Error durante el escaneo
+		case Err := <-errorChan:
+			// error durante el escaneo
 			return ScanCompleteMsg{
 				Result: nil,
-				Error:  err,
+				error:  Err,
 			}
 		}
 	})
@@ -281,8 +314,8 @@ func (m Model) createProgressCmd(testName string, completed, total int) tea.Cmd 
 // handleProgressUpdate maneja la actualización del progreso
 func (m Model) handleProgressUpdate(msg ScanProgressMsg) (Model, tea.Cmd) {
 	// Actualizar progreso en el modelo
-	m.scanProgress.CurrentTest = msg.TestName
-	m.scanProgress.Completed = msg.Completed
-	m.scanProgress.Total = msg.Total
+	m.ScanProgress.CurrentTest = msg.TestName
+	m.ScanProgress.Completed = msg.Completed
+	m.ScanProgress.Total = msg.Total
 	return m, nil
 }

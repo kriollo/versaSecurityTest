@@ -32,22 +32,22 @@ func (m Model) startScanWithProgress() tea.Cmd {
 	)
 }
 
-// startProgressUpdater inicia el actualizador de progreso
-func (m Model) startProgressUpdater() tea.Cmd {
+// StartProgressUpdater inicia el actualizador de progreso
+func (m Model) StartProgressUpdater() tea.Cmd {
 	return tea.Cmd(func() tea.Msg {
-		// Obtener tests seleccionados
+		// Obtener Tests seleccionados
 		selectedTests := []TestItem{}
-		for _, test := range m.tests {
+		for _, test := range m.Tests {
 			if test.Selected {
 				selectedTests = append(selectedTests, test)
 			}
 		}
 
 		if len(selectedTests) == 0 {
-			return ScanCompleteMsg{Result: nil, Error: nil}
+			return ScanCompleteMsg{Result: nil, error: nil}
 		}
 
-		// Ejecutar tests de manera síncrona pero enviando actualizaciones
+		// Ejecutar Tests de manera síncrona pero enviando actualizaciones
 		for i := range selectedTests {
 			// Simular inicio del test
 			time.Sleep(time.Duration(200+i*50) * time.Millisecond)
@@ -59,19 +59,19 @@ func (m Model) startProgressUpdater() tea.Cmd {
 			// El test se completa aquí
 		}
 
-		// Todos los tests han terminado
+		// Todos los Tests han terminado
 		return ScanCompleteMsg{
 			Result: nil, // Se llenará con resultados reales
-			Error:  nil,
+			error:  nil,
 		}
 	})
 }
 
 // initializeProgress inicializa la estructura de progreso
 func (m Model) initializeProgress() Model {
-	// Crear lista inicial de tests con estado "pending"
+	// Crear lista inicial de Tests con estado "pending"
 	var testDetails []TestProgress
-	for _, test := range m.tests {
+	for _, test := range m.Tests {
 		if test.Selected {
 			testDetails = append(testDetails, TestProgress{
 				Name:      test.Name,
@@ -82,7 +82,7 @@ func (m Model) initializeProgress() Model {
 		}
 	}
 
-	m.scanProgress = ScanProgress{
+	m.ScanProgress = ScanProgress{
 		Total:       len(testDetails),
 		Completed:   0,
 		StartTime:   time.Now(),

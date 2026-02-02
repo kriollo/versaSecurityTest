@@ -11,6 +11,7 @@ import (
 	"github.com/versaSecurityTest/internal/report"
 	"github.com/versaSecurityTest/internal/scanner"
 	tuiPackage "github.com/versaSecurityTest/internal/tui"
+	"github.com/versaSecurityTest/internal/update"
 )
 
 func main() {
@@ -24,8 +25,19 @@ func main() {
 		concurrent = flag.Int("concurrent", 10, "Número de requests concurrentes")
 		timeout    = flag.Duration("timeout", 30*time.Second, "Timeout por request")
 		cli        = flag.Bool("cli", false, "Forzar modo CLI (por defecto usa TUI)")
+		updateFlag = flag.Bool("update", false, "Buscar actualizaciones de la aplicación")
 	)
 	flag.Parse()
+
+	// Procesar comando de actualización
+	if *updateFlag {
+		fmt.Println("🚀 Iniciando verificador de actualizaciones...")
+		if err := update.CheckForUpdates("1.3.0"); err != nil {
+			fmt.Printf("❌ Error al buscar actualizaciones: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	// Determinar modo de ejecución
 	// Si se especifica URL o se fuerza CLI, usar modo CLI
@@ -39,6 +51,7 @@ func main() {
 			fmt.Println("   • Modo TUI (predeterminado): ./versaSecurityTest.exe")
 			fmt.Println("   • Modo CLI:                  ./versaSecurityTest.exe -url https://ejemplo.com")
 			fmt.Println("   • Forzar CLI:                ./versaSecurityTest.exe -cli")
+			fmt.Println("   • Actualización:             ./versaSecurityTest.exe -update")
 			fmt.Println("")
 			flag.PrintDefaults()
 			os.Exit(1)
@@ -143,16 +156,10 @@ func main() {
 
 func printBanner() {
 	banner := `
-██╗   ██╗███████╗██████╗ ███████╗ █████╗ ███████╗███████╗ ██████╗
-██║   ██║██╔════╝██╔══██╗██╔════╝██╔══██╗██╔════╝██╔════╝██╔════╝
-██║   ██║█████╗  ██████╔╝███████╗███████║███████╗█████╗  ██║
-╚██╗ ██╔╝██╔══╝  ██╔══██╗╚════██║██╔══██║╚════██║██╔══╝  ██║
- ╚████╔╝ ███████╗██║  ██║███████║██║  ██║███████║███████╗╚██████╗
-  ╚═══╝  ╚══════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝
-
-🔐 VersaSecurityTest - Automated Web Security Scanner
-📅 Version 1.1.0 - TUI Mode (Default) | CLI Mode Available
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-`
-	fmt.Println(banner)
+  🛡️  VERSA SECURITY
+  ──────────────────
+  Automated Web Security Scanner
+  v1.3.0 | Standard & Professional Mode
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
+	fmt.Println(tuiPackage.HeaderStyle.Render(banner))
 }

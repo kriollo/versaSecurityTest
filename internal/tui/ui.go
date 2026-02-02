@@ -77,41 +77,45 @@ type TestProgress struct {
 
 // Model representa el estado completo de la TUI
 type Model struct {
-	state  State
-	cursor int
-	width  int
-	height int
+	State  State
+	Cursor int
+	Width  int
+	Height int
 
 	// Configuración
-	useHTTPS         bool
-	url              string
-	profiles         []ProfileItem
-	tests            []TestItem
-	formats          []FormatItem
-	verbose          bool
-	useAdvancedTests bool
-	outputFile       string
+	UseHTTPS         bool
+	URL              string
+	Profiles         []ProfileItem
+	Tests            []TestItem
+	Formats          []FormatItem
+	Verbose          bool
+	UseAdvancedTests bool
+	OutputFile       string
 
 	// Escaneo
-	scanning     bool
-	scanProgress ScanProgress
-	scanResult   *scanner.ScanResult
-	skipChannel  chan bool          // Canal para enviar comandos de skip durante el escaneo
-	scanContext  context.Context    // Context para cancelar el escaneo
-	scanCancel   context.CancelFunc // Función para cancelar el escaneo
+	Scanning     bool
+	ScanProgress ScanProgress
+	ScanResult   *scanner.ScanResult
+	SkipChannel  chan bool          // Canal para enviar comandos de skip durante el escaneo
+	ScanContext  context.Context    // Context para cancelar el escaneo
+	ScanCancel   context.CancelFunc // Función para cancelar el escaneo
 
 	// Finalización
-	finishingSpinner int
-	finishingStart   time.Time
-	finishingElapsed time.Duration
+	FinishingSpinner int
+	FinishingStart   time.Time
+	FinishingElapsed time.Duration
 
 	// Scroll/Paginación
-	scrollOffset  int  // Offset para el scroll de tests
-	testsPerPage  int  // Número de tests por página
-	showScrollbar bool // Mostrar indicador de scroll
+	ScrollOffset  int  // Offset para el scroll de tests
+	TestsPerPage  int  // Número de tests por página
+	ShowScrollbar bool // Mostrar indicador de scroll
 
 	// Error
-	err error
+	Err error
+
+	// Notificaciones
+	LastNotification string
+	NotificationTime time.Time
 }
 
 // Init inicializa el modelo
@@ -122,19 +126,19 @@ func (m Model) Init() tea.Cmd {
 // Update maneja los mensajes y actualiza el estado
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Primero manejar mensajes de escaneo
-	newModel, cmd := m.updateWithScanMessages(msg)
+	newModel, cmd := m.UpdateWithScanMessages(msg)
 	if cmd != nil {
 		return newModel, cmd
 	}
 	// Siempre usar el modelo actualizado, incluso si cmd es nil
-	if updatedModel, ok := newModel.(Model); ok {
-		m = updatedModel
+	if UpdatedModel, ok := newModel.(Model); ok {
+		m = UpdatedModel
 	}
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
+		m.Width = msg.Width
+		m.Height = msg.Height
 		return m, nil
 
 	case tea.KeyMsg:
@@ -143,28 +147,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return m, tea.Quit
 		case "v":
-			m.verbose = !m.verbose
+			m.Verbose = !m.Verbose
 			return m, nil
 		}
 
 		// Manejo por estado
-		switch m.state {
+		switch m.State {
 		case StateProtocol:
-			return m.handleProtocolKeys(msg)
+			return m.HandleProtocolKeys(msg)
 		case StateURL:
-			return m.handleURLKeys(msg)
+			return m.HandleURLKeys(msg)
 		case StateProfile:
-			return m.handleProfileKeys(msg)
+			return m.HandleProfileKeys(msg)
 		case StateTests:
-			return m.handleTestsKeys(msg)
+			return m.HandleTestsKeys(msg)
 		case StateFormat:
-			return m.handleFormatKeys(msg)
+			return m.HandleFormatKeys(msg)
 		case StateConfirm:
-			return m.handleConfirmKeys(msg)
+			return m.HandleConfirmKeys(msg)
 		case StateScanning:
-			return m.handleScanningKeys(msg)
+			return m.HandleScanningKeys(msg)
 		case StateResults:
-			return m.handleResultsKeys(msg)
+			return m.HandleResultsKeys(msg)
 		}
 	}
 
@@ -173,41 +177,41 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View renderiza la interfaz
 func (m Model) View() string {
-	if m.width == 0 {
+	if m.Width == 0 {
 		return "Cargando..."
 	}
 
 	s := strings.Builder{}
 
 	// Header
-	s.WriteString(m.renderHeader())
+	s.WriteString(m.RenderHeader())
 	s.WriteString("\n\n")
 
 	// Contenido principal basado en el estado
-	switch m.state {
+	switch m.State {
 	case StateProtocol:
-		s.WriteString(m.renderProtocolStep())
+		s.WriteString(m.RenderProtocolStep())
 	case StateURL:
-		s.WriteString(m.renderURLStep())
+		s.WriteString(m.RenderURLStep())
 	case StateProfile:
-		s.WriteString(m.renderProfileStep())
+		s.WriteString(m.RenderProfileStep())
 	case StateTests:
-		s.WriteString(m.renderTestsStep())
+		s.WriteString(m.RenderTestsStep())
 	case StateFormat:
-		s.WriteString(m.renderFormatStep())
+		s.WriteString(m.RenderFormatStep())
 	case StateConfirm:
-		s.WriteString(m.renderConfirmStep())
+		s.WriteString(m.RenderConfirmStep())
 	case StateScanning:
-		s.WriteString(m.renderScanningStep())
+		s.WriteString(m.RenderScanningStep())
 	case StateFinishing:
-		s.WriteString(m.renderFinishingStep())
+		s.WriteString(m.RenderFinishingStep())
 	case StateResults:
-		s.WriteString(m.renderResultsStep())
+		s.WriteString(m.RenderResultsStep())
 	}
 
 	// Footer
 	s.WriteString("\n\n")
-	s.WriteString(m.renderFooter())
+	s.WriteString(m.RenderFooter())
 
 	return s.String()
 }
@@ -215,104 +219,104 @@ func (m Model) View() string {
 // NewModel crea un nuevo modelo inicializado
 func NewModel() Model {
 	// Cargar configuración principal desde config.json
-	mainConfig, err := config.LoadConfig("config.json")
-	if err != nil {
+	MainConfig, Err := config.LoadConfig("config.json")
+	if Err != nil {
 		// Si hay error cargando config, usar valores por defecto
-		mainConfig = config.DefaultConfig()
+		MainConfig = config.DefaultConfig()
 	}
 
 	// Generar lista de tests desde la fuente unificada
-	availableTests := config.GetAvailableTests()
-	tests := make([]TestItem, len(availableTests))
+	AvailableTests := config.GetAvailableTests()
+	Tests := make([]TestItem, len(AvailableTests))
 
-	for i, testDef := range availableTests {
-		tests[i] = TestItem{
-			ID:          testDef.ID,
-			Name:        testDef.Name,
-			Description: testDef.Description,
-			Category:    testDef.Category,
-			Recommended: testDef.Recommended,
-			Selected:    mainConfig.IsTestEnabled(testDef.ID), // Cargar estado desde config.json
+	for i, TestDef := range AvailableTests {
+		Tests[i] = TestItem{
+			ID:          TestDef.ID,
+			Name:        TestDef.Name,
+			Description: TestDef.Description,
+			Category:    TestDef.Category,
+			Recommended: TestDef.Recommended,
+			Selected:    MainConfig.IsTestEnabled(TestDef.ID), // Cargar estado desde config.json
 		}
 	}
 
 	// Configurar formatos de salida
-	formats := []FormatItem{
+	Formats := []FormatItem{
 		{ID: "json", Name: "JSON", Description: "Formato estructurado para integración"},
 		{ID: "table", Name: "Tabla ASCII", Description: "Visualización clara en terminal"},
 		{ID: "html", Name: "HTML", Description: "Reporte profesional con gráficos"},
 	}
-	formats[1].Selected = true // Tabla ASCII por defecto
+	Formats[1].Selected = true // Tabla ASCII por defecto
 
 	// Configurar perfiles de escaneo
-	profiles := []ProfileItem{
+	Profiles := []ProfileItem{
 		{
 			ID:          "basic",
-			Name:        mainConfig.ScanProfiles.Basic.Name,
-			Description: mainConfig.ScanProfiles.Basic.Description,
-			Timeout:     mainConfig.ScanProfiles.Basic.Timeout,
-			Concurrent:  mainConfig.ScanProfiles.Basic.Concurrent,
-			TestCount:   mainConfig.CountEnabledTests("basic"),
+			Name:        MainConfig.ScanProfiles.Basic.Name,
+			Description: MainConfig.ScanProfiles.Basic.Description,
+			Timeout:     MainConfig.ScanProfiles.Basic.Timeout,
+			Concurrent:  MainConfig.ScanProfiles.Basic.Concurrent,
+			TestCount:   MainConfig.CountEnabledTests("basic"),
 			Selected:    false,
 		},
 		{
 			ID:          "standard",
-			Name:        mainConfig.ScanProfiles.Standard.Name,
-			Description: mainConfig.ScanProfiles.Standard.Description,
-			Timeout:     mainConfig.ScanProfiles.Standard.Timeout,
-			Concurrent:  mainConfig.ScanProfiles.Standard.Concurrent,
-			TestCount:   mainConfig.CountEnabledTests("standard"),
+			Name:        MainConfig.ScanProfiles.Standard.Name,
+			Description: MainConfig.ScanProfiles.Standard.Description,
+			Timeout:     MainConfig.ScanProfiles.Standard.Timeout,
+			Concurrent:  MainConfig.ScanProfiles.Standard.Concurrent,
+			TestCount:   MainConfig.CountEnabledTests("standard"),
 			Selected:    true, // Estándar por defecto
 		},
 		{
 			ID:          "advanced",
-			Name:        mainConfig.ScanProfiles.Advanced.Name,
-			Description: mainConfig.ScanProfiles.Advanced.Description,
-			Timeout:     mainConfig.ScanProfiles.Advanced.Timeout,
-			Concurrent:  mainConfig.ScanProfiles.Advanced.Concurrent,
-			TestCount:   mainConfig.CountEnabledTests("advanced"),
+			Name:        MainConfig.ScanProfiles.Advanced.Name,
+			Description: MainConfig.ScanProfiles.Advanced.Description,
+			Timeout:     MainConfig.ScanProfiles.Advanced.Timeout,
+			Concurrent:  MainConfig.ScanProfiles.Advanced.Concurrent,
+			TestCount:   MainConfig.CountEnabledTests("advanced"),
 			Selected:    false,
 		},
 	}
 
 	// Cargar configuración TUI guardada
-	tuiConfig := config.LoadTUIConfig()
+	TUIConfig := config.LoadTUIConfig()
 
 	// Determinar estado inicial y configuración
-	var initialState State = StateProtocol
-	var initialURL string = ""
-	var initialHTTPS bool = true
+	var InitialState State = StateProtocol
+	var InitialURL string = ""
+	var InitialHTTPS bool = true
 
 	// Si hay configuración guardada y AutoStart está activo, cargar datos
 	// SIEMPRE pasar por StateProfile para selección de perfil
-	if tuiConfig.AutoStart && tuiConfig.LastUsedURL != "" {
-		initialState = StateProfile // Cambiado: siempre pasar por selección de perfil
-		initialURL = tuiConfig.LastUsedURL
-		initialHTTPS = tuiConfig.LastProtocol
+	if TUIConfig.AutoStart && TUIConfig.LastUsedURL != "" {
+		InitialState = StateProfile // Cambiado: siempre pasar por selección de perfil
+		InitialURL = TUIConfig.LastUsedURL
+		InitialHTTPS = TUIConfig.LastProtocol
 	}
 
 	// Encontrar el cursor inicial basado en el perfil seleccionado por defecto
-	initialCursor := 0
-	for i, profile := range profiles {
-		if profile.Selected {
-			initialCursor = i
+	InitialCursor := 0
+	for i, Profile := range Profiles {
+		if Profile.Selected {
+			InitialCursor = i
 			break
 		}
 	}
 
 	return Model{
-		state:            initialState,
-		cursor:           initialCursor, // Cursor sincronizado con perfil seleccionado
-		useHTTPS:         initialHTTPS,
-		url:              initialURL,
-		profiles:         profiles,
-		tests:            tests,
-		formats:          formats,
-		verbose:          mainConfig.Verbose,                // Cargar desde config.json
-		useAdvancedTests: mainConfig.Tests.UseAdvancedTests, // Cargar desde config.json
-		scrollOffset:     0,
-		testsPerPage:     15, // Valor inicial que se ajustará dinámicamente
-		showScrollbar:    false,
+		State:            InitialState,
+		Cursor:           InitialCursor, // Cursor sincronizado con perfil seleccionado
+		UseHTTPS:         InitialHTTPS,
+		URL:              InitialURL,
+		Profiles:         Profiles,
+		Tests:            Tests,
+		Formats:          Formats,
+		Verbose:          MainConfig.Verbose,                // Cargar desde config.json
+		UseAdvancedTests: MainConfig.Tests.UseAdvancedTests, // Cargar desde config.json
+		ScrollOffset:     0,
+		TestsPerPage:     15, // Valor inicial que se ajustará dinámicamente
+		ShowScrollbar:    false,
 	}
 }
 
@@ -321,8 +325,8 @@ func RunTUI() error {
 	m := NewModel()
 	p := tea.NewProgram(m, tea.WithAltScreen())
 
-	if _, err := p.Run(); err != nil {
-		return fmt.Errorf("error ejecutando TUI: %w", err)
+	if _, Err := p.Run(); Err != nil {
+		return fmt.Errorf("ErrorEjecutando TUI: %w", Err)
 	}
 
 	return nil

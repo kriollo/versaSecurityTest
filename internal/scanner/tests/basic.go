@@ -316,19 +316,21 @@ func (t *XSSTest) Run(targetURL string, client HTTPClient, payloads *config.Payl
 		vulnDetected := false
 		vulnReason := ""
 
-		// Verificar si el payload se refleja sin codificar
-		if strings.Contains(responseText, "<script>") {
+		// Verificar si el payload específico se refleja sin codificar
+		// Esto evita falsos positivos con scripts legítimos del sitio
+		if strings.Contains(responseText, payload) {
 			vulnDetected = true
-			vulnReason = "Script tag reflejado sin sanitización"
-		} else if strings.Contains(responseText, "onerror=") {
-			vulnDetected = true
-			vulnReason = "Atributo onerror reflejado"
-		} else if strings.Contains(responseText, "onload=") {
-			vulnDetected = true
-			vulnReason = "Atributo onload reflejado"
-		} else if strings.Contains(responseText, "javascript:") {
-			vulnDetected = true
-			vulnReason = "URL javascript: reflejada"
+			if strings.Contains(payload, "<script") {
+				vulnReason = "Script tag enviado se refleja sin sanitización"
+			} else if strings.Contains(payload, "onerror=") {
+				vulnReason = "Atributo onerror enviado se refleja sin sanitización"
+			} else if strings.Contains(payload, "onload=") {
+				vulnReason = "Atributo onload enviado se refleja sin sanitización"
+			} else if strings.Contains(payload, "javascript:") {
+				vulnReason = "URL javascript: enviada se refleja sin sanitización"
+			} else {
+				vulnReason = "Payload XSS enviado se refleja sin sanitización"
+			}
 		}
 
 		if vulnDetected {

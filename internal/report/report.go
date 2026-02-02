@@ -3,6 +3,7 @@ package report
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"os"
 	"path/filepath"
 	"strings"
@@ -110,6 +111,7 @@ func GenerateHTMLReport(result *scanner.ScanResult) string {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reporte de Seguridad Web - VersaSecurityTest</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -127,179 +129,214 @@ func GenerateHTMLReport(result *scanner.ScanResult) string {
             overflow: hidden;
         }
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
             color: white;
-            padding: 30px;
+            padding: 40px 30px;
             text-align: center;
         }
         .header h1 {
             margin: 0;
             font-size: 2.5em;
+            letter-spacing: 1px;
         }
         .header p {
             margin: 10px 0 0 0;
             opacity: 0.9;
+            font-size: 1.1em;
         }
-        .summary {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
+        .main-summary {
+            display: flex;
+            flex-wrap: wrap;
             padding: 30px;
-            background: #f8f9fa;
+            background: #fff;
+            gap: 30px;
+            border-bottom: 1px solid #eee;
         }
-        .summary-card {
-            background: white;
+        .charts-container {
+            flex: 1;
+            min-width: 300px;
+            max-width: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .stats-grid {
+            flex: 2;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+        }
+        .stat-card {
+            background: #f8f9fa;
             padding: 20px;
             border-radius: 8px;
             text-align: center;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border: 1px solid #e9ecef;
+            transition: transform 0.2s;
         }
-        .summary-card h3 {
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+        .stat-card h3 {
             margin: 0 0 10px 0;
-            color: #333;
+            color: #6c757d;
+            font-size: 0.9em;
+            text-transform: uppercase;
         }
-        .summary-card .value {
-            font-size: 2em;
+        .stat-card .value {
+            font-size: 1.8em;
             font-weight: bold;
-            color: #667eea;
+            color: #2c3e50;
         }
-        .security-score {
+        .security-score-large {
             font-size: 3em !important;
+            margin: 10px 0;
         }
-        .risk-low { color: #28a745; }
-        .risk-medio { color: #ffc107; }
-        .risk-alto { color: #fd7e14; }
-        .risk-crítico { color: #dc3545; }
+        .risk-low { color: #2ecc71; }
+        .risk-medio { color: #f1c40f; }
+        .risk-alto { color: #e67e22; }
+        .risk-crítico { color: #e74c3c; }
+        
         .tests-section {
             padding: 30px;
         }
         .test-result {
-            margin-bottom: 20px;
-            border: 1px solid #ddd;
+            margin-bottom: 15px;
+            border: 1px solid #eee;
             border-radius: 8px;
             overflow: hidden;
         }
         .test-header {
-            padding: 15px 20px;
+            padding: 12px 20px;
             font-weight: bold;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            cursor: pointer;
         }
-        .test-passed { background: #d4edda; color: #155724; }
-        .test-failed { background: #f8d7da; color: #721c24; }
+        .test-passed { background: #e8f5e9; color: #2e7d32; border-left: 5px solid #2ecc71; }
+        .test-failed { background: #ffebee; color: #c62828; border-left: 5px solid #e74c3c; }
+        .test-skipped { background: #eceff1; color: #455a64; border-left: 5px solid #90a4ae; }
+        
+        .severity {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 0.75em;
+            text-transform: uppercase;
+        }
+        .severity-high { background: #e74c3c; color: white; }
+        .severity-medium { background: #f1c40f; color: black; }
+        .severity-low { background: #2ecc71; color: white; }
+        .severity-none { background: #95a5a6; color: white; }
+        
         .test-body {
             padding: 20px;
             background: white;
-        }
-        .severity {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 12px;
-            font-size: 0.8em;
-            font-weight: bold;
-        }
-        .severity-high { background: #dc3545; color: white; }
-        .severity-medium { background: #ffc107; color: black; }
-        .severity-low { background: #28a745; color: white; }
-        .severity-none { background: #6c757d; color: white; }
-        .details {
-            margin-top: 15px;
-        }
-        .details ul {
-            margin: 10px 0;
-            padding-left: 20px;
+            border-top: 1px solid #eee;
         }
         .recommendations {
-            background: #e3f2fd;
-            padding: 30px;
-            margin-top: 20px;
+            background: #f0f7ff;
+            padding: 40px 30px;
+            border-top: 1px solid #e3f2fd;
         }
         .recommendations h2 {
-            color: #1565c0;
+            color: #1976d2;
             margin-top: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
-        .recommendations ol {
-            padding-left: 20px;
+        .recommendation-list {
+            list-style: none;
+            padding: 0;
         }
-        .recommendations li {
+        .recommendation-item {
+            background: white;
+            padding: 15px 20px;
             margin-bottom: 10px;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+        }
+        .recommendation-item::before {
+            content: "💡";
+            font-size: 1.2em;
+        }
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #95a5a6;
+            font-size: 0.9em;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔐 Reporte de Seguridad Web</h1>
-            <p>Generado por VersaSecurityTest</p>
+            <h1>🛡️ VersaSecurityTest</h1>
+            <p>Reporte de Auditoría de Seguridad Web</p>
         </div>
 
-        <div class="summary">
-            <div class="summary-card">
-                <h3>URL Objetivo</h3>
-                <div class="value" style="font-size: 1.2em;">`)
-
-	output.WriteString(result.URL)
-	output.WriteString(`</div>
+        <div class="main-summary">
+            <div class="charts-container">
+                <canvas id="resultsChart"></canvas>
             </div>
-            <div class="summary-card">
-                <h3>Fecha de Escaneo</h3>
-                <div class="value" style="font-size: 1.2em;">`)
-
-	output.WriteString(result.ScanDate.Format("2006-01-02 15:04"))
-	output.WriteString(`</div>
-            </div>
-            <div class="summary-card">
-                <h3>Duración</h3>
-                <div class="value">`)
-
-	output.WriteString(result.Duration.Round(time.Millisecond).String())
-	output.WriteString(`</div>
-            </div>
-            <div class="summary-card">
-                <h3>Tests Ejecutados</h3>
-                <div class="value">`)
-
-	output.WriteString(fmt.Sprintf("%d", result.TestsExecuted))
-	output.WriteString(`</div>
-            </div>
-            <div class="summary-card">
-                <h3>Tests Pasados</h3>
-                <div class="value" style="color: #28a745;">`)
-
-	output.WriteString(fmt.Sprintf("%d", result.TestsPassed))
-	output.WriteString(`</div>
-            </div>
-            <div class="summary-card">
-                <h3>Tests Fallidos</h3>
-                <div class="value" style="color: #dc3545;">`)
-
-	output.WriteString(fmt.Sprintf("%d", result.TestsFailed))
-	output.WriteString(`</div>
-            </div>
-            <div class="summary-card">
-                <h3>Puntuación de Seguridad</h3>
-                <div class="value security-score risk-`)
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Puntuación de Seguridad</h3>
+                    <div class="value security-score-large risk-`)
 
 	output.WriteString(strings.ToLower(result.SecurityScore.Risk))
 	output.WriteString(`">`)
-	output.WriteString(fmt.Sprintf("%.1f/10", result.SecurityScore.Value))
+	output.WriteString(fmt.Sprintf("%.1f / 10", result.SecurityScore.Value))
 	output.WriteString(`</div>
-                <div style="margin-top: 5px; font-weight: bold;">`)
+                    <div style="font-weight: bold; color: #666;">Nivel: `)
 	output.WriteString(result.SecurityScore.Risk)
 	output.WriteString(`</div>
+                </div>
+                <div class="stat-card">
+                    <h3>URL Objetivo</h3>
+                    <div class="value" style="font-size: 1.1em; word-break: break-all;">`)
+	output.WriteString(html.EscapeString(result.URL))
+	output.WriteString(`</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Tests Ejecutados</h3>
+                    <div class="value">`)
+	output.WriteString(fmt.Sprintf("%d", result.TestsExecuted))
+	output.WriteString(`</div>
+                    <div style="font-size: 0.85em; color: #999;">`)
+	output.WriteString(fmt.Sprintf("Pasados: %d | Fallidos: %d", result.TestsPassed, result.TestsFailed))
+	output.WriteString(`</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Fecha y Tiempo</h3>
+                    <div class="value" style="font-size: 1.1em;">`)
+	output.WriteString(result.ScanDate.Format("2006-01-02 15:04"))
+	output.WriteString(`</div>
+                    <div style="font-size: 0.85em; color: #999;">Duración: `)
+	output.WriteString(result.Duration.Round(time.Millisecond).String())
+	output.WriteString(`</div>
+                </div>
             </div>
         </div>
 
         <div class="tests-section">
-            <h2>Resultados Detallados</h2>`)
+            <h2>🔍 Detalles del Análisis</h2>`)
 
 	for _, test := range result.TestResults {
 		statusClass := "test-passed"
 		statusIcon := "✅"
-		if test.Status != "Passed" {
+		if test.Status == "Failed" {
 			statusClass = "test-failed"
 			statusIcon = "❌"
+		} else if test.Status == "Skipped" || test.Status == "Timeout" {
+			statusClass = "test-skipped"
+			statusIcon = "⚠️"
 		}
 
 		severityClass := "severity-" + strings.ToLower(test.Severity)
@@ -315,15 +352,15 @@ func GenerateHTMLReport(result *scanner.ScanResult) string {
                 </div>
                 <div class="test-body">
                     <p><strong>Descripción:</strong> %s</p>`,
-			statusClass, statusIcon, test.TestName, severityClass, test.Severity, test.Description))
+			statusClass, statusIcon, html.EscapeString(test.TestName), severityClass, test.Severity, html.EscapeString(test.Description)))
 
 		if len(test.Details) > 0 {
 			output.WriteString(`
                     <div class="details">
-                        <strong>Detalles:</strong>
+                        <strong>Hallazgos y Detalles:</strong>
                         <ul>`)
 			for _, detail := range test.Details {
-				output.WriteString(fmt.Sprintf("<li>%s</li>", detail))
+				output.WriteString(fmt.Sprintf("<li>%s</li>", html.EscapeString(detail)))
 			}
 			output.WriteString(`
                         </ul>
@@ -343,19 +380,52 @@ func GenerateHTMLReport(result *scanner.ScanResult) string {
 		output.WriteString(`
         <div class="recommendations">
             <h2>🎯 Recomendaciones de Seguridad</h2>
-            <ol>`)
+            <div class="recommendation-list">`)
 
 		for _, rec := range result.Recommendations {
-			output.WriteString(fmt.Sprintf("<li>%s</li>", rec))
+			output.WriteString(fmt.Sprintf(`
+                <div class="recommendation-item">
+                    <span>%s</span>
+                </div>`, html.EscapeString(rec)))
 		}
 
 		output.WriteString(`
-            </ol>
+            </div>
         </div>`)
 	}
 
 	output.WriteString(`
+        <footer>
+            Generado automáticamente por VersaSecurityTest v1.3.0 &copy; ` + time.Now().Format("2006") + `
+        </footer>
     </div>
+
+    <script>
+        const ctx = document.getElementById('resultsChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Pasados', 'Fallidos', 'Otros'],
+                datasets: [{
+                    data: [`)
+	output.WriteString(fmt.Sprintf("%d, %d, %d", result.TestsPassed, result.TestsFailed, result.TestsSkipped+result.TestsTimeout))
+	output.WriteString(`],
+                    backgroundColor: ['#2ecc71', '#e74c3c', '#95a5a6'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                    }
+                },
+                cutout: '70%'
+            }
+        });
+    </script>
 </body>
 </html>`)
 
