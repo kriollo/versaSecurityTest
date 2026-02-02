@@ -1,0 +1,6 @@
+Add unit tests for the following cases:
+1. AuthenticationTest correctly identifies insecure HTTP for credentials and detects forms without autocomplete="off".
+2. DataIntegrityTest accurately identifies insecure PHP deserialization patterns in cookies.
+3. PortScanTest successfully extracts host from URLs and identifies common open ports, flagging insecure services.
+4. OutdatedComponentsTest correctly extracts software versions from HTTP headers and detects known software fingerprints by path.
+5. AdvancedSQLInjectionTest detects error-based, time-based, and boolean-based blind SQL injection vulnerabilities.
