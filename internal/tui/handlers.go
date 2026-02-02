@@ -328,8 +328,25 @@ func (m Model) HandleResultsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "q", "esc":
 		return m, tea.Quit
-	case "backspace":
-		// Volver al inicio - reinicio completo del estado
+	case "p":
+		// Volver a selección de perfil
+		m.State = StateProfile
+		m.Cursor = 0
+		m.ScanResult = nil
+		m.Scanning = false
+		m.ScanProgress = ScanProgress{}
+		return m, nil
+	case "backspace", "b":
+		// Volver a selección de tests (Lo que pidió el usuario)
+		m.State = StateTests
+		m.Cursor = 0
+		m.ScrollOffset = 0
+		m.ScanResult = nil
+		m.Scanning = false
+		m.ScanProgress = ScanProgress{}
+		return m, nil
+	case "ctrl+r":
+		// Reinicio completo (Lo que antes era backspace)
 		m.State = StateProtocol
 		m.Cursor = 0
 		m.ScrollOffset = 0 // Resetear scroll

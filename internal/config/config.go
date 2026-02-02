@@ -26,12 +26,25 @@ type Config struct {
 	Verbose bool `json:"verbose"`
 
 	// Configuraciones avanzadas
-	Language     string       `json:"language"`      // Idioma de la interfaz
-	LastUsedURL  string       `json:"last_used_url"` // Última URL escaneada
-	AutoSave     bool         `json:"auto_save"`     // Guardar configuración automáticamente
-	Theme        string       `json:"theme"`         // Tema de la interfaz
-	Tutorial     bool         `json:"tutorial"`      // Mostrar tutorial en primer uso
-	ScanProfiles ScanProfiles `json:"scan_profiles"` // Perfiles de escaneo predefinidos
+	Language    string `json:"language"`      // Idioma de la interfaz
+	LastUsedURL string `json:"last_used_url"` // Última URL escaneada
+	AutoSave    bool   `json:"auto_save"`     // Guardar configuración automáticamente
+	Theme       string `json:"theme"`         // Tema de la interfaz
+	Tutorial    bool   `json:"tutorial"`      // Mostrar tutorial en primer uso
+	// Perfiles de escaneo predefinidos
+	ScanProfiles ScanProfiles `json:"scan_profiles"`
+
+	// Configuración por objetivo (URL/Dominio)
+	Targets map[string]TargetConfig `json:"targets"`
+}
+
+// TargetConfig almacena configuración específica para un objetivo
+type TargetConfig struct {
+	URL        string        `json:"url"`
+	Timeout    time.Duration `json:"timeout"`
+	Concurrent int           `json:"concurrent"`
+	Tests      TestConfig    `json:"tests"`
+	LastScan   time.Time     `json:"last_scan"`
 }
 
 // TestConfig configura qué tests ejecutar
@@ -48,20 +61,23 @@ type TestConfig struct {
 	InfoDisclosure bool `json:"info_disclosure"`
 
 	// Nuevas categorías OWASP
-	InfoGathering   bool `json:"info_gathering"`   // INFO: Recolección de información
-	Configuration   bool `json:"configuration"`    // CONF: Verificación de configuración
-	IdentityMgmt    bool `json:"identity_mgmt"`    // IDNT: Gestión de identidad
-	Authentication  bool `json:"authentication"`   // ATHN: Autenticación
-	Authorization   bool `json:"authorization"`    // ATHZ: Autorización
-	SessionMgmt     bool `json:"session_mgmt"`     // SESS: Gestión de sesiones
-	InputValidation bool `json:"input_validation"` // INPV: Validación de entradas
-	ErrorHandling   bool `json:"error_handling"`   // ERRH: Manejo de errores
-	Cryptography    bool `json:"cryptography"`     // CRYP: Criptografía
-	BusinessLogic   bool `json:"business_logic"`   // BUSL: Lógica de negocio
-	ClientSide      bool `json:"client_side"`      // CLNT: Cliente
-	APISecurity     bool `json:"api_security"`     // APIT: APIs
-	SSRF            bool `json:"ssrf"`             // SSRF: Server-Side Request Forgery
-	OpenRedirect    bool `json:"open_redirect"`    // Open Redirect
+	InfoGathering      bool `json:"info_gathering"`      // INFO: Recolección de información
+	Configuration      bool `json:"configuration"`       // CONF: Verificación de configuración
+	IdentityMgmt       bool `json:"identity_mgmt"`       // IDNT: Gestión de identidad
+	Authentication     bool `json:"authentication"`      // ATHN: Autenticación
+	Authorization      bool `json:"authorization"`       // ATHZ: Autorización
+	SessionMgmt        bool `json:"session_mgmt"`        // SESS: Gestión de sesiones
+	InputValidation    bool `json:"input_validation"`    // INPV: Validación de entradas
+	ErrorHandling      bool `json:"error_handling"`      // ERRH: Manejo de errores
+	Cryptography       bool `json:"cryptography"`        // CRYP: Criptografía
+	BusinessLogic      bool `json:"business_logic"`      // BUSL: Lógica de negocio
+	ClientSide         bool `json:"client_side"`         // CLNT: Cliente
+	APISecurity        bool `json:"api_security"`        // APIT: APIs
+	SSRF               bool `json:"ssrf"`                // SSRF: Server-Side Request Forgery
+	OpenRedirect       bool `json:"open_redirect"`       // Open Redirect
+	NetworkScan        bool `json:"network_scan"`        // NETW: Escaneo de red y puertos
+	OutdatedComponents bool `json:"outdated_components"` // A06:2021
+	DataIntegrity      bool `json:"data_integrity"`      // A08:2021
 
 	// Configuración de agresividad
 	UseAdvancedTests bool `json:"use_advanced_tests"` // Usar tests agresivos y exhaustivos
@@ -140,21 +156,94 @@ func DefaultConfig() *Config {
 			InfoDisclosure: true,
 
 			// Nuevas categorías OWASP (habilitadas por defecto las básicas)
-			InfoGathering:   true,  // INFO: Básico y seguro
-			Configuration:   true,  // CONF: Básico y seguro
-			IdentityMgmt:    false, // IDNT: Puede ser intrusivo
-			Authentication:  false, // ATHN: Puede ser intrusivo
-			Authorization:   false, // ATHZ: Puede ser intrusivo
-			SessionMgmt:     true,  // SESS: Básico y seguro
-			InputValidation: true,  // INPV: Incluye SQL/XSS existentes
-			ErrorHandling:   true,  // ERRH: Básico y seguro
-			Cryptography:    true,  // CRYP: Básico y seguro
-			BusinessLogic:   false, // BUSL: Puede ser intrusivo
-			ClientSide:      true,  // CLNT: Básico y seguro
-			APISecurity:     true,  // APIT: Básico y seguro
+			InfoGathering:      true,  // INFO: Básico y seguro
+			Configuration:      true,  // CONF: Básico y seguro
+			IdentityMgmt:       false, // IDNT: Puede ser intrusivo
+			Authentication:     false, // ATHN: Puede ser intrusivo
+			Authorization:      false, // ATHZ: Puede ser intrusivo
+			SessionMgmt:        true,  // SESS: Básico y seguro
+			InputValidation:    true,  // INPV: Incluye SQL/XSS existentes
+			ErrorHandling:      true,  // ERRH: Básico y seguro
+			Cryptography:       true,  // CRYP: Básico y seguro
+			BusinessLogic:      false, // BUSL: Puede ser intrusivo
+			ClientSide:         true,  // CLNT: Básico y seguro
+			APISecurity:        true,  // APIT: Básico y seguro
+			NetworkScan:        false, // NETW: Deshabilitado por defecto
+			OutdatedComponents: true,  // A06:2021 - Habilitado por defecto
+			DataIntegrity:      true,  // A08:2021 - Habilitado por defecto
 
 			// Configuración de agresividad
 			UseAdvancedTests: true, // Usar tests avanzados por defecto para máxima efectividad
+		},
+		ScanProfiles: ScanProfiles{
+			Basic: ScanProfile{
+				Name:        "Básico - Rápido",
+				Description: "Escaneo rápido con tests esenciales (15-20s)",
+				Timeout:     20 * time.Second,
+				Concurrent:  8,
+				Tests: TestConfig{
+					SQLInjection:  true,
+					XSS:           true,
+					HTTPHeaders:   true,
+					InfoGathering: true,
+					Configuration: true,
+					SessionMgmt:   true,
+				},
+			},
+			Standard: ScanProfile{
+				Name:        "Estándar - Balanceado",
+				Description: "Balance entre velocidad y cobertura (45-60s)",
+				Timeout:     60 * time.Second,
+				Concurrent:  8,
+				Tests: TestConfig{
+					SQLInjection:    true,
+					XSS:             true,
+					HTTPHeaders:     true,
+					InfoGathering:   true,
+					Configuration:   true,
+					Authorization:   true,
+					SessionMgmt:     true,
+					InputValidation: true,
+					ClientSide:      true,
+					APISecurity:     true,
+					NetworkScan:     false,
+				},
+			},
+			Advanced: ScanProfile{
+				Name:             "Avanzado - Exhaustivo",
+				Description:      "Análisis completo y exhaustivo (90-120s)",
+				Timeout:          120 * time.Second,
+				Concurrent:       8,
+				UseAdvancedTests: true,
+				Tests: TestConfig{
+					SQLInjection:       true,
+					XSS:                true,
+					BruteForce:         true,
+					HTTPHeaders:        true,
+					SSLAnalysis:        true,
+					CSRFProtection:     true,
+					FileUpload:         true,
+					DirTraversal:       true,
+					InfoDisclosure:     true,
+					InfoGathering:      true,
+					Configuration:      true,
+					IdentityMgmt:       true,
+					Authentication:     true,
+					Authorization:      true,
+					SessionMgmt:        true,
+					InputValidation:    true,
+					ErrorHandling:      true,
+					Cryptography:       true,
+					BusinessLogic:      true,
+					ClientSide:         true,
+					APISecurity:        true,
+					SSRF:               true,
+					OpenRedirect:       true,
+					NetworkScan:        true,
+					OutdatedComponents: true,
+					DataIntegrity:      true,
+				},
+			},
 		},
 		Verbose: false,
 		// Configuraciones avanzadas
@@ -205,6 +294,9 @@ func GetAvailableTests() []TestDefinition {
 		{ID: "file_upload", Name: "File Upload Security", Description: "Seguridad en carga de archivos", Category: "INPV", Recommended: false, HasAdvanced: false},
 		{ID: "ssl_analysis", Name: "SSL/TLS Analysis", Description: "Análisis de configuración SSL/TLS", Category: "CRYP", Recommended: true, HasAdvanced: false},
 		{ID: "info_disclosure", Name: "Information Disclosure", Description: "Revelación de información sensible", Category: "ERRH", Recommended: false, HasAdvanced: false},
+		{ID: "network_scan", Name: "Network Port Scan", Description: "Escaneo de puertos abiertos y servicios", Category: "NETW", Recommended: true, HasAdvanced: false},
+		{ID: "outdated_components", Name: "Outdated Components", Description: "Detección de software vulnerable (A06)", Category: "CONF", Recommended: true, HasAdvanced: false},
+		{ID: "data_integrity", Name: "Data Integrity", Description: "Fallos en integridad de datos (A08)", Category: "CRYP", Recommended: true, HasAdvanced: false},
 	}
 }
 
@@ -253,6 +345,12 @@ func (c *Config) IsTestEnabled(testID string) bool {
 		return c.Tests.ClientSide
 	case "api_security":
 		return c.Tests.APISecurity
+	case "network_scan":
+		return c.Tests.NetworkScan
+	case "outdated_components":
+		return c.Tests.OutdatedComponents
+	case "data_integrity":
+		return c.Tests.DataIntegrity
 	default:
 		return false
 	}
@@ -303,6 +401,12 @@ func (c *Config) SetTestEnabled(testID string, enabled bool) {
 		c.Tests.ClientSide = enabled
 	case "api_security":
 		c.Tests.APISecurity = enabled
+	case "network_scan":
+		c.Tests.NetworkScan = enabled
+	case "outdated_components":
+		c.Tests.OutdatedComponents = enabled
+	case "data_integrity":
+		c.Tests.DataIntegrity = enabled
 	}
 }
 
@@ -323,9 +427,48 @@ func (c *Config) UpdateLastUsedURL(url string) {
 	}
 }
 
+// GetOrCreateTargetConfig obtiene la configuración de un objetivo o la crea si no existe
+func (c *Config) GetOrCreateTargetConfig(targetURL string) TargetConfig {
+	if c.Targets == nil {
+		c.Targets = make(map[string]TargetConfig)
+	}
+
+	if target, exists := c.Targets[targetURL]; exists {
+		return target
+	}
+
+	// Crear nueva configuración basada en los defaults actuales
+	newTarget := TargetConfig{
+		URL:        targetURL,
+		Timeout:    c.Timeout,
+		Concurrent: c.Concurrent,
+		Tests:      c.Tests,
+	}
+	c.Targets[targetURL] = newTarget
+	return newTarget
+}
+
+// SaveTargetConfig guarda/actualiza la configuración de un objetivo específico
+func (c *Config) SaveTargetConfig(target TargetConfig) {
+	if c.Targets == nil {
+		c.Targets = make(map[string]TargetConfig)
+	}
+	c.Targets[target.URL] = target
+	if c.AutoSave {
+		c.SaveConfig("config.json")
+	}
+}
+
+// UpdateTargetScanTime actualiza la fecha del último escaneo para un objetivo
+func (c *Config) UpdateTargetScanTime(targetURL string) {
+	target := c.GetOrCreateTargetConfig(targetURL)
+	target.LastScan = time.Now()
+	c.SaveTargetConfig(target)
+}
+
 // LoadOrCreateConfig carga la configuración o crea una nueva si no existe
 func LoadOrCreateConfig(filename string) (*Config, error) {
-	config, err := LoadConfig(filename)
+	config, err := DefaultConfigFromFile(filename)
 	if err != nil {
 		// Si no existe el archivo, crear uno nuevo
 		config = DefaultConfig()
@@ -334,7 +477,28 @@ func LoadOrCreateConfig(filename string) (*Config, error) {
 			return nil, err
 		}
 	}
+
+	// Asegurar que el mapa de objetivos existe
+	if config.Targets == nil {
+		config.Targets = make(map[string]TargetConfig)
+	}
+
 	return config, nil
+}
+
+// DefaultConfigFromFile carga config de archivo o retorna nil si no existe
+func DefaultConfigFromFile(filename string) (*Config, error) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	var cfg Config
+	err = json.Unmarshal(data, &cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &cfg, nil
 }
 
 // GetPayloads retorna los payloads por defecto
@@ -472,8 +636,12 @@ func (c *Config) ApplyProfile(profileID string) error {
 	// Aplicar configuración del perfil
 	c.Timeout = profile.Timeout
 	c.Concurrent = profile.Concurrent
-	c.Tests.UseAdvancedTests = profile.UseAdvancedTests
+
+	// Aplicar los tests del perfil
 	c.Tests = profile.Tests
+
+	// Asegurar que el flag de modo avanzado del perfil tiene precedencia
+	c.Tests.UseAdvancedTests = profile.UseAdvancedTests
 
 	return nil
 }

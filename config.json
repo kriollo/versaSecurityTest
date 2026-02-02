@@ -1,6 +1,6 @@
 {
   "concurrent": 8,
-  "timeout": 60000000000,
+  "timeout": 120000000000,
   "user_agent": "VersaSecurityTest/1.1 (Security Scanner)",
   "headers": {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -11,28 +11,31 @@
   "tests": {
     "sql_injection": true,
     "xss": true,
-    "brute_force": false,
+    "brute_force": true,
     "http_headers": true,
-    "ssl_analysis": false,
-    "csrf_protection": false,
-    "file_upload": false,
-    "directory_traversal": false,
-    "info_disclosure": false,
+    "ssl_analysis": true,
+    "csrf_protection": true,
+    "file_upload": true,
+    "directory_traversal": true,
+    "info_disclosure": true,
     "info_gathering": true,
     "configuration": true,
-    "identity_mgmt": false,
-    "authentication": false,
+    "identity_mgmt": true,
+    "authentication": true,
     "authorization": true,
     "session_mgmt": true,
     "input_validation": true,
-    "error_handling": false,
-    "cryptography": false,
-    "business_logic": false,
+    "error_handling": true,
+    "cryptography": true,
+    "business_logic": true,
     "client_side": true,
     "api_security": true,
-    "ssrf": false,
-    "open_redirect": false,
-    "use_advanced_tests": false
+    "ssrf": true,
+    "open_redirect": true,
+    "network_scan": true,
+    "outdated_components": true,
+    "data_integrity": true,
+    "use_advanced_tests": true
   },
   "verbose": false,
   "language": "es",
@@ -71,6 +74,9 @@
         "api_security": false,
         "ssrf": false,
         "open_redirect": false,
+        "network_scan": false,
+        "outdated_components": false,
+        "data_integrity": false,
         "use_advanced_tests": false
       }
     },
@@ -104,6 +110,9 @@
         "api_security": true,
         "ssrf": false,
         "open_redirect": false,
+        "network_scan": false,
+        "outdated_components": false,
+        "data_integrity": false,
         "use_advanced_tests": false
       }
     },
@@ -137,8 +146,12 @@
         "api_security": true,
         "ssrf": true,
         "open_redirect": true,
-        "use_advanced_tests": false
+        "network_scan": false,
+        "outdated_components": false,
+        "data_integrity": false,
+        "use_advanced_tests": true
       }
     }
-  }
+  },
+  "targets": null
 }

@@ -28,10 +28,15 @@ func (t *SSRFTest) Run(targetURL string, client HTTPClient, payloads *config.Pay
 
 	ssrfPayloads := []string{
 		"http://127.0.0.1:80",
+		"http://127.1:80",      // Bypass decimal simple
+		"http://0177.0.0.1:80", // Bypass Octal
+		"http://2130706433:80", // Bypass Dotted Decimal
+		"http://[::1]:80",      // IPv6 Loopback
 		"http://localhost:22",
 		"http://169.254.169.254/latest/meta-data/",
 		"http://metadata.google.internal/computeMetadata/v1/",
 		"http://127.0.0.1:6379", // Redis
+		"http://0.0.0.0:22",
 	}
 
 	var endpointsToTest []string

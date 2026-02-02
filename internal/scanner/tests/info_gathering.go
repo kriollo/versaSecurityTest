@@ -61,13 +61,13 @@ func (t *InfoGatheringTest) testHTTPHeaders(targetURL string, client HTTPClient,
 
 	// Headers informativos que pueden revelar tecnologías
 	informativeHeaders := map[string]string{
-		"Server":           "Servidor web",
-		"X-Powered-By":     "Tecnología backend",
-		"X-AspNet-Version": "Versión ASP.NET",
-		"X-Generator":      "Generador de contenido",
-		"X-Drupal-Cache":   "CMS Drupal",
-		"X-Pingback":       "WordPress pingback",
-		"X-Frame-Options":  "Protección clickjacking",
+		"Server":                  "Servidor web",
+		"X-Powered-By":            "Tecnología backend",
+		"X-AspNet-Version":        "Versión ASP.NET",
+		"X-Generator":             "Generador de contenido",
+		"X-Drupal-Cache":          "CMS Drupal",
+		"X-Pingback":              "WordPress pingback",
+		"X-Frame-Options":         "Protección clickjacking",
 		"Content-Security-Policy": "Política de seguridad",
 	}
 
@@ -98,17 +98,17 @@ func (t *InfoGatheringTest) testTechnologyDetection(targetURL string, client HTT
 
 	// Patrones para detectar tecnologías
 	techPatterns := map[string]*regexp.Regexp{
-		"WordPress":     regexp.MustCompile(`wp-content|wp-includes|/wp-admin/`),
-		"Drupal":        regexp.MustCompile(`Drupal\.settings|drupal\.js`),
-		"Joomla":        regexp.MustCompile(`/components/com_|Joomla!`),
-		"PHP":           regexp.MustCompile(`\.php[\"'?]|X-Powered-By.*PHP`),
-		"ASP.NET":       regexp.MustCompile(`__VIEWSTATE|asp\.net|\.aspx`),
-		"Node.js":       regexp.MustCompile(`X-Powered-By.*Express`),
-		"Angular":       regexp.MustCompile(`ng-app|angular\.js`),
-		"React":         regexp.MustCompile(`react|_reactInternalInstance`),
-		"Vue.js":        regexp.MustCompile(`vue\.js|v-if|v-for`),
-		"jQuery":        regexp.MustCompile(`jquery|\\$\\(document\\)`),
-		"Bootstrap":     regexp.MustCompile(`bootstrap\.css|bootstrap\.js`),
+		"WordPress": regexp.MustCompile(`wp-content|wp-includes|/wp-admin/`),
+		"Drupal":    regexp.MustCompile(`Drupal\.settings|drupal\.js`),
+		"Joomla":    regexp.MustCompile(`/components/com_|Joomla!`),
+		"PHP":       regexp.MustCompile(`\.php[\"'?]|X-Powered-By.*PHP`),
+		"ASP.NET":   regexp.MustCompile(`__VIEWSTATE|asp\.net|\.aspx`),
+		"Node.js":   regexp.MustCompile(`X-Powered-By.*Express`),
+		"Angular":   regexp.MustCompile(`ng-app|angular\.js`),
+		"React":     regexp.MustCompile(`react|_reactInternalInstance`),
+		"Vue.js":    regexp.MustCompile(`vue\.js|v-if|v-for`),
+		"jQuery":    regexp.MustCompile(`jquery|\\$\\(document\\)`),
+		"Bootstrap": regexp.MustCompile(`bootstrap\.css|bootstrap\.js`),
 	}
 
 	for tech, pattern := range techPatterns {
@@ -138,12 +138,12 @@ func (t *InfoGatheringTest) testMetadataCollection(targetURL string, client HTTP
 
 	// Buscar metadatos importantes
 	metaPatterns := map[string]*regexp.Regexp{
-		"Generator":     regexp.MustCompile(`<meta name=["\']generator["\'] content=["\']([^"']+)["\']`),
-		"Description":   regexp.MustCompile(`<meta name=["\']description["\'] content=["\']([^"']+)["\']`),
-		"Keywords":      regexp.MustCompile(`<meta name=["\']keywords["\'] content=["\']([^"']+)["\']`),
-		"Author":        regexp.MustCompile(`<meta name=["\']author["\'] content=["\']([^"']+)["\']`),
-		"Copyright":     regexp.MustCompile(`<meta name=["\']copyright["\'] content=["\']([^"']+)["\']`),
-		"Robots":        regexp.MustCompile(`<meta name=["\']robots["\'] content=["\']([^"']+)["\']`),
+		"Generator":   regexp.MustCompile(`<meta name=["\']generator["\'] content=["\']([^"']+)["\']`),
+		"Description": regexp.MustCompile(`<meta name=["\']description["\'] content=["\']([^"']+)["\']`),
+		"Keywords":    regexp.MustCompile(`<meta name=["\']keywords["\'] content=["\']([^"']+)["\']`),
+		"Author":      regexp.MustCompile(`<meta name=["\']author["\'] content=["\']([^"']+)["\']`),
+		"Copyright":   regexp.MustCompile(`<meta name=["\']copyright["\'] content=["\']([^"']+)["\']`),
+		"Robots":      regexp.MustCompile(`<meta name=["\']robots["\'] content=["\']([^"']+)["\']`),
 	}
 
 	for metaType, pattern := range metaPatterns {
@@ -265,7 +265,7 @@ func (t *DirectoryEnumerationTest) Run(targetURL string, client HTTPClient, payl
 		}
 		defer resp.Body.Close()
 
-		if resp.StatusCode == 200 || resp.StatusCode == 403 {
+		if (resp.StatusCode == 200 || resp.StatusCode == 403) && resp.StatusCode != 429 {
 			details = append(details, fmt.Sprintf("Directorio/archivo encontrado: %s (Status: %d)", path, resp.StatusCode))
 
 			if resp.StatusCode == 200 {
@@ -321,7 +321,7 @@ func (t *HTTPMethodsTest) Run(targetURL string, client HTTPClient, payloads *con
 		}
 		defer resp.Body.Close()
 
-		if resp.StatusCode != 405 && resp.StatusCode != 501 {
+		if resp.StatusCode != 405 && resp.StatusCode != 501 && resp.StatusCode != 429 {
 			details = append(details, fmt.Sprintf("Método %s habilitado (Status: %d)", method, resp.StatusCode))
 
 			if method == "TRACE" || method == "TRACK" {

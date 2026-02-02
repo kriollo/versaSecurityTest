@@ -43,8 +43,8 @@ func (t *AuthorizationTest) Run(targetURL string, client HTTPClient, payloads *c
 
 			details = append(details, fmt.Sprintf("Probando %s %s (Status: %d)", method, endpoint, resp.StatusCode))
 
-			// Si no es 401 o 403, podría ser un bypass
-			if resp.StatusCode != 401 && resp.StatusCode != 403 && resp.StatusCode != 405 && resp.StatusCode != 404 {
+			// Si no es 401, 403, 405, 404 o 429, podría ser un bypass
+			if resp.StatusCode != 401 && resp.StatusCode != 403 && resp.StatusCode != 405 && resp.StatusCode != 404 && resp.StatusCode != 429 {
 				if resp.StatusCode == 200 {
 					evidence = append(evidence, Evidence{
 						Type:        "Authorization Bypass",

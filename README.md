@@ -2,7 +2,7 @@
 
 **VersaSecurityTest** es un scanner de seguridad web automático desarrollado en Go, diseñado para identificar vulnerabilidades comunes en aplicaciones web de manera rápida y eficiente.
 
-![VersaSecurityTest Banner](https://img.shields.io/badge/VersaSecurityTest-v1.3.0-blue.svg)
+![VersaSecurityTest Banner](https://img.shields.io/badge/VersaSecurityTest-v2.0.0-blue.svg)
 ![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)
@@ -28,6 +28,8 @@
 - **Fuerza Bruta**: Tests básicos de fuerza bruta sobre formularios de login.
 - **Subida de Archivos (File Upload)**: Valida controles en la subida de archivos.
 - **Directory Traversal**: Detección de vulnerabilidades de path traversal.
+- **Network Port Scan**: Escaneo de puertos abiertos y servicios (A01:2021).
+- **OWASP Top 10 2021**: Integración profunda con A06 (Componentes Vulnerables), A08 (Integridad) y A10 (SSRF Avanzado).
 - **Pruebas de API de Cliente**: Revisa la seguridad de las APIs expuestas al cliente.
 - **Pruebas Adicionales**: Incluye verificaciones de seguridad variadas.
 
@@ -111,7 +113,10 @@ Interfaz moderna e interactiva con navegación visual:
 - `R`: Seleccionar solo tests recomendados
 - `V`: Activar/Desactivar modo verbose
 - `S`: Guardar reporte (en pantalla de resultados)
-- `Backspace`: Volver al inicio (reinicio completo)
+- `Enter`: Reintentar/Reiniciar escaneo actual (en resultados)
+- `Backspace/B`: Volver a Selección de Tests (en resultados)
+- `P`: Volver a Selección de Perfil (en resultados)
+- `Ctrl+R`: Reinicio completo (Volver al inicio)
 - `Q/Ctrl+C`: Salir de la aplicación
 
 ### 2. ⚡ Modo CLI Directo
@@ -502,17 +507,15 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
 ## 🎯 Roadmap
 
-### ✅ Versión 1.3.0 (Actual)
+### ✅ Versión 2.0.0 (Actual)
 
-- [x] **Unificación completa CLI/TUI** con lógica centralizada de escaneado
-- [x] **Perfiles de escaneo** (Básico, Estándar, Avanzado) con configuración automática
-- [x] **TUI como modo por defecto** con interfaz mejorada
-- [x] **Pantalla de selección de perfiles** en el flujo TUI
-- [x] **Scroll mejorado y navegación** en pantalla de resultados
-- [x] **Eliminación de diálogos modales** para interfaz más limpia
-- [x] **Timeout y cancelación unificados** entre CLI y TUI
-- [x] **Corrección de panics de renderizado** y estabilidad general
-- [x] **Guardado silencioso de reportes** sin confirmaciones modales
+- [x] **Integración profunda con OWASP Top 10 2021** (A06, A08, A10)
+- [x] **Network Port Scanner** concurrente integrado
+- [x] **Navegación TUI Granular** (Backspace para tests, P para perfiles)
+- [x] **Selección de Tests Granular** en la interfaz
+- [x] **Unificación completa CLI/TUI**
+- [x] **Perfiles de escaneo** (Básico, Estándar, Avanzado)
+- [x] **Guardado silencioso de reportes**
 
 ### Versión 1.3.0 (Planificada)
 
@@ -540,9 +543,9 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
 <div align="center">
 
-**🔐 VersaSecurityTest v1.3.0 - Scanner de Seguridad Web Unificado**
+**🔐 VersaSecurityTest v2.0.0 - Scanner de Seguridad con integración OWASP 2021**
 
-**✨ Versión 1.2**: Perfiles de escaneo, TUI por defecto, lógica unificada CLI/TUI, interfaz sin modales
+**✨ Versión 2.0**: OWASP 2021 (A06, A08, A10), Port Scanner, Navegación Granular, TUI Profesional
 
 [⭐ Dale una estrella si te gusta el proyecto](https://github.com/kriollo/versaSecurityTest)
 

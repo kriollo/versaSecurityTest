@@ -225,7 +225,7 @@ func (t *ConfigurationTest) testServerMisconfiguration(targetURL string, client 
 		}
 		resp.Body.Close()
 
-		if resp.StatusCode != 405 && resp.StatusCode != 501 {
+		if resp.StatusCode != 405 && resp.StatusCode != 501 && resp.StatusCode != 429 {
 			result.Details = append(result.Details, fmt.Sprintf("Método HTTP peligroso habilitado: %s (Status: %d)", method, resp.StatusCode))
 			result.Evidence = append(result.Evidence, Evidence{
 				Type:     "Dangerous HTTP Method",
@@ -328,8 +328,8 @@ func (t *ConfigurationTest) testInternalPaths(targetURL string, client HTTPClien
 		}
 		resp.Body.Close()
 
-		// Considerar accesible si no es 404 o 403
-		if resp.StatusCode != 404 && resp.StatusCode != 403 {
+		// Considerar accesible si no es 404, 403 o 429 (Rate Limit)
+		if resp.StatusCode != 404 && resp.StatusCode != 403 && resp.StatusCode != 429 {
 			result.Details = append(result.Details, fmt.Sprintf("Ruta interna accesible: %s (Status: %d)", path, resp.StatusCode))
 			result.Evidence = append(result.Evidence, Evidence{
 				Type:     "Internal Path Exposed",

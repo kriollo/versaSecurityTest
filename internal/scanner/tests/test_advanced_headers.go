@@ -38,52 +38,73 @@ func (t *AdvancedSecurityHeadersTest) Run(targetURL string, client HTTPClient, p
 	// HEADERS CRÍTICOS DE SEGURIDAD
 	securityHeaders := map[string]HeaderCheck{
 		"Content-Security-Policy": {
-			Required: true,
-			Severity: "Critical",
-			Description: "Previene XSS y data injection attacks",
-			ValidValues: []string{"default-src", "script-src", "style-src"},
+			Required:      true,
+			Severity:      "Critical",
+			Description:   "Previene XSS y data injection attacks",
+			ValidValues:   []string{"default-src", "script-src", "style-src"},
 			InvalidValues: []string{"unsafe-inline", "unsafe-eval", "*"},
 		},
 		"Strict-Transport-Security": {
-			Required: true,
-			Severity: "High",
-			Description: "Fuerza conexiones HTTPS",
-			ValidValues: []string{"max-age=", "includeSubDomains"},
+			Required:      true,
+			Severity:      "High",
+			Description:   "Fuerza conexiones HTTPS",
+			ValidValues:   []string{"max-age=", "includeSubDomains"},
 			InvalidValues: []string{"max-age=0"},
 		},
 		"X-Frame-Options": {
-			Required: true,
-			Severity: "High",
-			Description: "Previene clickjacking",
-			ValidValues: []string{"DENY", "SAMEORIGIN"},
+			Required:      true,
+			Severity:      "High",
+			Description:   "Previene clickjacking",
+			ValidValues:   []string{"DENY", "SAMEORIGIN"},
 			InvalidValues: []string{"ALLOW-FROM"},
 		},
 		"X-Content-Type-Options": {
-			Required: true,
-			Severity: "Medium",
-			Description: "Previene MIME type sniffing",
-			ValidValues: []string{"nosniff"},
+			Required:      true,
+			Severity:      "Medium",
+			Description:   "Previene MIME type sniffing",
+			ValidValues:   []string{"nosniff"},
 			InvalidValues: []string{},
 		},
 		"X-XSS-Protection": {
-			Required: false, // Deprecado pero aún útil
-			Severity: "Low",
-			Description: "Protección XSS legacy para navegadores antiguos",
-			ValidValues: []string{"1; mode=block"},
+			Required:      false, // Deprecado pero aún útil
+			Severity:      "Low",
+			Description:   "Protección XSS legacy para navegadores antiguos",
+			ValidValues:   []string{"1; mode=block"},
 			InvalidValues: []string{"0"},
 		},
 		"Referrer-Policy": {
-			Required: true,
-			Severity: "Medium",
-			Description: "Controla información en header Referer",
-			ValidValues: []string{"strict-origin-when-cross-origin", "strict-origin", "no-referrer"},
+			Required:      true,
+			Severity:      "Medium",
+			Description:   "Controla información en header Referer",
+			ValidValues:   []string{"strict-origin-when-cross-origin", "strict-origin", "no-referrer"},
 			InvalidValues: []string{"unsafe-url", "no-referrer-when-downgrade"},
 		},
 		"Permissions-Policy": {
-			Required: false,
-			Severity: "Low",
-			Description: "Controla características del navegador",
-			ValidValues: []string{"geolocation=", "camera=", "microphone="},
+			Required:      false,
+			Severity:      "Low",
+			Description:   "Controla características del navegador (cámara, micro, etc.)",
+			ValidValues:   []string{"geolocation=", "camera=", "microphone="},
+			InvalidValues: []string{"*"},
+		},
+		"Cross-Origin-Embedder-Policy": {
+			Required:      false,
+			Severity:      "Low",
+			Description:   "Previene que el documento cargue recursos cross-origin sin permiso",
+			ValidValues:   []string{"require-corp", "credentialless"},
+			InvalidValues: []string{},
+		},
+		"Cross-Origin-Opener-Policy": {
+			Required:      false,
+			Severity:      "Low",
+			Description:   "Aísla el contexto de navegación de otros documentos",
+			ValidValues:   []string{"same-origin", "same-origin-allow-popups"},
+			InvalidValues: []string{"unsafe-none"},
+		},
+		"Expect-CT": {
+			Required:      false, // Deprecado pero aún visible en algunos reportes
+			Severity:      "Low",
+			Description:   "Certificate Transparency enforcement",
+			ValidValues:   []string{"max-age=", "enforce"},
 			InvalidValues: []string{},
 		},
 	}
@@ -91,7 +112,7 @@ func (t *AdvancedSecurityHeadersTest) Run(targetURL string, client HTTPClient, p
 	// Verificar cada header
 	for headerName, check := range securityHeaders {
 		headerValue := resp.Header.Get(headerName)
-		
+
 		if headerValue == "" {
 			if check.Required {
 				if check.Severity == "Critical" {
@@ -101,7 +122,7 @@ func (t *AdvancedSecurityHeadersTest) Run(targetURL string, client HTTPClient, p
 				} else {
 					warnings = append(warnings, fmt.Sprintf("⚠️  MEDIO: Header '%s' faltante - %s", headerName, check.Description))
 				}
-				
+
 				result.Evidence = append(result.Evidence, Evidence{
 					Type:        "Missing Security Header",
 					URL:         targetURL,
@@ -123,7 +144,7 @@ func (t *AdvancedSecurityHeadersTest) Run(targetURL string, client HTTPClient, p
 				} else {
 					issues = append(issues, fmt.Sprintf("❌ '%s' mal configurado: %s - %s", headerName, headerValue, isValid.Issue))
 				}
-				
+
 				result.Evidence = append(result.Evidence, Evidence{
 					Type:        "Misconfigured Security Header",
 					URL:         targetURL,
@@ -137,11 +158,12 @@ func (t *AdvancedSecurityHeadersTest) Run(targetURL string, client HTTPClient, p
 
 	// VERIFICAR HEADERS PELIGROSOS
 	dangerousHeaders := map[string]string{
-		"Server":       "Expone información del servidor",
-		"X-Powered-By": "Revela tecnología del backend",
-		"X-AspNet-Version": "Expone versión de ASP.NET",
+		"Server":              "Expone información del servidor",
+		"X-Powered-By":        "Revela tecnología del backend",
+		"X-AspNet-Version":    "Expone versión de ASP.NET",
 		"X-AspNetMvc-Version": "Expone versión de ASP.NET MVC",
-		"X-Generator": "Revela CMS o framework usado",
+		"X-Generator":         "Revela CMS o framework usado",
+		"X-Runtime":           "Expone tiempos de ejecución del servidor",
 	}
 
 	for headerName, description := range dangerousHeaders {
@@ -261,8 +283,19 @@ func (t *AdvancedSecurityHeadersTest) validateHeaderValue(headerName, headerValu
 		if !isValid {
 			return HeaderValidation{false, "Política no válida"}
 		}
-		if headerValueLower == "unsafe-url" {
-			return HeaderValidation{false, "Política insegura 'unsafe-url'"}
+		if headerValueLower == "unsafe-url" || headerValueLower == "no-referrer-when-downgrade" {
+			return HeaderValidation{false, fmt.Sprintf("Política insegura '%s'", headerValueLower)}
+		}
+	case "Permissions-Policy":
+		if strings.Contains(headerValueLower, "*") {
+			return HeaderValidation{false, "Permite cualquier origen para características del navegador"}
+		}
+		if strings.Contains(headerValueLower, "geolocation=(*)") || strings.Contains(headerValueLower, "camera=(*)") {
+			return HeaderValidation{false, "Funcionalidades sensibles con wildcard (*)"}
+		}
+	case "Cross-Origin-Opener-Policy":
+		if headerValueLower == "unsafe-none" {
+			return HeaderValidation{false, "Contexto de navegación no aislado (unsafe-none)"}
 		}
 	}
 
@@ -272,18 +305,18 @@ func (t *AdvancedSecurityHeadersTest) validateHeaderValue(headerName, headerValu
 // validateCSP valida Content-Security-Policy
 func (t *AdvancedSecurityHeadersTest) validateCSP(csp string) HeaderValidation {
 	cspLower := strings.ToLower(csp)
-	
+
 	// Verificar directivas inseguras
-	if strings.Contains(cspLower, "unsafe-inline") {
+	if strings.Contains(cspLower, "'unsafe-inline'") {
 		return HeaderValidation{false, "Contiene 'unsafe-inline' que es inseguro"}
 	}
-	if strings.Contains(cspLower, "unsafe-eval") {
+	if strings.Contains(cspLower, "'unsafe-eval'") {
 		return HeaderValidation{false, "Contiene 'unsafe-eval' que es inseguro"}
 	}
 	if strings.Contains(cspLower, "default-src *") || strings.Contains(cspLower, "script-src *") {
 		return HeaderValidation{false, "Permite cualquier fuente con '*' que es inseguro"}
 	}
-	
+
 	// Verificar que tenga directivas básicas
 	requiredDirectives := []string{"default-src", "script-src"}
 	for _, directive := range requiredDirectives {
@@ -291,22 +324,22 @@ func (t *AdvancedSecurityHeadersTest) validateCSP(csp string) HeaderValidation {
 			return HeaderValidation{false, fmt.Sprintf("Falta directiva crítica '%s'", directive)}
 		}
 	}
-	
+
 	return HeaderValidation{true, ""}
 }
 
 // validateHSTS valida Strict-Transport-Security
 func (t *AdvancedSecurityHeadersTest) validateHSTS(hsts string) HeaderValidation {
 	hstsLower := strings.ToLower(hsts)
-	
+
 	if !strings.Contains(hstsLower, "max-age=") {
 		return HeaderValidation{false, "Falta 'max-age'"}
 	}
-	
+
 	if strings.Contains(hstsLower, "max-age=0") {
 		return HeaderValidation{false, "max-age=0 deshabilita HSTS"}
 	}
-	
+
 	// Verificar que max-age sea razonable (al menos 1 año)
 	if strings.Contains(hstsLower, "max-age=") {
 		// En una implementación completa, extraeríamos y validaríamos el número
@@ -314,14 +347,14 @@ func (t *AdvancedSecurityHeadersTest) validateHSTS(hsts string) HeaderValidation
 			return HeaderValidation{false, "Recomendado incluir 'includeSubDomains'"}
 		}
 	}
-	
+
 	return HeaderValidation{true, ""}
 }
 
 // validateXFrameOptions valida X-Frame-Options
 func (t *AdvancedSecurityHeadersTest) validateXFrameOptions(xfo string) HeaderValidation {
 	xfoLower := strings.ToLower(xfo)
-	
+
 	validValues := []string{"deny", "sameorigin"}
 	isValid := false
 	for _, valid := range validValues {
@@ -330,14 +363,14 @@ func (t *AdvancedSecurityHeadersTest) validateXFrameOptions(xfo string) HeaderVa
 			break
 		}
 	}
-	
+
 	if !isValid {
 		if strings.HasPrefix(xfoLower, "allow-from") {
 			return HeaderValidation{false, "ALLOW-FROM está deprecado, usar CSP frame-ancestors"}
 		}
 		return HeaderValidation{false, "Valor no válido, usar DENY o SAMEORIGIN"}
 	}
-	
+
 	return HeaderValidation{true, ""}
 }
 
@@ -345,16 +378,16 @@ func (t *AdvancedSecurityHeadersTest) validateXFrameOptions(xfo string) HeaderVa
 func (t *AdvancedSecurityHeadersTest) analyzeCookie(cookie string) []string {
 	var issues []string
 	cookieLower := strings.ToLower(cookie)
-	
+
 	// Verificar flags de seguridad
 	if !strings.Contains(cookieLower, "secure") {
 		issues = append(issues, "Cookie sin flag 'Secure'")
 	}
-	
+
 	if !strings.Contains(cookieLower, "httponly") {
 		issues = append(issues, "Cookie sin flag 'HttpOnly'")
 	}
-	
+
 	if !strings.Contains(cookieLower, "samesite") {
 		issues = append(issues, "Cookie sin atributo 'SameSite'")
 	} else {
@@ -363,11 +396,11 @@ func (t *AdvancedSecurityHeadersTest) analyzeCookie(cookie string) []string {
 			issues = append(issues, "Cookie con 'SameSite=None' puede ser inseguro")
 		}
 	}
-	
+
 	// Verificar si es una cookie de sesión sin expiración
 	if strings.Contains(cookieLower, "session") && !strings.Contains(cookieLower, "expires") && !strings.Contains(cookieLower, "max-age") {
 		issues = append(issues, "Cookie de sesión sin tiempo de expiración")
 	}
-	
+
 	return issues
 }

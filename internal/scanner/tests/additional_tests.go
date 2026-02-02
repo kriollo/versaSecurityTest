@@ -52,7 +52,7 @@ func (t *ErrorLeakageTest) Run(targetURL string, client HTTPClient, payloads *co
 		}
 
 		// Verificar errores de aplicación (400-499) que puedan revelar información
-		if resp.StatusCode >= 400 && resp.StatusCode < 500 && resp.StatusCode != 404 && resp.StatusCode != 403 {
+		if resp.StatusCode >= 400 && resp.StatusCode < 500 && resp.StatusCode != 404 && resp.StatusCode != 403 && resp.StatusCode != 429 {
 			details = append(details, fmt.Sprintf("Error de aplicación: %d", resp.StatusCode))
 		}
 	}
@@ -134,6 +134,14 @@ func (t *CryptographyTest) Run(targetURL string, client HTTPClient, payloads *co
 	resp, err := client.Get(targetURL)
 	if err == nil {
 		defer resp.Body.Close()
+
+		// Si recibimos 429, no podemos verificar headers confiablemente
+		if resp.StatusCode == 429 {
+			details = append(details, "Rate limit detectado (429) - omitiendo verificación de criptografía")
+			result.Details = details
+			result.Status = "Passed"
+			return result
+		}
 
 		// Verificar HSTS
 		hsts := resp.Header.Get("Strict-Transport-Security")
@@ -258,7 +266,7 @@ func (t *BusinessLogicTest) Run(targetURL string, client HTTPClient, payloads *c
 
 		// Si un endpoint crítico de negocio es accesible sin autenticación
 		if resp.StatusCode == 200 && (strings.Contains(endpoint, "payment") ||
-		   strings.Contains(endpoint, "checkout") || strings.Contains(endpoint, "purchase")) {
+			strings.Contains(endpoint, "checkout") || strings.Contains(endpoint, "purchase")) {
 			evidence = append(evidence, Evidence{
 				Type:        "Business Logic Bypass",
 				URL:         targetURL + endpoint,

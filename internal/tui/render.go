@@ -459,7 +459,7 @@ func (m Model) RenderResultsStep() string {
 
 		scrollContent += fmt.Sprintf("\n\n📜 SCROLL: %s %.1f%% | Líneas %d-%d de %d",
 			progressBar, progressPercent, startLine+1, endLine, totalLines)
-		scrollContent += fmt.Sprintf("\n🎮 ↑↓ Línea | PgUp/PgDn Página | Home/End Inicio/Final | Enter: Nuevo escaneo | s: Guardar | Esc: Salir")
+		scrollContent += fmt.Sprintf("\n🎮 ↑↓ Línea | Enter: Reintentar | ← Borrar: Cambiar Tests | p: Perfil | s: Guardar | Esc: Salir")
 	}
 
 	sb.WriteString(scrollContent)
@@ -560,7 +560,7 @@ func (m Model) RenderFooter() string {
 	case StateScanning:
 		help.WriteString("🎮 q: Cancelar escaneo | Ctrl+C: Salir forzado")
 	case StateResults:
-		help.WriteString("🎮 ↑↓: Scroll línea | PgUp/PgDn: Scroll página | Home/End: Inicio/Final | Enter: Nuevo escaneo | Esc: Salir")
+		help.WriteString("🎮 Enter: Reintentar | ← Borrar: Cambiar Tests | p: Perfil | ↑↓: Scroll | s: Guardar | Esc: Salir")
 	default:
 		help.WriteString("🎮 Navegación con ↑↓ | Enter: Seleccionar | Esc: Volver/Salir")
 	}

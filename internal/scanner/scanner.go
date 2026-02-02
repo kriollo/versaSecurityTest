@@ -237,10 +237,20 @@ func (ws *WebScanner) getEnabledTests() []TestRunner {
 		testRunners = append(testRunners, &tests.ErrorLeakageTest{})
 	}
 
+	// Test de Componentes Desactualizados (A06)
+	if ws.config.Tests.OutdatedComponents {
+		testRunners = append(testRunners, &tests.OutdatedComponentsTest{})
+	}
+
 	// Categoría IDNT - Gestión de identidad
 	if ws.config.Tests.IdentityMgmt {
 		testRunners = append(testRunners, &tests.IdentityManagementTest{})
 		testRunners = append(testRunners, &tests.UserEnumerationTest{})
+	}
+
+	// Categoría ATHN - Autenticación
+	if ws.config.Tests.Authentication {
+		testRunners = append(testRunners, &tests.AuthenticationTest{})
 	}
 
 	// Categoría ATHZ - Autorización
@@ -297,8 +307,9 @@ func (ws *WebScanner) getEnabledTests() []TestRunner {
 		if ws.config.Tests.UseAdvancedTests {
 			// Test avanzado con validación de configuración específica
 			testRunners = append(testRunners, &tests.AdvancedSecurityHeadersTest{})
+		} else {
+			testRunners = append(testRunners, &tests.HTTPHeadersTest{})
 		}
-		// Nota: Test básico de headers deshabilitado temporalmente hasta solucionar problemas de compilación
 	}
 
 	// Tests de Directory Traversal (avanzados si está habilitado)
@@ -306,8 +317,9 @@ func (ws *WebScanner) getEnabledTests() []TestRunner {
 		if ws.config.Tests.UseAdvancedTests {
 			// Test avanzado con múltiples técnicas de encoding
 			testRunners = append(testRunners, &tests.AdvancedDirectoryTraversalTest{})
+		} else {
+			testRunners = append(testRunners, &tests.DirTraversalTest{})
 		}
-		// Nota: Test básico de traversal deshabilitado temporalmente hasta solucionar problemas de compilación
 	}
 
 	// Categoría CRYP - Criptografía
@@ -315,9 +327,24 @@ func (ws *WebScanner) getEnabledTests() []TestRunner {
 		testRunners = append(testRunners, &tests.CryptographyTest{})
 	}
 
+	// Test de Integridad de Datos (A08)
+	if ws.config.Tests.DataIntegrity {
+		testRunners = append(testRunners, &tests.DataIntegrityTest{})
+	}
+
 	// Categoría BUSL - Lógica de negocio
 	if ws.config.Tests.BusinessLogic {
 		testRunners = append(testRunners, &tests.BusinessLogicTest{})
+	}
+
+	// Tests de CSRF (integrado)
+	if ws.config.Tests.CSRFProtection {
+		testRunners = append(testRunners, &tests.CSRFProtectionTest{})
+	}
+
+	// Tests de SSL/TLS (integrado)
+	if ws.config.Tests.SSLAnalysis {
+		testRunners = append(testRunners, &tests.SSLAnalysisTest{})
 	}
 
 	// Categoría CLNT - Cliente
@@ -330,11 +357,25 @@ func (ws *WebScanner) getEnabledTests() []TestRunner {
 		testRunners = append(testRunners, &tests.APISecurityTest{})
 	}
 
-	// Tests existentes que aún funcionan
-	// Comentado temporalmente para debugging
-	// if ws.config.Tests.InfoDisclosure {
-	// 	testRunners = append(testRunners, &tests.InfoDisclosureTest{})
-	// }
+	// Test de Brute Force
+	if ws.config.Tests.BruteForce {
+		testRunners = append(testRunners, &tests.BruteForceTest{})
+	}
+
+	// Test de Red / Puertos (NETW)
+	if ws.config.Tests.NetworkScan {
+		testRunners = append(testRunners, &tests.PortScanTest{})
+	}
+
+	// Test de File Upload
+	if ws.config.Tests.FileUpload {
+		testRunners = append(testRunners, &tests.FileUploadTest{})
+	}
+
+	// Test de Info Disclosure
+	if ws.config.Tests.InfoDisclosure {
+		testRunners = append(testRunners, &tests.InfoDisclosureTest{})
+	}
 
 	return testRunners
 }
@@ -619,6 +660,28 @@ func getTestName(testRunner TestRunner) string {
 		return "Client Side"
 	case *tests.APISecurityTest:
 		return "API Security"
+	case *tests.SSLAnalysisTest:
+		return "SSL/TLS Analysis"
+	case *tests.CSRFProtectionTest:
+		return "CSRF Protection"
+	case *tests.BruteForceTest:
+		return "Brute Force"
+	case *tests.FileUploadTest:
+		return "File Upload"
+	case *tests.HTTPHeadersTest:
+		return "HTTP Headers"
+	case *tests.InfoDisclosureTest:
+		return "Information Disclosure"
+	case *tests.DirTraversalTest:
+		return "Directory Traversal"
+	case *tests.AuthenticationTest:
+		return "Authentication Security"
+	case *tests.PortScanTest:
+		return "Network Port Scan"
+	case *tests.OutdatedComponentsTest:
+		return "Outdated Components Analysis"
+	case *tests.DataIntegrityTest:
+		return "Software and Data Integrity"
 	default:
 		// Usar reflexión como fallback para obtener el nombre del tipo
 		return fmt.Sprintf("Unknown Test (%T)", tr)
