@@ -508,6 +508,20 @@ Usa las [GitHub Issues](https://github.com/kriollo/versaSecurityTest/issues) par
 - Salida esperada vs actual
 - Información del sistema (OS, versión de Go)
 
+## 🔄 Actualización (`-update`)
+
+```bash
+./versaSecurity -update
+```
+
+Consulta la última versión publicada en GitHub y, si hay una nueva:
+
+- **Binario instalado**: descarga el binario del release para tu sistema (SO/arquitectura) y reemplaza el
+  ejecutable actual. En Windows el `.exe` en uso se renombra y se pone el nuevo en su lugar.
+- **Clon de desarrollo** (hay carpeta `.git`): ofrece `git pull` + recompilar.
+
+En ambos casos pide confirmación antes de tocar nada.
+
 ## ⚠️ Consideraciones Legales y Éticas
 
 ### ⚖️ Uso Responsable

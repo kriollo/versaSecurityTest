@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   que mide si el rate limiting contiene el abuso (429) o la app se degrada (5xx/timeouts); veredicto e informe JSON.
 - **Test `known_vulns`**: detección de solo lectura de las vulnerabilidades de 2026 en frameworks PHP
   (CVE-2026-114509 cookie no-string, -46634 SSTI, -119977 ejecución de .php, exposición de config/.env/vendor).
+  Seleccionable también en el modo TUI.
+- **Self-update real (`-update`)**: además de avisar de una versión nueva, descarga el binario del release
+  que corresponde al sistema (SO/arquitectura) y reemplaza el ejecutable en marcha (seguro en Windows).
 
 ### Fixed
 
@@ -20,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   comprobar el patrón en el cuerpo (un catch-all SPA los disparaba todos). Ahora exige el patrón.
 - **DataIntegrity no detectaba cookies serializadas reales**: no decodificaba el valor URL-encoded. Ahora sí.
 - **Authentication marcaba `/admin` como panel expuesto**: es la página de login propia de muchos frameworks; se quitó.
+- **El release compilaba con `go build main.go`**: ignoraba `load_cmd.go`/`flood_cmd.go` y habría fallado; ahora compila el paquete completo (`.`).
 - Cobertura de tests para extractHost, getServiceName, containsVersion, serialización PHP y los fixes anteriores.
 
 
