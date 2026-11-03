@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.0.1] - 2026-10-03
 
 ### Added
 
@@ -25,7 +25,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Authentication marcaba `/admin` como panel expuesto**: es la página de login propia de muchos frameworks; se quitó.
 - **El release compilaba con `go build main.go`**: ignoraba `load_cmd.go`/`flood_cmd.go` y habría fallado; ahora compila el paquete completo (`.`).
 - Cobertura de tests para extractHost, getServiceName, containsVersion, serialización PHP y los fixes anteriores.
-
 
 - **Prueba de capacidad (`versaSecurity load`)**: usuarios virtuales concurrentes, cada uno con sus cookies,
   su usuario (CSV) y su IP en `X-Forwarded-For`, que inician sesión con token CSRF y recorren rutas
