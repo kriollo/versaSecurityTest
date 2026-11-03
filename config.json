@@ -35,6 +35,7 @@
     "network_scan": true,
     "outdated_components": true,
     "data_integrity": true,
+    "known_vulns": true,
     "use_advanced_tests": true
   },
   "verbose": false,

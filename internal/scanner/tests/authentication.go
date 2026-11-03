@@ -64,12 +64,13 @@ func (t *AuthenticationTest) Run(targetURL string, client HTTPClient, payloads *
 		// (Esto se ampliaría probando el login real)
 	}
 
-	// 3. Probar endpoints comunes susceptibles a autenticación débil o por defecto
+	// 3. Probar endpoints comunes susceptibles a autenticación débil o por defecto.
+	// /admin se omite a propósito: es la propia página de login de muchos frameworks (versaWYS incluido),
+	// así que un 200 ahí es esperado, no una falla.
 	adminEndpoints := []struct {
 		path string
 		name string
 	}{
-		{"/admin", "Panel de Administración"},
 		{"/manager/html", "Tomcat Manager"},
 		{"/phpmyadmin", "phpMyAdmin"},
 		{"/console", "Web Console"},

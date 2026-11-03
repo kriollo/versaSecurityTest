@@ -19,6 +19,10 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "load" {
 		os.Exit(runLoad(os.Args[2:]))
 	}
+	// Prueba de resiliencia ante DoS
+	if len(os.Args) > 1 && os.Args[1] == "flood" {
+		os.Exit(runFlood(os.Args[2:]))
+	}
 
 	// Configuración de flags
 	var (
@@ -58,6 +62,7 @@ func main() {
 			fmt.Println("   • Forzar CLI:                ./versaSecurityTest.exe -cli")
 			fmt.Println("   • Actualización:             ./versaSecurityTest.exe -update")
 			fmt.Println("   • Prueba de capacidad:       ./versaSecurityTest.exe load -url https://ejemplo.com -help")
+			fmt.Println("   • Resiliencia ante DoS:      ./versaSecurityTest.exe flood -url https://ejemplo.com -help")
 			fmt.Println("")
 			flag.PrintDefaults()
 			os.Exit(1)

@@ -3,6 +3,7 @@ package tests
 import (
 	"fmt"
 	"io"
+	"net/url"
 	"strings"
 
 	"github.com/versaSecurityTest/internal/config"
@@ -33,8 +34,12 @@ func (t *DataIntegrityTest) Run(targetURL string, client HTTPClient, payloads *c
 	// 1. Analizar Cookies en busca de serialización insegura
 	for _, cookie := range resp.Cookies() {
 		val := cookie.Value
+		// Las cookies serializadas suelen viajar URL-encoded (O%3A4%3A...); sin decodificar se escaparían
+		if dec, err := url.QueryUnescape(val); err == nil && dec != val {
+			val = dec
+		}
 
-		// Detección de serialización PHP
+		// Detección de serialización PHP (objeto: O:n:"Clase":...)
 		if strings.Contains(val, "O:") && strings.Contains(val, ":\"") && strings.Contains(val, "\":") {
 			result.Details = append(result.Details, fmt.Sprintf("⚠️ Posible serialización PHP en cookie: %s", cookie.Name))
 			result.Evidence = append(result.Evidence, Evidence{

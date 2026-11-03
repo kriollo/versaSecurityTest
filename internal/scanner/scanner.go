@@ -377,6 +377,11 @@ func (ws *WebScanner) getEnabledTests() []TestRunner {
 		testRunners = append(testRunners, &tests.InfoDisclosureTest{})
 	}
 
+	// Vulnerabilidades conocidas (CVE 2026 de frameworks PHP)
+	if ws.config.Tests.KnownVulns {
+		testRunners = append(testRunners, &tests.KnownVulnerabilitiesTest{})
+	}
+
 	return testRunners
 }
 

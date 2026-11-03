@@ -27,6 +27,7 @@
 - **Protección CSRF**: Verificación de defensas contra Cross-Site Request Forgery.
 - **Fuerza Bruta**: Tests básicos de fuerza bruta sobre formularios de login.
 - **Subida de Archivos (File Upload)**: Valida controles en la subida de archivos.
+- **Vulnerabilidades conocidas (CVE 2026)**: Sondas de solo lectura para las fallas de 2026 en frameworks PHP (Laravel, Symfony, WordPress): configuración expuesta, credenciales no-string que rompen la petición, inyección de plantilla y código PHP servido como texto.
 - **Directory Traversal**: Detección de vulnerabilidades de path traversal.
 - **Network Port Scan**: Escaneo de puertos abiertos y servicios (A01:2021).
 - **OWASP Top 10 2021**: Integración profunda con A06 (Componentes Vulnerables), A08 (Integridad) y A10 (SSRF Avanzado).
@@ -222,6 +223,30 @@ usuarios peticiones    req/s       p50       p95       p99       máx  errores e
 - `-think` (500ms) es la pausa entre peticiones de un usuario: bájala para más presión por usuario.
 
 > ⚠️ Es tráfico real de muchos usuarios: úsala contra un servidor propio o de prueba, nunca contra uno ajeno.
+
+## 💥 Prueba de Resiliencia ante DoS (`flood`)
+
+Comprueba si la app aguanta un flujo intenso desde muchas IP: si su límite de peticiones lo contiene
+(responde 429) o si se degrada (5xx, timeouts). Es una prueba de **defensa**, no un ataque.
+
+```bash
+./versaSecurity flood -url http://staging.ejemplo.cl -path /admin/login -workers 200 -duration 30s
+```
+
+```
+Peticiones: 16945 (2824 req/s)  p50 15ms  p95 40ms  p99 182ms  máx 692ms
+  2xx/3xx: 16945  |  429 (frenadas): 0  |  5xx: 0  |  errores de red: 0
+⚠️  La app sirvió todo el flujo sin frenarlo (sin 429); las IP rotadas pueden evadir el límite por IP.
+```
+
+- `-rotate-ip` (por defecto) envía una IP distinta por petición en `X-Forwarded-For`: prueba si el límite
+  **por IP** se puede evadir rotando el origen (el caso de un ataque distribuido). Con `-rotate-ip=false`
+  todo sale de una IP y debería dispararse el límite global (429).
+- El veredicto distingue entre *la app frenó el abuso* (429, bien), *se rompió* (5xx) o *se cayó* (timeouts).
+- Informe JSON en `reports/flood_<fecha>.json`.
+
+> ⚠️ Envía tráfico real de alto volumen. Solo contra servidores propios o con autorización expresa
+> (fuera de `localhost` exige la bandera `-yes`).
 
 ## ⚙️ Configuración
 

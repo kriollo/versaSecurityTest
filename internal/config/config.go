@@ -79,6 +79,8 @@ type TestConfig struct {
 	OutdatedComponents bool `json:"outdated_components"` // A06:2021
 	DataIntegrity      bool `json:"data_integrity"`      // A08:2021
 
+	KnownVulns         bool `json:"known_vulns"`         // Vulnerabilidades conocidas (CVE 2026 de frameworks PHP)
+
 	// Configuración de agresividad
 	UseAdvancedTests bool `json:"use_advanced_tests"` // Usar tests agresivos y exhaustivos
 }
@@ -171,6 +173,7 @@ func DefaultConfig() *Config {
 			NetworkScan:        false, // NETW: Deshabilitado por defecto
 			OutdatedComponents: true,  // A06:2021 - Habilitado por defecto
 			DataIntegrity:      true,  // A08:2021 - Habilitado por defecto
+			KnownVulns:         true,  // CVE 2026 de frameworks PHP
 
 			// Configuración de agresividad
 			UseAdvancedTests: true, // Usar tests avanzados por defecto para máxima efectividad

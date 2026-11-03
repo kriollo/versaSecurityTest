@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/versaSecurityTest/internal/config"
@@ -81,8 +82,10 @@ func (t *OutdatedComponentsTest) Run(targetURL string, client HTTPClient, payloa
 
 		fpResp, err := client.Get(fpURL)
 		if err == nil {
-			defer fpResp.Body.Close()
-			if fpResp.StatusCode == 200 {
+			fpBody, _ := io.ReadAll(fpResp.Body)
+			fpResp.Body.Close()
+			// 200 no basta: un catch-all (SPA) responde 200 a todo. Se exige que el cuerpo traiga el patrón.
+			if fpResp.StatusCode == 200 && strings.Contains(strings.ToLower(string(fpBody)), strings.ToLower(fp.Pattern)) {
 				result.Details = append(result.Details, fmt.Sprintf("⚠️ Componente detectado en: %s", fp.Path))
 				result.Evidence = append(result.Evidence, Evidence{
 					Type:        "Component Fingerprint",

@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Resiliencia ante DoS (`versaSecurity flood`)**: flujo intenso desde muchas IP (X-Forwarded-For rotado)
+  que mide si el rate limiting contiene el abuso (429) o la app se degrada (5xx/timeouts); veredicto e informe JSON.
+- **Test `known_vulns`**: detección de solo lectura de las vulnerabilidades de 2026 en frameworks PHP
+  (CVE-2026-114509 cookie no-string, -46634 SSTI, -119977 ejecución de .php, exposición de config/.env/vendor).
+
+### Fixed
+
+- **OutdatedComponents daba falsos positivos**: marcaba WordPress/Drupal/phpMyAdmin con solo un 200, sin
+  comprobar el patrón en el cuerpo (un catch-all SPA los disparaba todos). Ahora exige el patrón.
+- **DataIntegrity no detectaba cookies serializadas reales**: no decodificaba el valor URL-encoded. Ahora sí.
+- **Authentication marcaba `/admin` como panel expuesto**: es la página de login propia de muchos frameworks; se quitó.
+- Cobertura de tests para extractHost, getServiceName, containsVersion, serialización PHP y los fixes anteriores.
+
+
 - **Prueba de capacidad (`versaSecurity load`)**: usuarios virtuales concurrentes, cada uno con sus cookies,
   su usuario (CSV) y su IP en `X-Forwarded-For`, que inician sesión con token CSRF y recorren rutas
   mientras la carga sube por etapas. Reporta req/s, p50/p95/p99, errores por estado y la capacidad
