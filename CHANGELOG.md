@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.1] - 2026-11-03
+
+### Fixed
+
+- **Auto-update del binario instalado**: `-update` ahora descarga e instala la nueva versión en lugar de
+  mostrar "Próximamente: Actualización automática del binario." El binario instalado se actualizó a v2.1.0
+  y se verificó el flujo completo de self-update.
+
 ## [2.1.0] - 2026-11-03
 
 ### Added
