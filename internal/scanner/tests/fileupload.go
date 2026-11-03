@@ -17,7 +17,7 @@ func (f *FileUploadTest) Run(targetURL string, client HTTPClient, payloads *conf
 		TestName: "File Upload Test",
 		Status:   "Passed",
 		Details:  []string{},
-		Severity: "High",
+		Severity: "Info",
 	}
 
 	// Buscar formularios de upload en la página principal
@@ -45,8 +45,10 @@ func (f *FileUploadTest) Run(targetURL string, client HTTPClient, payloads *conf
 		strings.Contains(bodyLower, "upload")
 
 	if !hasFileUpload {
-		result.Status = "Warning"
-		result.Description = "No file upload functionality detected"
+		// No hay formularios de carga: nada que auditar. Es informativo, no una advertencia de seguridad.
+		result.Status = "Passed"
+		result.Severity = "Info"
+		result.Description = "No se detectaron formularios de carga de archivos"
 		result.Details = append(result.Details, "ℹ️ No se detectaron formularios de carga de archivos")
 		return result
 	}

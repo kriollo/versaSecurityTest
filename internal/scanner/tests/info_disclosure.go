@@ -38,18 +38,20 @@ func (i *InfoDisclosureTest) Run(targetURL string, client HTTPClient, payloads *
 	body := string(bodyBytes)
 	bodyLower := strings.ToLower(body)
 
-	// Patrones de información sensible
+	// Firmas de fuga REAL: rastros de error/stack trace de frameworks, no la mera aparición de palabras
+	// como "error" o "admin" (eso aparece en cualquier página y daba falsos positivos constantes).
 	patterns := map[string]string{
-		"password":  "Password field or text found",
-		"username":  "Username field or text found",
-		"admin":     "Admin references found",
-		"database":  "Database references found",
-		"error":     "Error messages found",
-		"exception": "Exception information found",
-		"debug":     "Debug information found",
-		"config":    "Configuration information found",
-		"api_key":   "API key references found",
-		"secret":    "Secret references found",
+		"stack trace":                       "Stack trace expuesto",
+		"fatal error:":                      "Error fatal de PHP expuesto",
+		"<b>warning</b>:":                   "Warning de PHP expuesto",
+		"<b>notice</b>:":                    "Notice de PHP expuesto",
+		"uncaught exception":                "Excepción sin capturar expuesta",
+		"traceback (most recent call last)": "Traceback de Python expuesto",
+		"exception in thread":               "Stack trace de Java expuesto",
+		"sqlstate[":                         "Error de base de datos (SQLSTATE) expuesto",
+		"undefined index":                   "Aviso de PHP (undefined index) expuesto",
+		"call stack:":                       "Call stack expuesto",
+		"/var/www/":                         "Ruta del servidor expuesta en la respuesta",
 	}
 
 	foundIssues := 0

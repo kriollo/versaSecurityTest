@@ -17,7 +17,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Self-update real (`-update`)**: además de avisar de una versión nueva, descarga el binario del release
   que corresponde al sistema (SO/arquitectura) y reemplaza el ejecutable en marcha (seguro en Windows).
 
+### Changed
+
+- **Backoff ante 429 (rate limiting) en el cliente HTTP compartido**: si un test (fuerza bruta, API, etc.)
+  dispara el límite de peticiones, el escáner espera (respetando `Retry-After`) y reintenta, para que la web
+  se desbloquee y los demás tests sigan con respuestas reales en vez de una cascada de 429.
+- **Interpretación unificada de códigos HTTP** (`IsRateLimited`/`IsAccessible`/`IsAuthBlocked`/`IsNotFound`):
+  un 429 ya nunca se interpreta como hallazgo; "accesible" es solo 2xx.
+
 ### Fixed
+
+- **Authorization: un 200 en /admin se marcaba como "bypass"**, pero es la página de login. Ahora solo se
+  marca un 200 con contenido que NO sea una pantalla de login; 429/401/403/404 no son hallazgo.
+- **SQL avanzado (boolean-blind) marcaba cualquier 404/403 como vulnerable** (`|| statusCode==404`). Reescrito:
+  compara una condición verdadera (1=1) vs falsa (1=2), ambas 2xx; solo si verdadero≈base y falso difiere.
+- **SQL avanzado (time-based) se disparaba por lentitud del servidor o el backoff**. Ahora usa una petición
+  de control: solo marca si el control es rápido y el payload con SLEEP tarda notablemente más.
+- **Client-Side: "DOM XSS accesible" por un 200 en una URL con fragmento (#)**: el fragmento no llega al
+  servidor. Reemplazado por XSS reflejado real (el payload vuelve sin escapar en la respuesta).
+- **HTTP Headers exigía HSTS sobre HTTP** (solo aplica a HTTPS) y fallaba por X-XSS-Protection (obsoleto): ahora informativos.
+- **Authentication marcaba falta de `autocomplete=off`** (consejo obsoleto que OWASP desaconseja): eliminado.
+- **File Upload reportaba "no hay formularios" como Warning/High**: ahora es informativo (Passed/Info).
+- **Information Disclosure marcaba por palabras sueltas** ("error", "admin", "password"): ahora exige firmas
+  de fuga reales (stack traces, errores de framework, rutas del servidor).
+- **API: CORS `*` se marcaba como riesgo**; `*` solo es inseguro con `Allow-Credentials: true`. Y la inyección
+  en API exige una firma de error de BD real, no un 500 genérico. 429 nunca concluye nada.
 
 - **SQL Injection marcaba un 404 normal como vulnerable**: bastaba con que la respuesta contuviera el
   texto "sql" o diera 500. Ahora exige una firma de error de base de datos real (igual que el test avanzado).

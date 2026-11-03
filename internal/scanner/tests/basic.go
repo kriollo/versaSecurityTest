@@ -56,19 +56,68 @@ func NewBasicHTTPClient() *BasicHTTPClient {
 	}
 }
 
-// Get realiza una petición GET
+// Get realiza una petición GET (con backoff ante 429)
 func (c *BasicHTTPClient) Get(url string) (*http.Response, error) {
-	return c.client.Get(url)
+	return c.doWithBackoff(func() (*http.Request, error) {
+		return http.NewRequest(http.MethodGet, url, nil)
+	})
 }
 
-// Do realiza una petición HTTP personalizada
+// Do realiza una petición HTTP personalizada (con backoff ante 429 cuando el cuerpo se puede reconstruir)
 func (c *BasicHTTPClient) Do(req *http.Request) (*http.Response, error) {
-	return c.client.Do(req)
+	// Si hay cuerpo y no se puede releer, no se reintenta (no podríamos reenviarlo)
+	if req.Body != nil && req.GetBody == nil {
+		return c.client.Do(req)
+	}
+	return c.doWithBackoff(func() (*http.Request, error) {
+		clone := req.Clone(req.Context())
+		if req.GetBody != nil {
+			body, err := req.GetBody()
+			if err != nil {
+				return nil, err
+			}
+			clone.Body = body
+		}
+		return clone, nil
+	})
 }
 
-// PostForm realiza una petición POST con datos de formulario
+// PostForm realiza una petición POST con datos de formulario (con backoff ante 429)
 func (c *BasicHTTPClient) PostForm(url string, data url.Values) (*http.Response, error) {
-	return c.client.PostForm(url, data)
+	return c.doWithBackoff(func() (*http.Request, error) {
+		req, err := http.NewRequest(http.MethodPost, url, strings.NewReader(data.Encode()))
+		if err == nil {
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		}
+		return req, err
+	})
+}
+
+// doWithBackoff ejecuta la petición y, si el servidor responde 429, espera (Retry-After o backoff creciente)
+// y reintenta. Así un test que dispara el rate limiter no deja la web bloqueada para los siguientes.
+func (c *BasicHTTPClient) doWithBackoff(makeReq func() (*http.Request, error)) (*http.Response, error) {
+	backoff := baseBackoff
+	var resp *http.Response
+	var err error
+	for attempt := 0; ; attempt++ {
+		req, reqErr := makeReq()
+		if reqErr != nil {
+			return nil, reqErr
+		}
+		resp, err = c.client.Do(req)
+		if err != nil {
+			return resp, err
+		}
+		if !IsRateLimited(resp.StatusCode) || attempt >= maxRetriesOn429 {
+			return resp, err
+		}
+		wait := retryAfter(resp, backoff)
+		resp.Body.Close()
+		time.Sleep(wait)
+		if backoff *= 2; backoff > maxBackoff {
+			backoff = maxBackoff
+		}
+	}
 }
 
 // SetTimeout permite cambiar el timeout del cliente HTTP

@@ -74,19 +74,8 @@ func (t *AdvancedSQLInjectionTest) Run(targetURL string, client HTTPClient, payl
 	// Limitar concurrencia interna por test para no saturar totalmente
 	semaphore := make(chan struct{}, 5)
 
-	// Mapa para detectar inyecciones basadas en boolean
-	// Guardamos la longitud de la página base para comparar
-	baseResponses := make(map[string]int)
-
+	// Fase 1: detección por error (patrones reales de error de BD en la respuesta), concurrente.
 	for _, endpoint := range endpointsToTest {
-		baseTestURL := targetURL + endpoint
-		resp, err := client.Get(baseTestURL)
-		if err == nil {
-			body, _ := io.ReadAll(resp.Body)
-			baseResponses[endpoint] = len(body)
-			resp.Body.Close()
-		}
-
 		for _, param := range paramsToTest {
 			for _, payload := range sqlPayloads {
 				wg.Add(1)
@@ -96,21 +85,17 @@ func (t *AdvancedSQLInjectionTest) Run(targetURL string, client HTTPClient, payl
 					defer func() { <-semaphore }()
 
 					testURL := fmt.Sprintf("%s%s?%s=%s", targetURL, e, p, url.QueryEscape(pay))
-
-					startTime := time.Now()
 					resp, err := client.Get(testURL)
 					if err != nil {
 						return
 					}
-					defer resp.Body.Close()
-
-					duration := time.Since(startTime)
 					bodyBytes, _ := io.ReadAll(resp.Body)
-					body := string(bodyBytes)
+					resp.Body.Close()
+					if IsRateLimited(resp.StatusCode) {
+						return
+					}
 
-					baseLen := baseResponses[e]
-					vuln := t.analyzeEnhancedResponse(resp.StatusCode, body, duration, pay, baseLen)
-
+					vuln := t.analyzeResponse(resp.StatusCode, string(bodyBytes), 0, pay)
 					if vuln.IsVulnerable {
 						mu.Lock()
 						vulnerabilitiesFound++
@@ -132,6 +117,16 @@ func (t *AdvancedSQLInjectionTest) Run(targetURL string, client HTTPClient, payl
 
 	wg.Wait()
 
+	// Fase 2: detección ciega (boolean y time-based), secuencial y con control, para que sea fiable.
+	for _, endpoint := range endpointsToTest {
+		for _, param := range paramsToTest {
+			if v := t.checkBlind(client, targetURL, endpoint, param); v != nil {
+				vulnerabilitiesFound++
+				result.Evidence = append(result.Evidence, *v)
+			}
+		}
+	}
+
 	if vulnerabilitiesFound > 0 {
 		result.Status = "Failed"
 		result.Severity = "Critical"
@@ -147,36 +142,6 @@ type SQLVulnerability struct {
 	Description  string
 	Evidence     string
 	Severity     string
-}
-
-// analyzeEnhancedResponse análisis mejorado con soporte para boolean-based
-func (t *AdvancedSQLInjectionTest) analyzeEnhancedResponse(statusCode int, responseText string, responseTime time.Duration, payload string, baseLen int) SQLVulnerability {
-	// Reutilizar lógica de errores existente
-	vuln := t.analyzeResponse(statusCode, responseText, responseTime, payload)
-	if vuln.IsVulnerable {
-		return vuln
-	}
-
-	// Análisis Boolean-Based: detectar cambios significativos en el contenido
-	if baseLen > 0 {
-		currentLen := len(responseText)
-
-		// Si el payload es un "true" lícito (como AND 1=1) y la respuesta es similar a la base
-		// pero para un payload "false" (AND 1=2) la respuesta cambia drásticamente
-		if strings.Contains(payload, "1=2") || strings.Contains(payload, "1=0") {
-			diff := float64(baseLen-currentLen) / float64(baseLen)
-			if diff > 0.3 || statusCode == 404 || statusCode == 403 {
-				return SQLVulnerability{
-					IsVulnerable: true,
-					Description:  "Probable Boolean-based SQL injection (Blind)",
-					Evidence:     fmt.Sprintf("Diferencia de contenido detectada para payload falso '%s' (Diff: %.2f%%)", payload, diff*100),
-					Severity:     "High",
-				}
-			}
-		}
-	}
-
-	return SQLVulnerability{IsVulnerable: false}
 }
 
 // analyzeResponse analiza la respuesta en busca de indicadores de SQL injection (Base)
@@ -217,7 +182,8 @@ func (t *AdvancedSQLInjectionTest) analyzeResponse(statusCode int, responseText 
 		{"internal server error", "Generic", "Low"}, // Solo si el payload disparó el error
 	}
 
-	// Buscar patrones de error
+	// Buscar patrones de error. El timing-based NO se evalúa aquí (una respuesta lenta puede deberse al
+	// servidor o al backoff); se confirma aparte en checkBlind con una petición de control.
 	for _, pattern := range sqlErrorPatterns {
 		if strings.Contains(responseLower, pattern.pattern) {
 			return SQLVulnerability{
@@ -229,15 +195,99 @@ func (t *AdvancedSQLInjectionTest) analyzeResponse(statusCode int, responseText 
 		}
 	}
 
-	// ANÁLISIS DE TIMING ATTACKS (5s threshold)
-	if responseTime >= 4500*time.Millisecond && (strings.Contains(payload, "SLEEP") || strings.Contains(payload, "WAITFOR") || strings.Contains(payload, "pg_sleep")) {
-		return SQLVulnerability{
-			IsVulnerable: true,
-			Description:  "Time-based Blind SQL injection",
-			Evidence:     fmt.Sprintf("Respuesta tardía (%v) inducida por payload '%s'", responseTime, payload),
-			Severity:     "Critical",
+	return SQLVulnerability{IsVulnerable: false}
+}
+
+// fetchBody hace un GET y devuelve estado, cuerpo y cuánto tardó. Vacío si hay error o rate limit.
+func (t *AdvancedSQLInjectionTest) fetchBody(client HTTPClient, url string) (int, string, time.Duration, bool) {
+	start := time.Now()
+	resp, err := client.Get(url)
+	if err != nil {
+		return 0, "", 0, false
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if IsRateLimited(resp.StatusCode) {
+		return resp.StatusCode, "", time.Since(start), false
+	}
+	return resp.StatusCode, string(body), time.Since(start), true
+}
+
+// diffRatio es la fracción de diferencia de longitud entre dos cuerpos (0 = iguales, 1 = totalmente distintos).
+func diffRatio(a, b string) float64 {
+	la, lb := len(a), len(b)
+	if la == 0 && lb == 0 {
+		return 0
+	}
+	maxLen := la
+	if lb > maxLen {
+		maxLen = lb
+	}
+	d := la - lb
+	if d < 0 {
+		d = -d
+	}
+	return float64(d) / float64(maxLen)
+}
+
+// checkBlind confirma inyección ciega de forma fiable:
+//   - Boolean: una condición verdadera deja la página como la base y una falsa la cambia de verdad.
+//   - Time-based: el payload con SLEEP tarda bastante MÁS que una petición de control (no es lentitud general).
+//
+// Devuelve una evidencia solo si lo confirma; nil en caso contrario.
+func (t *AdvancedSQLInjectionTest) checkBlind(client HTTPClient, targetURL, endpoint, param string) *Evidence {
+	q := func(payload string) string {
+		return fmt.Sprintf("%s%s?%s=%s", targetURL, endpoint, param, url.QueryEscape(payload))
+	}
+
+	// Base: el parámetro con un valor normal. Si no da 2xx, el endpoint/param no sirve para probar.
+	baseCode, baseBody, baseTime, ok := t.fetchBody(client, q("1"))
+	if !ok || !IsAccessible(baseCode) {
+		return nil
+	}
+
+	// Boolean: comparar verdadero (1=1) vs falso (1=2). Se prueban variantes con y sin comillas.
+	for _, pair := range [][2]string{
+		{"1' AND '1'='1", "1' AND '1'='2"},
+		{"1 AND 1=1", "1 AND 1=2"},
+	} {
+		trueCode, trueBody, _, okT := t.fetchBody(client, q(pair[0]))
+		falseCode, falseBody, _, okF := t.fetchBody(client, q(pair[1]))
+		if !okT || !okF || !IsAccessible(trueCode) || !IsAccessible(falseCode) {
+			continue
+		}
+		// Verdadero ≈ base (la condición siempre cierta no cambia el resultado) y falso difiere de verdad
+		if diffRatio(baseBody, trueBody) < 0.1 && diffRatio(trueBody, falseBody) > 0.3 {
+			return &Evidence{
+				Type:        "SQL Injection",
+				URL:         q(pair[1]),
+				Payload:     pair[1],
+				StatusCode:  falseCode,
+				Response:    fmt.Sprintf("Boolean-based: verdadero y falso devuelven páginas distintas (diff %.0f%%)", diffRatio(trueBody, falseBody)*100),
+				Description: "Inyección SQL ciega basada en booleanos",
+				Severity:    "Critical",
+			}
 		}
 	}
 
-	return SQLVulnerability{IsVulnerable: false}
+	// Time-based: el control (sin sleep) debe ser rápido y el sleep notablemente más lento.
+	_, _, controlTime, okC := t.fetchBody(client, q("1' AND '1'='1"))
+	if !okC || controlTime > 2*time.Second || baseTime > 2*time.Second {
+		return nil // la web ya es lenta de por sí: no se puede concluir por tiempo
+	}
+	for _, sleepPayload := range []string{"1' AND SLEEP(3)-- ", "1'; SELECT pg_sleep(3)-- ", "1 AND SLEEP(3)"} {
+		_, _, sleepTime, okS := t.fetchBody(client, q(sleepPayload))
+		if okS && sleepTime >= controlTime+2500*time.Millisecond {
+			return &Evidence{
+				Type:        "SQL Injection",
+				URL:         q(sleepPayload),
+				Payload:     sleepPayload,
+				StatusCode:  200,
+				Response:    fmt.Sprintf("Time-based: control %v vs sleep %v (el payload induce el retardo)", controlTime.Round(time.Millisecond), sleepTime.Round(time.Millisecond)),
+				Description: "Inyección SQL ciega basada en tiempo",
+				Severity:    "Critical",
+			}
+		}
+	}
+	return nil
 }

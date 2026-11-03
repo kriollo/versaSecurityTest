@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	"io"
 	"net/url"
 	"strings"
 
@@ -113,26 +114,35 @@ func (t *ClientSideTest) Run(targetURL string, client HTTPClient, payloads *conf
 		})
 	}
 
-	// CLNT-05: Probar inyección DOM-based XSS
-	domXSSEndpoints := []string{
-		"/#<script>alert(1)</script>",
-		"/?redirect=javascript:alert(1)",
-		"/#javascript:alert(1)",
-		"/?callback=alert",
-	}
-
-	for _, endpoint := range domXSSEndpoints {
-		testURL := targetURL + endpoint
+	// CLNT-05: XSS reflejado por parámetro. Nota: un fragmento (#...) NUNCA llega al servidor, así que no
+	// se puede evaluar desde aquí; solo se prueban parámetros de consulta y solo cuenta si el payload se
+	// refleja SIN escapar en la respuesta (un 200 por sí solo no es XSS: era un falso positivo).
+	const marker = "vsxss"
+	xssProbes := []string{"q", "search", "redirect", "callback", "name", "msg"}
+	payload := "\"><script>" + marker + "</script>"
+	for _, param := range xssProbes {
+		testURL := fmt.Sprintf("%s/?%s=%s", targetURL, param, url.QueryEscape(payload))
 		resp, err := client.Get(testURL)
 		if err != nil {
 			continue
 		}
-		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
 
-		details = append(details, fmt.Sprintf("Probando DOM XSS: %s (Status: %d)", endpoint, resp.StatusCode))
-
-		if resp.StatusCode == 200 {
-			details = append(details, fmt.Sprintf("Endpoint DOM XSS accesible: %s", endpoint))
+		if IsRateLimited(resp.StatusCode) {
+			continue // la web está frenando; no concluir nada de este parámetro
+		}
+		// Reflejado tal cual (sin escapar < > ) => potencial XSS reflejado
+		if IsAccessible(resp.StatusCode) && strings.Contains(string(body), "<script>"+marker+"</script>") {
+			details = append(details, fmt.Sprintf("Parámetro '%s' refleja HTML sin escapar (posible XSS reflejado)", param))
+			evidence = append(evidence, Evidence{
+				Type:        "Reflected XSS",
+				URL:         testURL,
+				Payload:     payload,
+				StatusCode:  resp.StatusCode,
+				Description: fmt.Sprintf("El parámetro '%s' devolvió el payload sin escapar", param),
+				Severity:    "High",
+			})
 		}
 	}
 
@@ -301,20 +311,22 @@ func (t *APISecurityTest) Run(targetURL string, client HTTPClient, payloads *con
 		})
 	}
 
-	// APIT-04: Verificar CORS policy
+	// APIT-04: Verificar CORS policy. '*' por sí solo NO es un riesgo (APIs públicas lo usan); solo lo es
+	// combinado con credentials=true. Y no se concluye nada desde una respuesta 429 (rate limit).
 	corsTestURL := targetURL + "/api/test"
 	resp, err := client.Get(corsTestURL)
 	if err == nil {
 		defer resp.Body.Close()
 
 		accessControlOrigin := resp.Header.Get("Access-Control-Allow-Origin")
-		if accessControlOrigin == "*" {
+		allowCreds := strings.EqualFold(resp.Header.Get("Access-Control-Allow-Credentials"), "true")
+		if !IsRateLimited(resp.StatusCode) && accessControlOrigin == "*" && allowCreds {
 			evidence = append(evidence, Evidence{
 				Type:        "Permissive CORS",
 				URL:         corsTestURL,
 				StatusCode:  resp.StatusCode,
-				Description: "CORS policy demasiado permisiva (Access-Control-Allow-Origin: *)",
-				Severity:    "Medium",
+				Description: "CORS inseguro: Access-Control-Allow-Origin '*' junto con Allow-Credentials true",
+				Severity:    "High",
 			})
 		}
 
@@ -334,17 +346,23 @@ func (t *APISecurityTest) Run(targetURL string, client HTTPClient, payloads *con
 			if err != nil {
 				continue
 			}
-			defer resp.Body.Close()
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
 
+			if IsRateLimited(resp.StatusCode) {
+				continue // la web está frenando; no concluir nada
+			}
 			details = append(details, fmt.Sprintf("Probando inyección en API %s (Status: %d)", apiPath, resp.StatusCode))
 
-			if resp.StatusCode == 500 {
+			// Solo es inyección si la respuesta trae un error de base de datos real; un 500 genérico no basta.
+			if sig, found := matchSQLError(string(body)); found {
 				evidence = append(evidence, Evidence{
 					Type:        "API Injection Vulnerability",
 					URL:         testURL,
 					Payload:     payload,
 					StatusCode:  resp.StatusCode,
-					Description: fmt.Sprintf("Posible vulnerabilidad de inyección en API: %s", apiPath),
+					Response:    fmt.Sprintf("Error de base de datos: %s", sig),
+					Description: fmt.Sprintf("El payload provocó un error de base de datos en %s", apiPath),
 					Severity:    "High",
 				})
 			}

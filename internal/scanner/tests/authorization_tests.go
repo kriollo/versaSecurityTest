@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/versaSecurityTest/internal/config"
@@ -35,25 +36,26 @@ func (t *AuthorizationTest) Run(targetURL string, client HTTPClient, payloads *c
 				continue
 			}
 
-			resp, err := http.DefaultClient.Do(req)
+			resp, err := client.Do(req) // cliente compartido: con backoff ante 429
 			if err != nil {
 				continue
 			}
-			defer resp.Body.Close()
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
 
 			details = append(details, fmt.Sprintf("Probando %s %s (Status: %d)", method, endpoint, resp.StatusCode))
 
-			// Si no es 401, 403, 405, 404 o 429, podría ser un bypass
-			if resp.StatusCode != 401 && resp.StatusCode != 403 && resp.StatusCode != 405 && resp.StatusCode != 404 && resp.StatusCode != 429 {
-				if resp.StatusCode == 200 {
-					evidence = append(evidence, Evidence{
-						Type:        "Authorization Bypass",
-						URL:         targetURL + endpoint,
-						StatusCode:  resp.StatusCode,
-						Description: fmt.Sprintf("Posible bypass de autorización con método %s en %s", method, endpoint),
-						Severity:    "High",
-					})
-				}
+			// 429 = rate limit, no dice nada del recurso; 401/403/404/405/3xx = protegido o inexistente.
+			// Solo un 200 con contenido que NO sea una página de login es un posible bypass: devolver el
+			// login es lo normal, y HEAD no trae cuerpo que evaluar.
+			if IsAccessible(resp.StatusCode) && len(body) > 0 && !looksLikeAuthPage(string(body)) {
+				evidence = append(evidence, Evidence{
+					Type:        "Authorization Bypass",
+					URL:         targetURL + endpoint,
+					StatusCode:  resp.StatusCode,
+					Description: fmt.Sprintf("%s %s devolvió contenido sin pedir autenticación (revisar si es contenido protegido)", method, endpoint),
+					Severity:    "Medium",
+				})
 			}
 		}
 	}
@@ -71,15 +73,16 @@ func (t *AuthorizationTest) Run(targetURL string, client HTTPClient, payloads *c
 		}
 		defer resp.Body.Close()
 
+		body, _ := io.ReadAll(resp.Body)
 		details = append(details, fmt.Sprintf("Verificando acceso a %s (Status: %d)", endpoint, resp.StatusCode))
 
-		if resp.StatusCode == 200 {
+		if IsAccessible(resp.StatusCode) && !looksLikeAuthPage(string(body)) {
 			evidence = append(evidence, Evidence{
 				Type:        "Horizontal Privilege Escalation",
 				URL:         targetURL + endpoint,
 				StatusCode:  resp.StatusCode,
 				Description: fmt.Sprintf("Posible acceso no autorizado a datos de usuario: %s", endpoint),
-				Severity:    "High",
+				Severity:    "Medium",
 			})
 		}
 	}
@@ -99,10 +102,11 @@ func (t *AuthorizationTest) Run(targetURL string, client HTTPClient, payloads *c
 		}
 		defer resp.Body.Close()
 
+		body, _ := io.ReadAll(resp.Body)
 		details = append(details, fmt.Sprintf("Verificando API %s (Status: %d)", endpoint, resp.StatusCode))
 
-		// APIs que devuelven 200 sin autenticación pueden ser problemáticas
-		if resp.StatusCode == 200 {
+		// Solo un 200 con contenido que no sea una pantalla de login. 429/401/403/404 no son hallazgo.
+		if IsAccessible(resp.StatusCode) && !looksLikeAuthPage(string(body)) {
 			evidence = append(evidence, Evidence{
 				Type:        "API Access Control",
 				URL:         targetURL + endpoint,

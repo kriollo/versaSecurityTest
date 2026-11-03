@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/versaSecurityTest/internal/config"
 )
@@ -26,22 +27,28 @@ func (h *HTTPHeadersTest) Run(targetURL string, client HTTPClient, payloads *con
 		return result
 	}
 
-	// Lista de headers críticos
-	headers := map[string]string{
-		"Content-Security-Policy":   "Content-Security-Policy not found",
-		"Strict-Transport-Security": "Strict-Transport-Security not found",
-		"X-Content-Type-Options":    "X-Content-Type-Options not set",
-		"X-Frame-Options":           "X-Frame-Options not set",
-		"X-XSS-Protection":          "X-Content-Type-Options not set",
+	// Headers que SÍ deben estar. HSTS solo tiene sentido sobre HTTPS (un sitio HTTP no puede fijarlo),
+	// así que no se exige en HTTP. X-XSS-Protection está obsoleto (los navegadores lo quitaron): su
+	// ausencia es solo informativa, no una falla.
+	isHTTPS := strings.HasPrefix(strings.ToLower(targetURL), "https://")
+	required := []string{"Content-Security-Policy", "X-Content-Type-Options", "X-Frame-Options"}
+	if isHTTPS {
+		required = append(required, "Strict-Transport-Security")
 	}
 
-	for header, desc := range headers {
+	for _, header := range required {
 		if resp.Header.Get(header) == "" {
 			result.Status = "Failed"
-			result.Details = append(result.Details, "❌ "+desc)
+			result.Details = append(result.Details, "❌ "+header+" ausente")
 		} else {
-			result.Details = append(result.Details, "✅ "+header+" found")
+			result.Details = append(result.Details, "✅ "+header+" presente")
 		}
+	}
+	if !isHTTPS {
+		result.Details = append(result.Details, "ℹ️ HSTS no se evalúa: solo aplica sobre HTTPS")
+	}
+	if resp.Header.Get("X-XSS-Protection") == "" {
+		result.Details = append(result.Details, "ℹ️ X-XSS-Protection ausente (obsoleto; no es una falla)")
 	}
 
 	if result.Status == "Passed" {

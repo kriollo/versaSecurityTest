@@ -51,14 +51,8 @@ func (t *AuthenticationTest) Run(targetURL string, client HTTPClient, payloads *
 	bodyLower := strings.ToLower(body)
 
 	if strings.Contains(bodyLower, "<form") {
-		// ATHN-02: Verificar Autocomplete configurado en campos de password
-		if strings.Contains(bodyLower, "type=\"password\"") && !strings.Contains(bodyLower, "autocomplete=\"off\"") {
-			result.Details = append(result.Details, "⚠️ ATHN-02: Campos de contraseña detectados sin 'autocomplete=off'")
-			result.Status = "Warning"
-			if result.Severity == "Info" {
-				result.Severity = "Low"
-			}
-		}
+		// Nota: ya NO se exige autocomplete="off" en campos de contraseña. La guía actual de OWASP lo
+		// desaconseja: romper los gestores de contraseñas empeora la seguridad, no la mejora.
 
 		// Buscar debilidades en la gestión de errores de autenticación
 		// (Esto se ampliaría probando el login real)
