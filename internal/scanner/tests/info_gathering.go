@@ -321,7 +321,9 @@ func (t *HTTPMethodsTest) Run(targetURL string, client HTTPClient, payloads *con
 		}
 		defer resp.Body.Close()
 
-		if resp.StatusCode != 405 && resp.StatusCode != 501 && resp.StatusCode != 429 {
+		// El método está aceptado solo si el servidor lo procesó (2xx). Un 400/403/404/405/501 es rechazo,
+		// no "habilitado": tratarlos como habilitados daba falsos positivos (p. ej. TRACK con 400).
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			details = append(details, fmt.Sprintf("Método %s habilitado (Status: %d)", method, resp.StatusCode))
 
 			if method == "TRACE" || method == "TRACK" {

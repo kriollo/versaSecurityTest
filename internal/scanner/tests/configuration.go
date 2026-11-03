@@ -225,7 +225,8 @@ func (t *ConfigurationTest) testServerMisconfiguration(targetURL string, client 
 		}
 		resp.Body.Close()
 
-		if resp.StatusCode != 405 && resp.StatusCode != 501 && resp.StatusCode != 429 {
+		// Peligroso solo si el servidor lo acepta (2xx). Un 400/403/404/405/501 es rechazo, no "habilitado".
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			result.Details = append(result.Details, fmt.Sprintf("Método HTTP peligroso habilitado: %s (Status: %d)", method, resp.StatusCode))
 			result.Evidence = append(result.Evidence, Evidence{
 				Type:     "Dangerous HTTP Method",
@@ -281,6 +282,9 @@ func (t *ConfigurationTest) testCORSMisconfiguration(targetURL string, client HT
 
 // CONF-05: Rutas internas expuestas
 func (t *ConfigurationTest) testInternalPaths(targetURL string, client HTTPClient, result *TestResult) {
+	// Solo rutas de depuración/entornos que NO deberían estar en producción. Se excluyen a propósito
+	// /admin, /dashboard, /panel, /console, etc.: son entradas públicas normales (el login), no fugas.
+	// El descubrimiento de esas rutas lo cubre, como información, el test de enumeración de directorios.
 	internalPaths := []string{
 		"/debug",
 		"/test",
@@ -288,22 +292,12 @@ func (t *ConfigurationTest) testInternalPaths(targetURL string, client HTTPClien
 		"/development",
 		"/staging",
 		"/internal",
-		"/private",
-		"/admin",
-		"/administrator",
-		"/management",
-		"/console",
-		"/dashboard",
-		"/panel",
-		"/control",
 		"/api/debug",
 		"/api/test",
 		"/api/internal",
 		"/_debug",
 		"/_test",
 		"/_internal",
-		"/health",
-		"/status",
 		"/metrics",
 		"/actuator",
 		"/actuator/health",
@@ -328,8 +322,8 @@ func (t *ConfigurationTest) testInternalPaths(targetURL string, client HTTPClien
 		}
 		resp.Body.Close()
 
-		// Considerar accesible si no es 404, 403 o 429 (Rate Limit)
-		if resp.StatusCode != 404 && resp.StatusCode != 403 && resp.StatusCode != 429 {
+		// Solo 200 cuenta como expuesta: un 302 a login, 401, 400 o 404 no es una fuga
+		if resp.StatusCode == 200 {
 			result.Details = append(result.Details, fmt.Sprintf("Ruta interna accesible: %s (Status: %d)", path, resp.StatusCode))
 			result.Evidence = append(result.Evidence, Evidence{
 				Type:     "Internal Path Exposed",

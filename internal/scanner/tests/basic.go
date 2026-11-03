@@ -220,46 +220,30 @@ func (t *SQLInjectionTest) Run(targetURL string, client HTTPClient, payloads *co
 		body, _ := io.ReadAll(resp.Body)
 		responseText := string(body)
 
-		// Detectar signos de inyección SQL
-		vulnDetected := false
-		vulnReason := ""
+		// Solo es inyección SQL si la respuesta trae un mensaje de error de base de datos real.
+		// Un 404/500 genérico, o una página que apenas mencione "sql", NO basta: eso daba falsos positivos.
+		sig, found := matchSQLError(responseText)
+		if !found {
+			continue
+		}
+		detectedVulns++
 
-		if resp.StatusCode == 500 {
-			vulnDetected = true
-			vulnReason = "Error 500 del servidor"
-		} else if strings.Contains(strings.ToLower(responseText), "sql") {
-			vulnDetected = true
-			vulnReason = "Mensaje de error SQL en la respuesta"
-		} else if strings.Contains(strings.ToLower(responseText), "mysql") {
-			vulnDetected = true
-			vulnReason = "Referencia a MySQL en la respuesta"
-		} else if strings.Contains(strings.ToLower(responseText), "syntax error") {
-			vulnDetected = true
-			vulnReason = "Error de sintaxis detectado"
+		truncatedResponse := responseText
+		if len(truncatedResponse) > 200 {
+			truncatedResponse = truncatedResponse[:200] + "..."
 		}
 
-		if vulnDetected {
-			detectedVulns++
-
-			// Truncar respuesta para mostrar solo los primeros caracteres
-			truncatedResponse := responseText
-			if len(truncatedResponse) > 200 {
-				truncatedResponse = truncatedResponse[:200] + "..."
-			}
-
-			result.Evidence = append(result.Evidence, Evidence{
-				Type:        "SQL Injection",
-				URL:         testURL,
-				Payload:     payload,
-				StatusCode:  resp.StatusCode,
-				Response:    fmt.Sprintf("%s: %s", vulnReason, truncatedResponse),
-				Description: fmt.Sprintf("Payload '%s' causó comportamiento anormal", payload),
-				Severity:    "High",
-			})
-
-			result.Details = append(result.Details,
-				fmt.Sprintf("Payload '%s': %s (Status: %d)", payload, vulnReason, resp.StatusCode))
-		}
+		result.Evidence = append(result.Evidence, Evidence{
+			Type:        "SQL Injection",
+			URL:         testURL,
+			Payload:     payload,
+			StatusCode:  resp.StatusCode,
+			Response:    fmt.Sprintf("Error de base de datos ('%s'): %s", sig, truncatedResponse),
+			Description: fmt.Sprintf("El payload '%s' provocó un error de base de datos en la respuesta", payload),
+			Severity:    "High",
+		})
+		result.Details = append(result.Details,
+			fmt.Sprintf("Payload '%s': error de base de datos '%s' en la respuesta (Status: %d)", payload, sig, resp.StatusCode))
 	}
 
 	// Evaluar resultados

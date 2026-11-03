@@ -274,35 +274,38 @@ func (t *SessionMgmtTest) testSessionFixation(targetURL string, client HTTPClien
 		return // No hay cookie de sesión para probar
 	}
 
-	// Segunda request con la misma cookie
+	// Prueba real de fijación sin login: enviar un ID de sesión elegido por el "atacante" y ver si el
+	// servidor lo adopta en vez de emitir el suyo. Que el ID no cambie entre dos GET anónimos es lo
+	// normal (solo se regenera al iniciar sesión), así que eso NO se reporta: daba falsos positivos.
+	const attackerID = "versasecurity_fixation_probe_123"
 	req2, err := http.NewRequest("GET", targetURL, nil)
 	if err != nil {
 		return
 	}
+	req2.Header.Set("Cookie", sessionCookie.Name+"="+attackerID)
 
-	resp2, err := customClient.Do(req2)
+	resp2, err := client.Do(req2) // cliente sin jar: controlamos la cookie a mano
 	if err != nil {
 		return
 	}
 	resp2.Body.Close()
 
-	// Verificar si la cookie de sesión cambió
-	newCookies := resp2.Cookies()
-	sessionChanged := false
-
-	for _, cookie := range newCookies {
-		if cookie.Name == sessionCookie.Name && cookie.Value != sessionCookie.Value {
-			sessionChanged = true
+	// Si el servidor responde con un Set-Cookie que reemplaza nuestro ID, lo rechazó (seguro).
+	serverIssuedNew := false
+	for _, cookie := range resp2.Cookies() {
+		if cookie.Name == sessionCookie.Name && cookie.Value != attackerID && cookie.Value != "" {
+			serverIssuedNew = true
 			break
 		}
 	}
 
-	if !sessionChanged {
-		result.Details = append(result.Details, "Posible vulnerabilidad de fijación de sesión - ID de sesión no regenerado")
+	if !serverIssuedNew {
+		result.Details = append(result.Details, "Posible fijación de sesión: el servidor no emitió un ID propio al recibir uno elegido por el cliente")
 		result.Evidence = append(result.Evidence, Evidence{
 			Type:     "Session Fixation Risk",
 			URL:      targetURL,
-			Response: "Session ID not regenerated on subsequent requests",
+			Response: "El servidor no reemplazó el ID de sesión enviado por el cliente (verificar que se regenere al iniciar sesión)",
+			Severity: "Low",
 		})
 	}
 }

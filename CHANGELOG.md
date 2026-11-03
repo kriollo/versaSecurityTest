@@ -19,6 +19,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **SQL Injection marcaba un 404 normal como vulnerable**: bastaba con que la respuesta contuviera el
+  texto "sql" o diera 500. Ahora exige una firma de error de base de datos real (igual que el test avanzado).
+- **Métodos HTTP: un 400/404 se reportaba como "método peligroso habilitado"** (p. ej. TRACK con 400).
+  Un método solo es "habilitado" si el servidor lo acepta (2xx). Corregido en el test de métodos y en Configuration.
+- **Configuration marcaba `/admin`, `/dashboard`, `/panel`… como "ruta interna expuesta"**: son entradas
+  públicas normales (login). Ahora solo se revisan rutas de depuración/entornos (debug, test, staging, metrics,
+  actuator) y únicamente con status 200.
+- **Session Management daba siempre falso positivo de fijación**: comparaba el ID entre dos GET anónimos
+  esperando que cambiara (no debe). Ahora hace la prueba correcta sin login: ver si el servidor adopta un ID
+  elegido por el cliente en vez de emitir el suyo (severidad Low).
 - **OutdatedComponents daba falsos positivos**: marcaba WordPress/Drupal/phpMyAdmin con solo un 200, sin
   comprobar el patrón en el cuerpo (un catch-all SPA los disparaba todos). Ahora exige el patrón.
 - **DataIntegrity no detectaba cookies serializadas reales**: no decodificaba el valor URL-encoded. Ahora sí.
