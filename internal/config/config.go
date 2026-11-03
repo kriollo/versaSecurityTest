@@ -300,6 +300,7 @@ func GetAvailableTests() []TestDefinition {
 		{ID: "network_scan", Name: "Network Port Scan", Description: "Escaneo de puertos abiertos y servicios", Category: "NETW", Recommended: true, HasAdvanced: false},
 		{ID: "outdated_components", Name: "Outdated Components", Description: "Detección de software vulnerable (A06)", Category: "CONF", Recommended: true, HasAdvanced: false},
 		{ID: "data_integrity", Name: "Data Integrity", Description: "Fallos en integridad de datos (A08)", Category: "CRYP", Recommended: true, HasAdvanced: false},
+		{ID: "known_vulns", Name: "Vulns conocidas (CVE 2026)", Description: "Fallas de 2026 en frameworks PHP: config expuesta, SSTI, cookie no-string, .php servido", Category: "CONF", Recommended: true, HasAdvanced: false},
 	}
 }
 
@@ -354,6 +355,8 @@ func (c *Config) IsTestEnabled(testID string) bool {
 		return c.Tests.OutdatedComponents
 	case "data_integrity":
 		return c.Tests.DataIntegrity
+	case "known_vulns":
+		return c.Tests.KnownVulns
 	default:
 		return false
 	}
@@ -410,6 +413,8 @@ func (c *Config) SetTestEnabled(testID string, enabled bool) {
 		c.Tests.OutdatedComponents = enabled
 	case "data_integrity":
 		c.Tests.DataIntegrity = enabled
+	case "known_vulns":
+		c.Tests.KnownVulns = enabled
 	}
 }
 
