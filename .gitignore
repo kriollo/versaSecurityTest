@@ -67,3 +67,6 @@ secrets.json
 tui_config.json
 security_report*.txt
 reports/*
+
+# Binario compilado en la raíz
+/versaSecurity

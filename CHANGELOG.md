@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Prueba de capacidad (`versaSecurity load`)**: usuarios virtuales concurrentes, cada uno con sus cookies,
+  su usuario (CSV) y su IP en `X-Forwarded-For`, que inician sesión con token CSRF y recorren rutas
+  mientras la carga sube por etapas. Reporta req/s, p50/p95/p99, errores por estado y la capacidad
+  estimada según umbrales; guarda el informe JSON en `reports/`.
+
 ## [2.0.0] - 2026-02-02
 
 ### Added

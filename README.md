@@ -188,6 +188,41 @@ Usage of versaSecurityTest:
 .\versaSecurityTest.exe -url https://ejemplo.com -config mi-config.json
 ```
 
+## 📈 Prueba de Capacidad (`load`)
+
+Mide cuántos usuarios simultáneos aguanta una aplicación. Cada usuario virtual tiene sus propias
+cookies, inicia sesión con su propio usuario (token CSRF incluido) y recorre las rutas indicadas
+mientras la carga sube por etapas.
+
+```bash
+./versaSecurity load -url http://staging.ejemplo.cl \
+  -users-file carga-usuarios.csv \
+  -stages 10:30s,50:30s,100:30s,200:30s \
+  -paths /admin/dashboard,/admin/perfiluser,xhr:/admin/api/session/heartbeat
+```
+
+```
+usuarios peticiones    req/s       p50       p95       p99       máx  errores estados
+     10       316     21.1       7ms      13ms     257ms     426ms     0.0% 200×316
+     50      1500    100.0       7ms     250ms     996ms    1248ms     0.0% 200×1500
+    200      4562    304.1       7ms    2029ms    3774ms    4135ms     0.0% 200×4562
+
+📈 Capacidad: 100 usuarios simultáneos (p95 812ms). Con 200 se pasó de los umbrales.
+```
+
+- **Una sola IP:** cada usuario envía una IP distinta en `X-Forwarded-For` (`-spoof-ip`, activo por defecto).
+  El servidor debe confiar en ese encabezado desde la máquina de la prueba; en versaWYS:
+  `"trusted_proxies": ["IP-de-la-máquina-de-prueba"]` en el `config.json` del entorno de prueba.
+  Sin eso, el límite de intentos de login bloquea a partir del quinto usuario (429).
+- **Usuarios:** CSV `email,password`. En versaWYS: `php versaCLI app:user:load --count=200`
+  (y `--delete` al terminar).
+- **Rutas:** separadas por coma; `xhr:` las pide como el frontend (JSON). Un 3xx, 4xx o 5xx cuenta como error.
+- **Umbrales:** una etapa vale si `p95 ≤ -max-p95` (1s) y errores `≤ -max-errors` (1%). El informe JSON
+  queda en `reports/carga_<fecha>.json`.
+- `-think` (500ms) es la pausa entre peticiones de un usuario: bájala para más presión por usuario.
+
+> ⚠️ Es tráfico real de muchos usuarios: úsala contra un servidor propio o de prueba, nunca contra uno ajeno.
+
 ## ⚙️ Configuración
 
 ### Archivo de Configuración (config.json)

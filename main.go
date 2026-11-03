@@ -15,6 +15,11 @@ import (
 )
 
 func main() {
+	// Prueba de capacidad: subcomando con sus propias opciones
+	if len(os.Args) > 1 && os.Args[1] == "load" {
+		os.Exit(runLoad(os.Args[2:]))
+	}
+
 	// Configuración de flags
 	var (
 		targetURL  = flag.String("url", "", "URL objetivo para escanear (modo CLI)")
@@ -52,6 +57,7 @@ func main() {
 			fmt.Println("   • Modo CLI:                  ./versaSecurityTest.exe -url https://ejemplo.com")
 			fmt.Println("   • Forzar CLI:                ./versaSecurityTest.exe -cli")
 			fmt.Println("   • Actualización:             ./versaSecurityTest.exe -update")
+			fmt.Println("   • Prueba de capacidad:       ./versaSecurityTest.exe load -url https://ejemplo.com -help")
 			fmt.Println("")
 			flag.PrintDefaults()
 			os.Exit(1)
