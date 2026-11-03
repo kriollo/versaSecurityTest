@@ -49,10 +49,10 @@ func (d *DirTraversalTest) Run(targetURL string, client HTTPClient, payloads *co
 	for _, param := range commonParams {
 		for _, payload := range traversalPayloads {
 			totalTests++
-			
+
 			// Construir URL de prueba
 			testURL := fmt.Sprintf("%s?%s=%s", targetURL, param, url.QueryEscape(payload))
-			
+
 			resp, err := client.Get(testURL)
 			if err != nil {
 				continue
@@ -71,7 +71,7 @@ func (d *DirTraversalTest) Run(targetURL string, client HTTPClient, payloads *co
 				strings.Contains(bodyLower, "# localhost") ||
 				strings.Contains(bodyLower, "[boot loader]") ||
 				strings.Contains(bodyLower, "# this file contains") {
-				
+
 				vulnerableParams++
 				result.Status = "Failed"
 				result.Details = append(result.Details, fmt.Sprintf("❌ Vulnerable parameter detected: %s", param))
@@ -91,7 +91,7 @@ func (d *DirTraversalTest) Run(targetURL string, client HTTPClient, payloads *co
 	for _, pathTest := range pathTests {
 		totalTests++
 		testURL := targetURL + pathTest
-		
+
 		resp, err := client.Get(testURL)
 		if err != nil {
 			continue

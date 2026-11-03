@@ -28,11 +28,11 @@ func (h *HTTPHeadersTest) Run(targetURL string, client HTTPClient, payloads *con
 
 	// Lista de headers críticos
 	headers := map[string]string{
-		"Content-Security-Policy": "Content-Security-Policy not found",
+		"Content-Security-Policy":   "Content-Security-Policy not found",
 		"Strict-Transport-Security": "Strict-Transport-Security not found",
-		"X-Content-Type-Options": "X-Content-Type-Options not set",
-		"X-Frame-Options": "X-Frame-Options not set",
-		"X-XSS-Protection": "X-Content-Type-Options not set",
+		"X-Content-Type-Options":    "X-Content-Type-Options not set",
+		"X-Frame-Options":           "X-Frame-Options not set",
+		"X-XSS-Protection":          "X-Content-Type-Options not set",
 	}
 
 	for header, desc := range headers {
@@ -52,4 +52,3 @@ func (h *HTTPHeadersTest) Run(targetURL string, client HTTPClient, payloads *con
 
 	return result
 }
-

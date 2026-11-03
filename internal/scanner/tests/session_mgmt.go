@@ -25,16 +25,16 @@ func (t *SessionMgmtTest) Run(targetURL string, client HTTPClient, payloads *con
 
 	// SESS-01: Cookie sin atributo HttpOnly
 	t.testCookieHttpOnly(targetURL, client, &result)
-	
+
 	// SESS-02: Cookie sin Secure
 	t.testCookieSecure(targetURL, client, &result)
-	
+
 	// SESS-03: Verificar SameSite
 	t.testCookieSameSite(targetURL, client, &result)
-	
+
 	// SESS-04: Análisis de tokens JWT
 	t.testJWTTokens(targetURL, client, &result)
-	
+
 	// SESS-05: Test de fijación de sesión
 	t.testSessionFixation(targetURL, client, &result)
 
@@ -60,26 +60,26 @@ func (t *SessionMgmtTest) testCookieHttpOnly(targetURL string, client HTTPClient
 
 	// Analizar cookies en las respuestas
 	cookies := resp.Cookies()
-	
+
 	for _, cookie := range cookies {
 		// Verificar si es una cookie de sesión (nombres comunes)
 		sessionCookieNames := []string{
-			"sessionid", "session_id", "session", "sess", "sid", 
-			"jsessionid", "phpsessid", "asp.net_sessionid", 
+			"sessionid", "session_id", "session", "sess", "sid",
+			"jsessionid", "phpsessid", "asp.net_sessionid",
 			"connect.sid", "laravel_session", "ci_session",
 			"auth", "token", "jwt", "access_token",
 		}
-		
+
 		isSessionCookie := false
 		cookieNameLower := strings.ToLower(cookie.Name)
-		
+
 		for _, sessionName := range sessionCookieNames {
 			if strings.Contains(cookieNameLower, sessionName) {
 				isSessionCookie = true
 				break
 			}
 		}
-		
+
 		if isSessionCookie && !cookie.HttpOnly {
 			result.Details = append(result.Details, fmt.Sprintf("Cookie de sesión '%s' sin atributo HttpOnly", cookie.Name))
 			result.Evidence = append(result.Evidence, Evidence{
@@ -97,7 +97,7 @@ func (t *SessionMgmtTest) testCookieSecure(targetURL string, client HTTPClient, 
 	if !strings.HasPrefix(targetURL, "https://") {
 		return
 	}
-	
+
 	resp, err := client.Get(targetURL)
 	if err != nil {
 		return
@@ -105,25 +105,25 @@ func (t *SessionMgmtTest) testCookieSecure(targetURL string, client HTTPClient, 
 	defer resp.Body.Close()
 
 	cookies := resp.Cookies()
-	
+
 	for _, cookie := range cookies {
 		// Verificar si es una cookie importante
 		importantCookieNames := []string{
-			"sessionid", "session_id", "session", "sess", "sid", 
-			"jsessionid", "phpsessid", "asp.net_sessionid", 
+			"sessionid", "session_id", "session", "sess", "sid",
+			"jsessionid", "phpsessid", "asp.net_sessionid",
 			"auth", "token", "jwt", "access_token",
 		}
-		
+
 		isImportantCookie := false
 		cookieNameLower := strings.ToLower(cookie.Name)
-		
+
 		for _, importantName := range importantCookieNames {
 			if strings.Contains(cookieNameLower, importantName) {
 				isImportantCookie = true
 				break
 			}
 		}
-		
+
 		if isImportantCookie && !cookie.Secure {
 			result.Details = append(result.Details, fmt.Sprintf("Cookie importante '%s' sin atributo Secure en HTTPS", cookie.Name))
 			result.Evidence = append(result.Evidence, Evidence{
@@ -145,38 +145,38 @@ func (t *SessionMgmtTest) testCookieSameSite(targetURL string, client HTTPClient
 
 	// Analizar headers Set-Cookie manualmente para SameSite
 	setCookieHeaders := resp.Header["Set-Cookie"]
-	
+
 	for _, setCookieHeader := range setCookieHeaders {
 		// Extraer nombre de la cookie
 		parts := strings.Split(setCookieHeader, ";")
 		if len(parts) == 0 {
 			continue
 		}
-		
+
 		cookieNameValue := strings.Split(parts[0], "=")
 		if len(cookieNameValue) < 2 {
 			continue
 		}
-		
+
 		cookieName := strings.TrimSpace(cookieNameValue[0])
-		
+
 		// Verificar si es una cookie de sesión
 		sessionCookieNames := []string{
-			"sessionid", "session_id", "session", "sess", "sid", 
-			"jsessionid", "phpsessid", "asp.net_sessionid", 
+			"sessionid", "session_id", "session", "sess", "sid",
+			"jsessionid", "phpsessid", "asp.net_sessionid",
 			"auth", "token", "jwt", "access_token",
 		}
-		
+
 		isSessionCookie := false
 		cookieNameLower := strings.ToLower(cookieName)
-		
+
 		for _, sessionName := range sessionCookieNames {
 			if strings.Contains(cookieNameLower, sessionName) {
 				isSessionCookie = true
 				break
 			}
 		}
-		
+
 		if isSessionCookie {
 			// Verificar si tiene SameSite
 			hasSameSite := false
@@ -186,7 +186,7 @@ func (t *SessionMgmtTest) testCookieSameSite(targetURL string, client HTTPClient
 					break
 				}
 			}
-			
+
 			if !hasSameSite {
 				result.Details = append(result.Details, fmt.Sprintf("Cookie de sesión '%s' sin atributo SameSite", cookieName))
 				result.Evidence = append(result.Evidence, Evidence{
@@ -213,7 +213,7 @@ func (t *SessionMgmtTest) testJWTTokens(targetURL string, client HTTPClient, res
 	}
 
 	// Buscar tokens JWT en el contenido
-	
+
 	if strings.Contains(body, "eyJ") {
 		// Posible JWT encontrado
 		result.Details = append(result.Details, "Posible token JWT encontrado en respuesta HTML")
@@ -223,7 +223,7 @@ func (t *SessionMgmtTest) testJWTTokens(targetURL string, client HTTPClient, res
 			Response: "JWT token pattern found in HTML response",
 		})
 	}
-	
+
 	// Verificar headers de autorización
 	authHeader := resp.Header.Get("Authorization")
 	if strings.HasPrefix(authHeader, "Bearer eyJ") {
@@ -243,60 +243,60 @@ func (t *SessionMgmtTest) testSessionFixation(targetURL string, client HTTPClien
 	customClient := &http.Client{
 		Jar: jar,
 	}
-	
+
 	// Primera request para obtener una sesión
 	req1, err := http.NewRequest("GET", targetURL, nil)
 	if err != nil {
 		return
 	}
-	
+
 	resp1, err := customClient.Do(req1)
 	if err != nil {
 		return
 	}
 	resp1.Body.Close()
-	
+
 	// Verificar si se estableció una cookie de sesión
 	initialCookies := resp1.Cookies()
 	var sessionCookie *http.Cookie
-	
+
 	for _, cookie := range initialCookies {
 		cookieNameLower := strings.ToLower(cookie.Name)
-		if strings.Contains(cookieNameLower, "session") || 
-		   strings.Contains(cookieNameLower, "sid") ||
-		   strings.Contains(cookieNameLower, "sess") {
+		if strings.Contains(cookieNameLower, "session") ||
+			strings.Contains(cookieNameLower, "sid") ||
+			strings.Contains(cookieNameLower, "sess") {
 			sessionCookie = cookie
 			break
 		}
 	}
-	
+
 	if sessionCookie == nil {
 		return // No hay cookie de sesión para probar
 	}
-	
+
 	// Segunda request con la misma cookie
 	req2, err := http.NewRequest("GET", targetURL, nil)
 	if err != nil {
 		return
 	}
-	
+
 	resp2, err := customClient.Do(req2)
 	if err != nil {
 		return
 	}
 	resp2.Body.Close()
-	
+
 	// Verificar si la cookie de sesión cambió
 	newCookies := resp2.Cookies()
 	sessionChanged := false
-	
+
 	for _, cookie := range newCookies {
 		if cookie.Name == sessionCookie.Name && cookie.Value != sessionCookie.Value {
 			sessionChanged = true
 			break
 		}
 	}
-	
+
 	if !sessionChanged {
 		result.Details = append(result.Details, "Posible vulnerabilidad de fijación de sesión - ID de sesión no regenerado")
 		result.Evidence = append(result.Evidence, Evidence{

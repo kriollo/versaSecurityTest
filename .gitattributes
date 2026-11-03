@@ -1,0 +1,2 @@
+# Código Go siempre con LF, para que el formato quede unificado (gofmt usa LF)
+*.go text eol=lf
