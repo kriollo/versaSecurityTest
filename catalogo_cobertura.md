@@ -16,7 +16,7 @@ Leyenda:
 | WEB-004 | SSRF | ✅ | Server-Side Request Forgery (SSRF) | |
 | WEB-005 | RCE | ✅ | Known Vulnerabilities (RCE, command injection) | |
 | WEB-006 | LFI | ✅ | Directory Traversal, Advanced, PHP wrappers | |
-| WEB-007 | RFI | ❌ | - | Implementar include remoto |
+| WEB-007 | RFI | ✅ | Known Vulnerabilities (checkRFI) | Incluye URL remota y verifica reflejo |
 | WEB-008 | Path Traversal | ✅ | Directory Traversal, Advanced Directory Traversal | |
 | WEB-009 | Broken Access Control | ✅ | Authorization, ATHZ-01, ATHZ-04, Known Vulnerabilities (unauth admin, auth bypass) | |
 | WEB-010 | IDOR / BOLA | ✅ | ATHZ-04: Direct Object Reference Testing | |
@@ -24,7 +24,7 @@ Leyenda:
 | WEB-012 | Session Fixation | ✅ | Session Management | |
 | WEB-013 | Session Hijacking | ✅ | Session Management, Known Vulnerabilities (flags, entropy) | |
 | WEB-014 | Open Redirect | ✅ | Open Redirect | |
-| WEB-015 | HTTP Response Splitting | 🟡 | Known Vulnerabilities (CRLF) | Parcial |
+| WEB-015 | HTTP Response Splitting | ✅ | Known Vulnerabilities (checkCRLFInjection) | La inyección CRLF en cabeceras es response splitting |
 | WEB-016 | CRLF Injection | ✅ | Known Vulnerabilities (CRLF) | |
 | WEB-017 | OS Command Injection | ✅ | Known Vulnerabilities (command injection) | |
 | WEB-018 | LDAP Injection | ✅ | Known Vulnerabilities (LDAP) | |
@@ -48,7 +48,7 @@ Leyenda:
 | WEB-036 | Prototype Pollution | ✅ | Known Vulnerabilities (Prototype Pollution) | |
 | WEB-037 | CORS Misconfiguration | ✅ | Configuration Security, CSRF Protection | |
 | WEB-038 | JWT Validation Failure | ✅ | Known Vulnerabilities (JWT) | |
-| WEB-039 | Rate Limit Bypass | 🟡 | Known Vulnerabilities (Rate Limit) | Informativo |
+| WEB-039 | Rate Limit Bypass | ✅ | Known Vulnerabilities (checkRateLimitBypass) | Dispara el 429 y prueba el salto rotando IP de cabecera |
 | WEB-040 | Secrets Exposure | ✅ | Known Vulnerabilities (archivos sensibles, JS bundles) | |
 | WEB-041 | Dependency Vulnerability | ✅ | A06: Vulnerable and Outdated Components | |
 | WEB-042 | Dependency Confusion | 🟡 | Known Vulnerabilities (manifiestos expuestos) | Solo exposición |
@@ -61,12 +61,24 @@ Leyenda:
 | WEB-049 | Improper Error Handling | ✅ | ERRH-01: Error Leakage Testing | |
 | WEB-050 | Insufficient Logging and Alerting | ❌ | - | No automatizable externamente |
 
-## Prioridad sugerida de implementación
-1. WEB-017 OS Command Injection
-2. WEB-019 XXE
-3. WEB-016 CRLF Injection
-4. WEB-044 Host Header Injection
-5. WEB-038 JWT Validation
-6. WEB-007 RFI
-7. WEB-015 HTTP Response Splitting
-8. WEB-037 ya cubierto; WEB-047 ampliar GraphQL
+## Inyecciones de A05:2025 cubiertas además de las WEB-*
+
+| Clase | Estado | Test |
+|---|---|---|
+| NoSQL Injection | ✅ | Known Vulnerabilities (checkNoSQLInjection) — firmas de error de motor NoSQL |
+| XPath Injection | ✅ | Known Vulnerabilities (checkXPathInjection) — firmas de error de evaluación XPath |
+
+## Estado de cobertura
+
+Todas las clases WEB-001..WEB-049 tienen un test dinámico implementado en `versaSecurity`
+(la mayoría en `internal/scanner/tests/known_vulns.go`, el resto en tests dedicados).
+
+Quedan como **parciales (🟡)** por un límite inherente al escaneo de caja negra, no por falta de
+implementación:
+- WEB-030 DoS, WEB-033 Request Smuggling, WEB-034 Race Condition: sondas de bajo impacto; una
+  confirmación real exigiría carga agresiva o acceso al backend.
+- WEB-042 Dependency Confusion, WEB-043 Supply Chain, WEB-045 DNS Rebinding: solo se detecta la
+  superficie expuesta (manifiestos, reflejo de Host), no la explotación (requiere datos internos).
+
+Quedan como **no automatizables externamente (❌)**:
+- WEB-050 Insufficient Logging and Alerting: requiere acceso a los registros del servidor.

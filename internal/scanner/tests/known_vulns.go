@@ -70,6 +70,7 @@ func (t *KnownVulnerabilitiesTest) Run(targetURL string, client HTTPClient, _ *c
 	t.checkDirectoryListing(base, client, &result, &issues)
 	t.checkExposedGit(base, client, &result, &issues)
 	t.checkDebugEndpoints(base, client, &result, &issues)
+	t.checkFrameworkSurfaces(base, client, &result, &issues)
 	t.checkGraphQLIntrospection(base, client, &result, &issues)
 	t.checkCommandInjection(base, client, &result, &issues)
 	t.checkCRLFInjection(base, client, &result, &issues)
@@ -77,6 +78,8 @@ func (t *KnownVulnerabilitiesTest) Run(targetURL string, client HTTPClient, _ *c
 	t.checkXXE(base, client, &result, &issues)
 	t.checkRFI(base, client, &result, &issues)
 	t.checkLDAPInjection(base, client, &result, &issues)
+	t.checkNoSQLInjection(base, client, &result, &issues)
+	t.checkXPathInjection(base, client, &result, &issues)
 	t.checkReDoS(base, client, &result, &issues)
 	t.checkCachePoisoning(base, client, &result, &issues)
 	t.checkMassAssignment(base, client, &result, &issues)
@@ -641,23 +644,64 @@ func jwtAlgNone(token string) bool {
 }
 
 // checkRateLimitBypass: intenta evadir rate limit variando X-Forwarded-For.
-func (t *KnownVulnerabilitiesTest) checkRateLimitBypass(base string, client HTTPClient, result *TestResult, issues *[]string) {
-	blocked := false
-	for i := 0; i < 5; i++ {
-		req, _ := http.NewRequest(http.MethodGet, base+"/", nil)
-		req.Header.Set("X-Forwarded-For", fmt.Sprintf("10.0.0.%d", i))
-		resp, err := client.Do(req)
+func (t *KnownVulnerabilitiesTest) checkRateLimitBypass(base string, _ HTTPClient, result *TestResult, issues *[]string) {
+	// Cliente directo (sin el backoff del cliente compartido, que ocultaría los 429 que necesitamos ver).
+	raw := &http.Client{Timeout: 6 * time.Second}
+	get := func(ip string) int {
+		req, err := http.NewRequest(http.MethodGet, base+"/", nil)
 		if err != nil {
-			continue
+			return -1
+		}
+		if ip != "" {
+			req.Header.Set("X-Forwarded-For", ip)
+			req.Header.Set("X-Real-IP", ip)
+			req.Header.Set("X-Client-IP", ip)
+		}
+		resp, err := raw.Do(req)
+		if err != nil {
+			return -1
 		}
 		resp.Body.Close()
-		if resp.StatusCode == http.StatusTooManyRequests {
+		return resp.StatusCode
+	}
+
+	// Fase 1: misma identidad, ráfaga hasta provocar 429 (confirma que existe rate limiting).
+	const fixedIP = "203.0.113.7"
+	blocked := false
+	for i := 0; i < 40 && !blocked; i++ {
+		if get(fixedIP) == http.StatusTooManyRequests {
 			blocked = true
 		}
 	}
-	// Si nunca se bloqueó tras 5 IPs distintas, puede haber bypass
 	if !blocked {
-		// No reportar como issue definitivo; solo informativo
+		return // no se observó rate limiting: no es un caso de bypass (lo cubre el test de "sin rate limiting")
+	}
+
+	// Control: con la MISMA identidad debe seguir bloqueado.
+	if get(fixedIP) != http.StatusTooManyRequests {
+		return // el bloqueo fue momentáneo; no concluir bypass
+	}
+
+	// Fase 2: rotar la IP en las cabeceras. Si el servidor vuelve a responder (no 429), confía en esas
+	// cabeceras para el conteo => el límite se evade rotando el origen.
+	bypassed := 0
+	for i := 0; i < 5; i++ {
+		code := get(fmt.Sprintf("198.51.100.%d", i+10))
+		if code >= 200 && code < 400 {
+			bypassed++
+		}
+	}
+	if bypassed >= 3 {
+		*issues = append(*issues, "Rate limit evadible: el servidor cuenta por IP de cabecera (X-Forwarded-For/X-Real-IP); rotarla salta el límite")
+		if result.Severity != "Critical" && result.Severity != "High" {
+			result.Severity = "Medium"
+		}
+		result.Evidence = append(result.Evidence, Evidence{
+			Type:        "Rate Limit Bypass",
+			URL:         base + "/",
+			Description: "Tras ser bloqueado (429), rotar la IP en cabeceras restauró el acceso",
+			Severity:    "Medium",
+		})
 	}
 }
 
@@ -817,7 +861,19 @@ func (t *KnownVulnerabilitiesTest) checkPHPDeserialization(base string, client H
 			body, _ := ReadResponseBody(resp)
 			resp.Body.Close()
 			lb := strings.ToLower(body)
-			if strings.Contains(lb, "unserialize") || strings.Contains(lb, "stdclass") || strings.Contains(lb, "__wakeup") || strings.Contains(lb, "allowed classes") {
+
+			// Solo un 200/500 con una firma fuerte de unserialize() indica riesgo real.
+			// Un 404 con el payload reflejado (p. ej. "stdClass") es un falso positivo.
+			if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusInternalServerError {
+				continue
+			}
+			hasUnserializeSignal := strings.Contains(lb, "unserialize()") ||
+				strings.Contains(lb, "unserialize():") ||
+				strings.Contains(lb, "cannot unserialize") ||
+				strings.Contains(lb, "allowed classes") ||
+				strings.Contains(lb, "__wakeup") ||
+				strings.Contains(lb, "__destruct")
+			if hasUnserializeSignal {
 				*issues = append(*issues, "Posible deserialización insegura (unserialize) en "+ep+" ("+param+")")
 				if result.Severity != "Critical" {
 					result.Severity = "High"
@@ -889,14 +945,44 @@ func (t *KnownVulnerabilitiesTest) checkWordPress(base string, client HTTPClient
 	// xmlrpc
 	resp, err = client.Get(base + "/xmlrpc.php")
 	if err == nil {
+		body2, _ := ReadResponseBody(resp) // leer ANTES de cerrar (antes se leía del body ya cerrado)
 		resp.Body.Close()
-		body2, _ := ReadResponseBody(resp)
 		if (resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusMethodNotAllowed) && (strings.Contains(strings.ToLower(string(body2)), "xmlrpc") || strings.Contains(strings.ToLower(string(body2)), "xml-rpc")) {
 			*issues = append(*issues, "xmlrpc.php presente (superficie de ataque WordPress)")
 			if result.Severity != "Critical" && result.Severity != "High" {
 				result.Severity = "Low"
 			}
 		}
+	}
+
+	// Enumeración de plugins con su versión vía readme.txt ("Stable tag: x.y.z"). Un plugin + versión
+	// es un dato accionable (se puede cruzar con CVEs conocidos para ese plugin/versión).
+	stableTag := regexp.MustCompile(`(?i)stable tag:\s*([0-9]+(?:\.[0-9]+){0,3})`)
+	for _, plugin := range []string{"contact-form-7", "woocommerce", "elementor", "yoast", "wordpress-seo", "akismet", "jetpack", "wpforms-lite"} {
+		resp, err := client.Get(base + "/wp-content/plugins/" + plugin + "/readme.txt")
+		if err != nil {
+			continue
+		}
+		body, _ := ReadResponseBody(resp)
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK || looksLikeHTMLPage(body) {
+			continue
+		}
+		version := "versión desconocida"
+		if m := stableTag.FindStringSubmatch(body); m != nil {
+			version = "v" + m[1]
+		}
+		*issues = append(*issues, fmt.Sprintf("Plugin WordPress detectado: %s (%s) — cruzar con CVEs de esa versión", plugin, version))
+		if result.Severity != "Critical" && result.Severity != "High" {
+			result.Severity = "Medium"
+		}
+		result.Evidence = append(result.Evidence, Evidence{
+			Type:        "WordPress Plugin",
+			URL:         base + "/wp-content/plugins/" + plugin + "/readme.txt",
+			Response:    plugin + " " + version,
+			Description: "Plugin y versión expuestos vía readme.txt",
+			Severity:    "Medium",
+		})
 	}
 }
 
@@ -1275,4 +1361,163 @@ func firstLine(s string, n int) string {
 		s = s[:n]
 	}
 	return s
+}
+
+// checkNoSQLInjection: inyección NoSQL (MongoDB y similares). Envía operadores en el parámetro y en JSON,
+// y marca solo si la respuesta trae una firma de error de motor NoSQL (señal fiable, sin adivinar).
+func (t *KnownVulnerabilitiesTest) checkNoSQLInjection(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	sigs := []string{
+		"mongoerror", "mongoservererror", "e11000", "casterror", "bsonerror",
+		"$where", "failed to optimize pipeline", "unterminated string", "unknown operator",
+	}
+	for _, ep := range []string{"/login", "/api/login", "/api/users", "/search", "/api/search"} {
+		for _, p := range []string{
+			"?username[$ne]=&password[$ne]=",
+			"?user[$gt]=&pass[$gt]=",
+			"?q[$regex]=.*",
+			"?id[$ne]=1",
+		} {
+			resp, err := client.Get(base + ep + p)
+			if err != nil {
+				continue
+			}
+			body, _ := ReadResponseBody(resp)
+			resp.Body.Close()
+			if IsRateLimited(resp.StatusCode) {
+				continue
+			}
+			lb := strings.ToLower(body)
+			for _, s := range sigs {
+				if strings.Contains(lb, s) {
+					*issues = append(*issues, "Posible inyección NoSQL en "+ep+": error del motor NoSQL en la respuesta")
+					result.Severity = "Critical"
+					result.Evidence = append(result.Evidence, Evidence{
+						Type:       "NoSQL Injection",
+						URL:        base + ep + p,
+						Payload:    p,
+						StatusCode: resp.StatusCode,
+						Response:   "Firma: " + s,
+						Severity:   "Critical",
+					})
+					return
+				}
+			}
+		}
+	}
+}
+
+// checkXPathInjection: inyección XPath. Envía payloads clásicos y marca solo si aparece una firma de
+// error de evaluación XPath en la respuesta.
+func (t *KnownVulnerabilitiesTest) checkXPathInjection(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	sigs := []string{
+		"xpatheval", "simplexmlelement::xpath", "xmlxpatheval", "invalid xpath",
+		"invalid expression", "org.apache.xpath", "javax.xml.xpath", "unterminated string in xpath",
+		"warning: xpath", "xpath error",
+	}
+	for _, ep := range []string{"/", "/search", "/api/search", "/user", "/login"} {
+		for _, param := range []string{"q", "search", "name", "user", "id"} {
+			for _, pay := range []string{"' or '1'='1", "'] | //* | a['", "x' or 1=1 or 'x'='y"} {
+				resp, err := client.Get(base + ep + "?" + param + "=" + url.QueryEscape(pay))
+				if err != nil {
+					continue
+				}
+				body, _ := ReadResponseBody(resp)
+				resp.Body.Close()
+				if IsRateLimited(resp.StatusCode) {
+					continue
+				}
+				lb := strings.ToLower(body)
+				for _, s := range sigs {
+					if strings.Contains(lb, s) {
+						*issues = append(*issues, "Posible inyección XPath en "+ep+" ("+param+"): error de evaluación XPath en la respuesta")
+						result.Severity = "High"
+						result.Evidence = append(result.Evidence, Evidence{
+							Type:       "XPath Injection",
+							URL:        base + ep + "?" + param + "=" + url.QueryEscape(pay),
+							Payload:    pay,
+							StatusCode: resp.StatusCode,
+							Response:   "Firma: " + s,
+							Severity:   "High",
+						})
+						return
+					}
+				}
+			}
+		}
+	}
+}
+
+// checkFrameworkSurfaces: superficies de depuración/estado/paneles específicas de servidores y frameworks
+// (PHP, Python, Node, Go, Java/Spring, Apache, nginx, Traefik, HAProxy). Se detectan por una firma de
+// CONTENIDO (no por "no ser HTML"), así se cazan también las consolas que sí son HTML (Werkzeug, Symfony).
+func (t *KnownVulnerabilitiesTest) checkFrameworkSurfaces(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	surfaces := []struct {
+		path, sig, name, sev string
+	}{
+		// Servidores web / proxy
+		{"/server-status", "Apache Server Status", "Apache mod_status expuesto", "Medium"},
+		{"/server-info", "Apache Server Information", "Apache mod_info expuesto", "Medium"},
+		{"/nginx_status", "Active connections:", "nginx stub_status expuesto", "Medium"},
+		{"/status", "Active connections:", "nginx stub_status expuesto", "Medium"},
+		{"/dashboard/", "traefik", "Traefik dashboard expuesto", "High"},
+		{"/api/rawdata", "\"routers\"", "Traefik API expuesta", "High"},
+		{"/haproxy?stats", "HAProxy Statistics", "HAProxy stats expuesto", "Medium"},
+		// Java / Spring Boot
+		{"/actuator", "\"_links\"", "Spring Boot Actuator expuesto", "High"},
+		{"/actuator/env", "\"propertySources\"", "Spring Actuator /env expone configuración", "Critical"},
+		{"/actuator/health", "\"status\"", "Spring Actuator /health expuesto", "Low"},
+		// Python
+		{"/console", "Werkzeug", "Consola de depuración Werkzeug/Flask expuesta", "Critical"},
+		{"/__debug__/", "django", "Django debug toolbar expuesto", "Medium"},
+		// Go
+		{"/debug/pprof/", "Types of profiles available", "Go net/http/pprof expuesto", "High"},
+		{"/debug/vars", "\"cmdline\"", "Go expvar (/debug/vars) expuesto", "Medium"},
+		// PHP / frameworks
+		{"/_profiler", "Symfony Profiler", "Symfony Profiler expuesto", "High"},
+		{"/telescope/requests", "Telescope", "Laravel Telescope expuesto", "High"},
+		{"/info.php", "phpinfo()", "phpinfo() expuesto", "High"},
+		{"/phpinfo.php", "phpinfo()", "phpinfo() expuesto", "High"},
+		// Observabilidad
+		{"/metrics", "# HELP", "Métricas Prometheus expuestas", "Low"},
+	}
+	for _, s := range surfaces {
+		resp, err := client.Get(base + s.path)
+		if err != nil {
+			continue
+		}
+		body, _ := ReadResponseBody(resp)
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			continue
+		}
+		if strings.Contains(strings.ToLower(body), strings.ToLower(s.sig)) {
+			*issues = append(*issues, s.name+" ("+s.path+")")
+			if sevRank(s.sev) > sevRank(result.Severity) {
+				result.Severity = s.sev
+			}
+			result.Evidence = append(result.Evidence, Evidence{
+				Type:        "Framework/Server Surface",
+				URL:         base + s.path,
+				StatusCode:  resp.StatusCode,
+				Description: s.name, Severity: s.sev,
+			})
+		}
+	}
+}
+
+// sevRank ordena severidades para quedarse con la más alta.
+func sevRank(s string) int {
+	switch s {
+	case "Critical":
+		return 5
+	case "High":
+		return 4
+	case "Medium":
+		return 3
+	case "Low":
+		return 2
+	case "Info":
+		return 1
+	}
+	return 0
 }

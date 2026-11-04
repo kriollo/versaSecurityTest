@@ -106,11 +106,15 @@ func (c *CSRFProtectionTest) Run(targetURL string, client HTTPClient, payloads *
 			warnings = append(warnings, "CSP no define directiva 'frame-ancestors' (capa extra de defensa ausente)")
 		}
 
-		// 4. CORS Mal configurado
+		// 4. CORS mal configurado. '*' sin credenciales es habitual en APIs públicas;
+		// solo es señal la combinación con credentials=true.
 		origin := resp.Header.Get("Access-Control-Allow-Origin")
-		if origin == "*" {
-			issues = append(issues, "CORS configurado con '*' (permite cualquier origen)")
-			result.Severity = "High"
+		credentials := resp.Header.Get("Access-Control-Allow-Credentials")
+		if origin == "*" && strings.EqualFold(credentials, "true") {
+			warnings = append(warnings, "CORS usa '*' junto con credentials=true (configuración laxa)")
+			if result.Severity == "" || result.Severity == "Info" {
+				result.Severity = "Medium"
+			}
 		}
 	}
 

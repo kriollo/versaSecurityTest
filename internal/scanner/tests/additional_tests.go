@@ -178,6 +178,8 @@ func (t *CryptographyTest) Run(targetURL string, client HTTPClient, payloads *co
 	if strings.HasPrefix(targetURL, "https://") {
 		details = append(details, "Conexión HTTPS verificada")
 		// En una implementación real, verificaríamos detalles del certificado
+	} else if IsLocalTarget(targetURL) {
+		details = append(details, "✅ Objetivo local (localhost): no se evalúa HTTPS.")
 	} else {
 		evidence = append(evidence, Evidence{
 			Type:        "No HTTPS",
@@ -304,6 +306,8 @@ func (t *BusinessLogicTest) Run(targetURL string, client HTTPClient, payloads *c
 	// BUSL-03: Verificar límites de rate limiting
 	rateTestURL := targetURL + "/api/login"
 	requestCount := 0
+	endpointExists := false
+	rateLimited := false
 	for i := 0; i < 20; i++ {
 		resp, err := client.Get(rateTestURL + "?user=test&pass=test")
 		if err != nil {
@@ -312,19 +316,30 @@ func (t *BusinessLogicTest) Run(targetURL string, client HTTPClient, payloads *c
 		resp.Body.Close()
 		requestCount++
 
-		if resp.StatusCode == 429 {
+		switch {
+		case resp.StatusCode == 429:
+			rateLimited = true
 			details = append(details, fmt.Sprintf("Rate limiting detectado después de %d requests", requestCount))
+		case resp.StatusCode >= 200 && resp.StatusCode < 300,
+			resp.StatusCode == 401, resp.StatusCode == 403, resp.StatusCode == 405:
+			// El endpoint existe y procesa la petición: tiene sentido evaluar rate limiting.
+			endpointExists = true
+		}
+
+		if rateLimited {
 			break
 		}
 	}
 
-	if requestCount >= 20 {
+	if !rateLimited && endpointExists && requestCount >= 20 {
 		evidence = append(evidence, Evidence{
 			Type:        "No Rate Limiting",
 			URL:         rateTestURL,
 			Description: "No se detectó rate limiting después de múltiples requests",
 			Severity:    "Medium",
 		})
+	} else if !endpointExists {
+		details = append(details, "Endpoint /api/login no disponible (404); se omite la prueba de rate limiting")
 	}
 
 	result.Details = details

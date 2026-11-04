@@ -2,7 +2,7 @@
 
 **VersaSecurityTest** es un scanner de seguridad web automático desarrollado en Go, diseñado para identificar vulnerabilidades comunes en aplicaciones web de manera rápida y eficiente.
 
-![VersaSecurityTest Banner](https://img.shields.io/badge/VersaSecurityTest-v2.2.1-blue.svg)
+![VersaSecurityTest Banner](https://img.shields.io/badge/VersaSecurityTest-v2.2.2-blue.svg)
 ![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)
@@ -587,7 +587,16 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
 ### Versión 2.1.2
 
-### ✅ Versión 2.2.1 (Actual)
+### ✅ Versión 2.2.2 (Actual)
+
+- [x] **Inyección NoSQL y XPath** (A05:2025) con detección por firma de error del motor.
+- [x] **Superficies de servidor/framework**: Apache mod_status, nginx stub_status, Traefik, HAProxy, Spring Actuator, Go pprof/expvar, Werkzeug, Symfony Profiler, Laravel Telescope, phpinfo, Prometheus.
+- [x] **Fuga de errores por lenguaje**: PHP, Python, Go, Node, Java/Servlet, Rails, ASP.NET.
+- [x] **Rate Limit Bypass real** (rota IP de cabecera) y **enumeración de plugins WordPress** con versión.
+- [x] **Sin falsos positivos en localhost** (HTTP/HSTS/Secure/SSL) y mapeo OWASP actualizado a 2025.
+- [x] **Docs de cobertura** (`catalogo`, `owasp_top10`, `php`, `superficies`) alineados al código real.
+
+### Versión 2.2.1
 
 - [x] **TUI estable**: corregida la corrupción de la interfaz por la salida concurrente del escáner.
 - [x] **Versión automática**: la UI muestra la versión real del build en lugar de una cadena fija.
@@ -646,7 +655,7 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
 <div align="center">
 
-**🔐 VersaSecurityTest v2.2.1 - Scanner de Seguridad con integración OWASP 2021**
+**🔐 VersaSecurityTest v2.2.2 - Scanner de Seguridad con integración OWASP 2025**
 
 **✨ Versión 2.0**: OWASP 2021 (A06, A08, A10), Port Scanner, Navegación Granular, TUI Profesional
 

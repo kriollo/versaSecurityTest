@@ -41,7 +41,6 @@ func (i *InfoDisclosureTest) Run(targetURL string, client HTTPClient, payloads *
 	// Firmas de fuga REAL: rastros de error/stack trace de frameworks, no la mera aparición de palabras
 	// como "error" o "admin" (eso aparece en cualquier página y daba falsos positivos constantes).
 	patterns := map[string]string{
-		"stack trace":                       "Stack trace expuesto",
 		"fatal error:":                      "Error fatal de PHP expuesto",
 		"<b>warning</b>:":                   "Warning de PHP expuesto",
 		"<b>notice</b>:":                    "Notice de PHP expuesto",
@@ -50,7 +49,15 @@ func (i *InfoDisclosureTest) Run(targetURL string, client HTTPClient, payloads *
 		"exception in thread":               "Stack trace de Java expuesto",
 		"sqlstate[":                         "Error de base de datos (SQLSTATE) expuesto",
 		"undefined index":                   "Aviso de PHP (undefined index) expuesto",
-		"call stack:":                       "Call stack expuesto",
+		".php on line":                      "Ruta y línea de PHP expuesta",
+		"#0 /":                              "Stack trace con rutas del servidor expuesto",
+		"goroutine 1 [":                     "Stack trace de Go expuesto",
+		"at object.<anonymous>":             "Stack trace de Node.js expuesto",
+		"/node_modules/":                    "Ruta de Node.js (node_modules) expuesta en error",
+		"at java.":                          "Stack trace de Java expuesto",
+		"javax.servlet":                     "Stack trace de Java/Servlet expuesto",
+		"actioncontroller::":                "Stack trace de Ruby on Rails expuesto",
+		"system.web.":                       "Stack trace de ASP.NET expuesto",
 		"/var/www/":                         "Ruta del servidor expuesta en la respuesta",
 	}
 

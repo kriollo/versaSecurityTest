@@ -33,6 +33,13 @@ func (s *SSLAnalysisTest) Run(targetURL string, client HTTPClient, payloads *con
 
 	// Solo analizar HTTPS
 	if parsedURL.Scheme != "https" {
+		if IsLocalTarget(targetURL) {
+			result.Status = "Passed"
+			result.Description = "SSL/TLS no aplica a localhost"
+			result.Details = append(result.Details, "✅ Objetivo local (localhost): no se evalúa HTTPS/HSTS.")
+			result.Severity = "Info"
+			return result
+		}
 		result.Status = "Warning"
 		result.Description = "Site not using HTTPS"
 		result.Details = append(result.Details, "El sitio no utiliza HTTPS - recomendado para seguridad")

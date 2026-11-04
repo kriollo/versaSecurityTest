@@ -24,7 +24,8 @@ func (t *AuthenticationTest) Run(targetURL string, client HTTPClient, payloads *
 
 	// 1. ATHN-01: Verificar si las credenciales viajan sobre canal cifrado (HTTPS)
 	isHTTPS := strings.HasPrefix(strings.ToLower(targetURL), "https://")
-	if !isHTTPS {
+	isLocal := IsLocalTarget(targetURL)
+	if !isHTTPS && !isLocal {
 		result.Status = "Failed"
 		result.Severity = "High"
 		result.Description = "Credenciales transportadas sobre canal no cifrado (HTTP)"
@@ -35,6 +36,8 @@ func (t *AuthenticationTest) Run(targetURL string, client HTTPClient, payloads *
 			Description: "Uso de HTTP en lugar de HTTPS para autenticación",
 			Severity:    "High",
 		})
+	} else if !isHTTPS && isLocal {
+		result.Details = append(result.Details, "✅ ATHN-01: Objetivo local (localhost); HTTP no expone credenciales fuera del equipo.")
 	} else {
 		result.Details = append(result.Details, "✅ ATHN-01: El sitio utiliza HTTPS para el transporte de datos.")
 	}

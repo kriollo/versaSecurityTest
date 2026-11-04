@@ -39,12 +39,23 @@ func (t *InfoGatheringTest) Run(targetURL string, client HTTPClient, payloads *c
 	// INFO-05: Detección de rutas comunes
 	t.testCommonPaths(targetURL, client, &result)
 
-	// Determinar el estado final
-	if len(result.Details) == 0 {
-		result.Description = "No se encontró información sensible expuesta"
+	// Determinar el estado final: la recolección de información no es un fallo por sí sola.
+	// Solo se marca Warning cuando hay evidencia sensible (versiones, comentarios, rutas).
+	sensitive := 0
+	for _, ev := range result.Evidence {
+		switch ev.Severity {
+		case "Low", "Medium", "High", "Critical":
+			sensitive++
+		}
+	}
+
+	if sensitive == 0 {
+		result.Status = "Passed"
+		result.Description = fmt.Sprintf("Información del servidor recopilada (%d elementos informativos)", len(result.Details))
+		result.Severity = "Info"
 	} else {
 		result.Status = "Warning"
-		result.Description = fmt.Sprintf("Se recopiló información del servidor (%d elementos)", len(result.Details))
+		result.Description = fmt.Sprintf("Se recopiló información sensible del servidor (%d elementos)", sensitive)
 		result.Severity = "Low"
 	}
 
@@ -59,14 +70,18 @@ func (t *InfoGatheringTest) testHTTPHeaders(targetURL string, client HTTPClient,
 	}
 	defer resp.Body.Close()
 
-	// Headers informativos que pueden revelar tecnologías
+	// Headers informativos que pueden revelar tecnologías (señal de disclosure)
 	informativeHeaders := map[string]string{
-		"Server":                  "Servidor web",
-		"X-Powered-By":            "Tecnología backend",
-		"X-AspNet-Version":        "Versión ASP.NET",
-		"X-Generator":             "Generador de contenido",
-		"X-Drupal-Cache":          "CMS Drupal",
-		"X-Pingback":              "WordPress pingback",
+		"Server":           "Servidor web",
+		"X-Powered-By":     "Tecnología backend",
+		"X-AspNet-Version": "Versión ASP.NET",
+		"X-Generator":      "Generador de contenido",
+		"X-Drupal-Cache":   "CMS Drupal",
+		"X-Pingback":       "WordPress pingback",
+	}
+
+	// Headers de protección: su presencia es buena, no un warning.
+	securityHeaders := map[string]string{
 		"X-Frame-Options":         "Protección clickjacking",
 		"Content-Security-Policy": "Política de seguridad",
 	}
@@ -78,6 +93,19 @@ func (t *InfoGatheringTest) testHTTPHeaders(targetURL string, client HTTPClient,
 				Type:     "HTTP Header Information",
 				URL:      targetURL,
 				Response: fmt.Sprintf("%s: %s", header, value),
+				Severity: "Low",
+			})
+		}
+	}
+
+	for header, description := range securityHeaders {
+		if value := resp.Header.Get(header); value != "" {
+			result.Details = append(result.Details, fmt.Sprintf("✅ Header '%s': %s (%s)", header, value, description))
+			result.Evidence = append(result.Evidence, Evidence{
+				Type:     "HTTP Header Information",
+				URL:      targetURL,
+				Response: fmt.Sprintf("%s: %s", header, value),
+				Severity: "Info",
 			})
 		}
 	}
@@ -118,6 +146,7 @@ func (t *InfoGatheringTest) testTechnologyDetection(targetURL string, client HTT
 				Type:     "Technology Detection",
 				URL:      targetURL,
 				Response: fmt.Sprintf("Detected %s technology", tech),
+				Severity: "Info",
 			})
 		}
 	}
@@ -155,6 +184,7 @@ func (t *InfoGatheringTest) testMetadataCollection(targetURL string, client HTTP
 					Type:     "HTML Metadata",
 					URL:      targetURL,
 					Response: fmt.Sprintf("Meta %s: %s", metaType, match[1]),
+					Severity: "Info",
 				})
 			}
 		}
@@ -190,6 +220,7 @@ func (t *InfoGatheringTest) testExposedComments(targetURL string, client HTTPCli
 						Type:     "Exposed Comment",
 						URL:      targetURL,
 						Response: fmt.Sprintf("Comment: %s", match[1]),
+						Severity: "Low",
 					})
 					break
 				}
@@ -234,6 +265,7 @@ func (t *InfoGatheringTest) testCommonPaths(targetURL string, client HTTPClient,
 				Type:     "Common Path Found",
 				URL:      fullURL,
 				Response: fmt.Sprintf("HTTP %d - File accessible", resp.StatusCode),
+				Severity: "Info",
 			})
 		}
 	}
@@ -264,6 +296,15 @@ func (t *DirectoryEnumerationTest) Run(targetURL string, client HTTPClient, payl
 			continue
 		}
 		defer resp.Body.Close()
+
+		// Un redirect a otra ruta (p. ej. /admin -> /admin/login) significa que el
+		// recurso solicitado no está expuesto: no lo reportamos como hallazgo.
+		if resp.Request != nil && resp.Request.URL != nil {
+			if !sameRequestPath(path, resp.Request.URL.Path) {
+				details = append(details, fmt.Sprintf("Redirigido (protegido): %s -> %s", path, resp.Request.URL.Path))
+				continue
+			}
+		}
 
 		if (resp.StatusCode == 200 || resp.StatusCode == 403) && resp.StatusCode != 429 {
 			details = append(details, fmt.Sprintf("Directorio/archivo encontrado: %s (Status: %d)", path, resp.StatusCode))

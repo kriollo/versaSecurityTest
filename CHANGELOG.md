@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.2] - 2026-11-04
+
+### Added
+
+- **Inyección NoSQL** (`checkNoSQLInjection`) y **XPath** (`checkXPathInjection`) — A05:2025; detección por
+  firma de error del motor (MongoError/E11000/CastError; SimpleXMLElement::xpath/Invalid expression).
+- **Superficies de servidor y framework** (`checkFrameworkSurfaces`): Apache mod_status/mod_info,
+  nginx stub_status, Traefik dashboard/API, HAProxy stats, Spring Boot Actuator (/env = Crítico),
+  Go pprof y expvar, Werkzeug/Flask console, Django debug toolbar, Symfony Profiler, Laravel Telescope,
+  phpinfo() y métricas Prometheus. Detección por firma de contenido (también superficies HTML).
+- **Enumeración de plugins de WordPress** con versión vía `readme.txt` (Stable tag).
+- **Firmas de fuga de errores por lenguaje**: Node.js, Java/Servlet, Ruby on Rails y ASP.NET
+  (además de PHP, Python y Go).
+- `superficies_cobertura.md`: documento que explica la cobertura por servidor/lenguaje/framework y sus límites.
+
+### Changed
+
+- **Rate Limit Bypass** pasa de informativo a prueba real: dispara el 429 con identidad fija y confirma
+  el salto rotando la IP de cabecera (`X-Forwarded-For`/`X-Real-IP`); sin falso positivo si el límite es global.
+- **Sin falsos positivos en localhost**: en objetivos loopback no se marca HTTP inseguro, HSTS ausente,
+  cookie sin `Secure` ni "no usa HTTPS" (`IsLocalTarget`); redirect a login = recurso protegido.
+- **CORS `*`** solo se marca junto con `Allow-Credentials: true` (coherente en todos los tests).
+- **Mapeo OWASP actualizado a 2025** (`owasp_top10_cobertura.md`); `catalogo`/`php` alineados al código.
+
+### Fixed
+
+- **WordPress xmlrpc.php nunca se detectaba**: se leía el cuerpo después de cerrarlo. Corregido (leer antes de cerrar).
+
 ## [2.2.1] - 2026-11-03
 
 ### Fixed

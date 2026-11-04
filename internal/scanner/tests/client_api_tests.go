@@ -288,6 +288,8 @@ func (t *APISecurityTest) Run(targetURL string, client HTTPClient, payloads *con
 	// APIT-03: Verificar rate limiting en APIs
 	rateTestAPI := targetURL + "/api/test"
 	requestCount := 0
+	endpointExists := false
+	rateLimited := false
 	for i := 0; i < 30; i++ {
 		resp, err := client.Get(rateTestAPI)
 		if err != nil {
@@ -296,19 +298,29 @@ func (t *APISecurityTest) Run(targetURL string, client HTTPClient, payloads *con
 		resp.Body.Close()
 		requestCount++
 
-		if resp.StatusCode == 429 {
+		switch {
+		case resp.StatusCode == 429:
+			rateLimited = true
 			details = append(details, fmt.Sprintf("Rate limiting en API detectado después de %d requests", requestCount))
+		case resp.StatusCode >= 200 && resp.StatusCode < 300,
+			resp.StatusCode == 401, resp.StatusCode == 403, resp.StatusCode == 405:
+			endpointExists = true
+		}
+
+		if rateLimited {
 			break
 		}
 	}
 
-	if requestCount >= 30 {
+	if !rateLimited && endpointExists && requestCount >= 30 {
 		evidence = append(evidence, Evidence{
 			Type:        "No API Rate Limiting",
 			URL:         rateTestAPI,
 			Description: "No se detectó rate limiting en API después de múltiples requests",
 			Severity:    "Medium",
 		})
+	} else if !endpointExists {
+		details = append(details, "Endpoint /api/test no disponible (404); se omite la prueba de rate limiting")
 	}
 
 	// APIT-04: Verificar CORS policy. '*' por sí solo NO es un riesgo (APIs públicas lo usan); solo lo es

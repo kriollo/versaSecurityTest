@@ -110,8 +110,16 @@ func (t *AdvancedSecurityHeadersTest) Run(targetURL string, client HTTPClient, p
 	}
 
 	// Verificar cada header
+	isHTTPS := strings.HasPrefix(strings.ToLower(targetURL), "https://")
 	for headerName, check := range securityHeaders {
 		headerValue := resp.Header.Get(headerName)
+
+		// HSTS solo tiene sentido sobre HTTPS; en HTTP se recomienda migrar a HTTPS,
+		// no reportar el header como ausente (falso positivo).
+		if headerName == "Strict-Transport-Security" && !isHTTPS {
+			warnings = append(warnings, "ℹ️  HSTS no aplica: el sitio usa HTTP (migrar a HTTPS)")
+			continue
+		}
 
 		if headerValue == "" {
 			if check.Required {
@@ -183,7 +191,7 @@ func (t *AdvancedSecurityHeadersTest) Run(targetURL string, client HTTPClient, p
 	// VERIFICAR COOKIES INSEGURAS
 	cookieHeaders := resp.Header["Set-Cookie"]
 	for _, cookie := range cookieHeaders {
-		cookieIssues := t.analyzeCookie(cookie)
+		cookieIssues := t.analyzeCookie(cookie, isHTTPS)
 		for _, issue := range cookieIssues {
 			warnings = append(warnings, fmt.Sprintf("🍪 Cookie insegura: %s", issue))
 			result.Evidence = append(result.Evidence, Evidence{
@@ -200,14 +208,16 @@ func (t *AdvancedSecurityHeadersTest) Run(targetURL string, client HTTPClient, p
 	corsOrigin := resp.Header.Get("Access-Control-Allow-Origin")
 	if corsOrigin == "*" {
 		corsCredentials := resp.Header.Get("Access-Control-Allow-Credentials")
-		if corsCredentials == "true" {
-			critical = append(critical, "❌ CRÍTICO: CORS permite cualquier origen con credenciales")
+		if strings.EqualFold(corsCredentials, "true") {
+			// Los navegadores ignoran las credenciales cuando el origen es '*',
+			// así que es una configuración laxa, no una vulnerabilidad crítica.
+			warnings = append(warnings, "⚠️  CORS usa '*' junto con credentials=true (revisar configuración)")
 			result.Evidence = append(result.Evidence, Evidence{
 				Type:        "CORS Misconfiguration",
 				URL:         targetURL,
 				Response:    fmt.Sprintf("Access-Control-Allow-Origin: %s, Access-Control-Allow-Credentials: %s", corsOrigin, corsCredentials),
-				Description: "CORS configurado inseguramente - permite cualquier origen con credenciales",
-				Severity:    "Critical",
+				Description: "CORS laxo: wildcard con credenciales (los navegadores no envían credenciales con '*')",
+				Severity:    "Low",
 			})
 		} else {
 			warnings = append(warnings, "⚠️  CORS permite cualquier origen (sin credenciales)")
@@ -374,13 +384,15 @@ func (t *AdvancedSecurityHeadersTest) validateXFrameOptions(xfo string) HeaderVa
 	return HeaderValidation{true, ""}
 }
 
-// analyzeCookie analiza una cookie en busca de problemas de seguridad
-func (t *AdvancedSecurityHeadersTest) analyzeCookie(cookie string) []string {
+// analyzeCookie analiza una cookie en busca de problemas de seguridad.
+// El flag Secure solo se exige cuando el sitio usa HTTPS: en HTTP el navegador
+// no enviaría la cookie, por lo que reportarlo sería un falso positivo.
+func (t *AdvancedSecurityHeadersTest) analyzeCookie(cookie string, isHTTPS bool) []string {
 	var issues []string
 	cookieLower := strings.ToLower(cookie)
 
 	// Verificar flags de seguridad
-	if !strings.Contains(cookieLower, "secure") {
+	if isHTTPS && !strings.Contains(cookieLower, "secure") {
 		issues = append(issues, "Cookie sin flag 'Secure'")
 	}
 

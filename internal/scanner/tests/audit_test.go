@@ -91,9 +91,9 @@ func TestOutdatedComponentsExigeElPatronEnElCuerpo(t *testing.T) {
 	}
 }
 
-// AuthenticationTest: HTTP se marca como inseguro; /admin (login propio) no es un hallazgo.
-func TestAuthenticationHTTPInseguroYSinFalsoPositivoEnAdmin(t *testing.T) {
-	// httptest es HTTP: el transporte inseguro debe marcarse
+// AuthenticationTest en un objetivo local (httptest = 127.0.0.1): HTTP NO se marca como inseguro
+// (no expone credenciales fuera del equipo), y /admin (login propio) tampoco es un hallazgo.
+func TestAuthenticationLocalNoMarcaHTTPniAdmin(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/admin" { // login propio: 200
 			w.Write([]byte(`<form><input type="password"></form>`))
@@ -104,8 +104,13 @@ func TestAuthenticationHTTPInseguroYSinFalsoPositivoEnAdmin(t *testing.T) {
 	defer srv.Close()
 
 	res := (&AuthenticationTest{}).Run(srv.URL, NewBasicHTTPClient(), nil)
-	if res.Severity != "High" || !findDetail(res.Details, "ATHN-01") {
-		t.Fatalf("no marcó HTTP inseguro: %+v", res.Details)
+	if res.Severity == "High" {
+		t.Fatalf("en localhost no debe marcar HTTP como riesgo alto: %+v", res.Details)
+	}
+	for _, d := range res.Details {
+		if strings.Contains(d, "HTTP. Las credenciales pueden ser interceptadas") {
+			t.Fatalf("en localhost no debe advertir transporte inseguro: %q", d)
+		}
 	}
 	if findDetail(res.Details, "Panel de Administración") {
 		t.Fatalf("/admin no debería marcarse como panel expuesto: %+v", res.Details)
