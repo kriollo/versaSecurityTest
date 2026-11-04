@@ -1,0 +1,72 @@
+# Cobertura del catálogo de vulnerabilidades web
+
+Mapeo entre el catálogo `catalogo_vulnerabilidades_web.md` (WEB-001..WEB-050)
+y los tests implementados en `versaSecurity`.
+
+Leyenda:
+- ✅ Implementado: existe test dinámico que busca la clase.
+- 🟡 Parcial: existe cobertura indirecta o limitada.
+- ❌ Faltante: no hay test específico.
+
+| ID | Vulnerabilidad | Estado | Test(s) existente(s) | Notas |
+|---|---|---|---|---|
+| WEB-001 | SQL Injection | ✅ | SQL Injection, Advanced SQL Injection | Incluye blind/time-based |
+| WEB-002 | Cross-Site Scripting (XSS) | ✅ | Cross-Site Scripting (XSS), Advanced XSS | Reflejado/DOM |
+| WEB-003 | CSRF | ✅ | CSRF Protection | Tokens, SameSite, CORS |
+| WEB-004 | SSRF | ✅ | Server-Side Request Forgery (SSRF) | |
+| WEB-005 | RCE | 🟡 | Known Vulnerabilities (ejecución PHP) | Falta ejecución de comandos/SSTI-to-RCE |
+| WEB-006 | LFI | 🟡 | Directory Traversal, Advanced Directory Traversal | Falta inclusión de wrappers (php://, data://) |
+| WEB-007 | RFI | ❌ | - | Implementar include remoto |
+| WEB-008 | Path Traversal | ✅ | Directory Traversal, Advanced Directory Traversal | |
+| WEB-009 | Broken Access Control | 🟡 | Authorization, ATHZ-01, ATHZ-04 | Cobertura básica |
+| WEB-010 | IDOR / BOLA | ✅ | ATHZ-04: Direct Object Reference Testing | |
+| WEB-011 | Authentication Bypass | 🟡 | ATHN-01 | Falta bypass por parámetros/headers |
+| WEB-012 | Session Fixation | ✅ | Session Management | |
+| WEB-013 | Session Hijacking | 🟡 | Session Management | Falta robo/reutilización |
+| WEB-014 | Open Redirect | ✅ | Open Redirect | |
+| WEB-015 | HTTP Response Splitting | ❌ | - | Implementar |
+| WEB-016 | CRLF Injection | ❌ | - | Implementar |
+| WEB-017 | OS Command Injection | ❌ | - | Implementar |
+| WEB-018 | LDAP Injection | ❌ | - | Implementar |
+| WEB-019 | XXE | ❌ | - | Implementar |
+| WEB-020 | Insecure Deserialization | ✅ | A08:2021 - Software and Data Integrity Failures | |
+| WEB-021 | SSTI | ✅ | Known Vulnerabilities (template injection) | |
+| WEB-022 | Unrestricted File Upload | ✅ | File Upload Test | |
+| WEB-023 | Information Disclosure | ✅ | Information Disclosure, INFO-06 | |
+| WEB-024 | Security Misconfiguration | ✅ | Configuration Security, CONF-06 | |
+| WEB-025 | Missing Security Headers | ✅ | Advanced Security Headers Test, HTTP Headers Test | |
+| WEB-026 | Clickjacking | ✅ | Advanced Security Headers (X-Frame-Options) | |
+| WEB-027 | Cryptographic Failures | ✅ | CRYP-01, SSL/TLS Analysis | |
+| WEB-028 | Weak Password Policy | 🟡 | IDNT-01 | Falta política detallada |
+| WEB-029 | Brute Force / Credential Stuffing | ✅ | Brute Force Test | |
+| WEB-030 | DoS | 🟡 | Flood command (fuera del scanner) | Falta en scanner web |
+| WEB-031 | ReDoS | ❌ | - | Implementar |
+| WEB-032 | Cache Poisoning | ❌ | - | Implementar |
+| WEB-033 | HTTP Request Smuggling | ❌ | - | Implementar |
+| WEB-034 | Race Condition | ❌ | - | Implementar |
+| WEB-035 | Mass Assignment | ❌ | - | Implementar |
+| WEB-036 | Prototype Pollution | ❌ | - | Implementar |
+| WEB-037 | CORS Misconfiguration | ✅ | Configuration Security, CSRF Protection | |
+| WEB-038 | JWT Validation Failure | ❌ | - | Implementar |
+| WEB-039 | Rate Limit Bypass | ❌ | - | Implementar |
+| WEB-040 | Secrets Exposure | 🟡 | Known Vulnerabilities (archivos sensibles) | Falta bundles/logs |
+| WEB-041 | Dependency Vulnerability | ✅ | A06: Vulnerable and Outdated Components | |
+| WEB-042 | Dependency Confusion | ❌ | - | Implementar |
+| WEB-043 | Supply Chain Compromise | ❌ | - | Implementar |
+| WEB-044 | Host Header Injection | ❌ | - | Implementar |
+| WEB-045 | DNS Rebinding | ❌ | - | Implementar |
+| WEB-046 | WebSocket Authorization Failure | ❌ | - | Implementar |
+| WEB-047 | GraphQL Abuse | 🟡 | Known Vulnerabilities (introspection) | Falta profundidad/complejidad/auth |
+| WEB-048 | TLS Misconfiguration | ✅ | SSL/TLS Analysis | |
+| WEB-049 | Improper Error Handling | ✅ | ERRH-01: Error Leakage Testing | |
+| WEB-050 | Insufficient Logging and Alerting | ❌ | - | Difícil de probar externamente |
+
+## Prioridad sugerida de implementación
+1. WEB-017 OS Command Injection
+2. WEB-019 XXE
+3. WEB-016 CRLF Injection
+4. WEB-044 Host Header Injection
+5. WEB-038 JWT Validation
+6. WEB-007 RFI
+7. WEB-015 HTTP Response Splitting
+8. WEB-037 ya cubierto; WEB-047 ampliar GraphQL
