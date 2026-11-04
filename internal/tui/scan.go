@@ -50,6 +50,7 @@ func (m Model) StartScan() tea.Cmd {
 
 		// Crear canal de skip para TUI
 		SkipChannel := make(chan bool, 1)
+		progressChan := make(chan ScanProgressMsg, 100)
 
 		// Crear opciones de escaneo - AHORA SIN EnabledTests para que use config.json
 		scanOptions := scanner.ScanOptions{
@@ -61,13 +62,20 @@ func (m Model) StartScan() tea.Cmd {
 			UseAdvancedTests: cfg.Tests.UseAdvancedTests,
 			EnabledTests:     nil, // Usar config.json (igual que CLI)
 			SkipChannel:      SkipChannel,
-			ProgressCallback: m.createProgressCallback(), // Callback para progreso en tiempo real
+			ProgressCallback: func(testName string, completed, total int) {
+				select {
+				case progressChan <- ScanProgressMsg{TestName: testName, Completed: completed, Total: total}:
+				default:
+				}
+			},
+			Silent: true,
 		}
 
 		// Almacenar canal en el mensaje para poder usarlo después
 		return ScanStartedMsg{
-			Options:     scanOptions,
-			SkipChannel: SkipChannel,
+			Options:      scanOptions,
+			SkipChannel:  SkipChannel,
+			ProgressChan: progressChan,
 		}
 	})
 }
@@ -80,8 +88,9 @@ type ScanCompleteMsg struct {
 
 // ScanStartedMsg es el mensaje enviado cuando el escaneo inicia
 type ScanStartedMsg struct {
-	Options     scanner.ScanOptions
-	SkipChannel chan bool
+	Options      scanner.ScanOptions
+	SkipChannel  chan bool
+	ProgressChan chan ScanProgressMsg
 }
 
 // ScanProgressMsg es el mensaje enviado para actualizar el progreso
@@ -225,16 +234,22 @@ func (m Model) UpdateWithScanMessages(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.ScanContext = ctx
 		m.ScanCancel = cancel
 
-		// Guardar el canal de skip en el modelo
+		// Guardar los canales en el modelo
 		m.SkipChannel = msg.SkipChannel
-		// Iniciar escaneo en background Y el timer
-		return m, tea.Batch(m.executeBackgroundScan(msg.Options), doTick())
+		m.ProgressChan = msg.ProgressChan
+		// Iniciar escaneo en background, el timer y la escucha de progreso
+		return m, tea.Batch(m.executeBackgroundScan(msg.Options, msg.ProgressChan), doTick(), waitForProgress(msg.ProgressChan))
 
 	case ScanCompleteMsg:
+		m.ProgressChan = nil
 		return m.handleScanComplete(msg)
 
 	case ScanProgressMsg:
-		return m.handleProgressUpdate(msg)
+		updated, cmd := m.handleProgressUpdate(msg)
+		if m.ProgressChan != nil {
+			return updated, tea.Batch(cmd, waitForProgress(m.ProgressChan))
+		}
+		return updated, cmd
 
 	case TickMsg:
 		if m.Scanning {
@@ -246,8 +261,9 @@ func (m Model) UpdateWithScanMessages(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // executeBackgroundScan ejecuta el escaneo en background con timeout
-func (m Model) executeBackgroundScan(options scanner.ScanOptions) tea.Cmd {
+func (m Model) executeBackgroundScan(options scanner.ScanOptions, progressChan chan ScanProgressMsg) tea.Cmd {
 	return tea.Cmd(func() tea.Msg {
+		defer close(progressChan)
 		// Canal para recibir resultado del escaneo
 		resultChan := make(chan *scanner.ScanResult, 1)
 		errorChan := make(chan error, 1)
@@ -287,6 +303,17 @@ func (m Model) executeBackgroundScan(options scanner.ScanOptions) tea.Cmd {
 			}
 		}
 	})
+}
+
+// waitForProgress espera el siguiente mensaje de progreso del scanner.
+func waitForProgress(ch <-chan ScanProgressMsg) tea.Cmd {
+	return func() tea.Msg {
+		msg, ok := <-ch
+		if !ok {
+			return nil
+		}
+		return msg
+	}
 }
 
 // createProgressCallback crea un callback para reportar progreso en tiempo real

@@ -24,6 +24,7 @@ type WebScanner struct {
 	payloads  *config.PayloadConfig
 	client    tests.HTTPClient
 	discovery *tests.DiscoveryResult
+	silent    bool
 }
 
 // ScanResult contiene los resultados del escaneo
@@ -89,14 +90,18 @@ func (ws *WebScanner) ScanURLWithOptions(targetURL string, skipChannel chan bool
 	startTime := time.Now()
 
 	// FASE 1: Descubrimiento (Spidering/Crawling)
-	fmt.Printf("\n🕷️  Iniciando fase de descubrimiento para: %s\n", targetURL)
+	if !ws.silent {
+		fmt.Printf("\n🕷️  Iniciando fase de descubrimiento para: %s\n", targetURL)
+	}
 	crawler := NewCrawler(ws.client)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
 	discovery, err := crawler.Discover(ctx, targetURL)
 	if err != nil {
-		fmt.Printf("⚠️  Error en descubrimiento: %v. Usando endpoint base.\n", err)
+		if !ws.silent {
+			fmt.Printf("⚠️  Error en descubrimiento: %v. Usando endpoint base.\n", err)
+		}
 		discovery = &tests.DiscoveryResult{
 			BaseURL: targetURL,
 			Endpoints: map[string]*tests.EndpointInfo{
@@ -105,7 +110,9 @@ func (ws *WebScanner) ScanURLWithOptions(targetURL string, skipChannel chan bool
 		}
 	}
 	ws.discovery = discovery
-	fmt.Printf("✅ Descubrimiento completado: %d endpoints encontrados\n", len(discovery.Endpoints))
+	if !ws.silent {
+		fmt.Printf("✅ Descubrimiento completado: %d endpoints encontrados\n", len(discovery.Endpoints))
+	}
 
 	// Variables para progreso
 	completedTests := 0
@@ -120,18 +127,24 @@ func (ws *WebScanner) ScanURLWithOptions(targetURL string, skipChannel chan bool
 			progressCallback(testName, completed, total)
 		}
 
-		elapsed := time.Since(startTime)
-		percent := float64(completed) / float64(total) * 100
-		fmt.Printf("\r🔍 [%s] Test: %s | Progreso: %.1f%% [%d/%d] | Tiempo: %v | Hilos: %d",
-			time.Now().Format("15:04:05"), testName, percent, completed, total, elapsed.Round(time.Second), ws.config.Concurrent)
+		if !ws.silent {
+			elapsed := time.Since(startTime)
+			percent := float64(completed) / float64(total) * 100
+			fmt.Printf("\r🔍 [%s] Test: %s | Progreso: %.1f%% [%d/%d] | Tiempo: %v | Hilos: %d",
+				time.Now().Format("15:04:05"), testName, percent, completed, total, elapsed.Round(time.Second), ws.config.Concurrent)
+		}
 	}
 
 	// Fase de ejecución de tests
 	testRunners := ws.getEnabledTests()
 	result.TestsExecuted = len(testRunners)
 
-	fmt.Printf("\n🚀 Iniciando ejecución de %d categorías de tests con %d hilos\n", len(testRunners), ws.config.Concurrent)
-	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	if !ws.silent {
+		fmt.Printf("\n🚀 Iniciando ejecución de %d categorías de tests con %d hilos\n", len(testRunners), ws.config.Concurrent)
+	}
+	if !ws.silent {
+		fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	}
 
 	concurrency := ws.config.Concurrent
 	if concurrency <= 0 {
@@ -208,7 +221,9 @@ func (ws *WebScanner) ScanURLWithOptions(targetURL string, skipChannel chan bool
 		showProgress(tr.TestName, completedTests, len(testRunners))
 	}
 
-	fmt.Printf("\n")
+	if !ws.silent {
+		fmt.Printf("\n")
+	}
 	result.Duration = time.Since(startTime)
 	result.SecurityScore = ws.calculateSecurityScore(result)
 	result.Recommendations = ws.generateRecommendations(result)
@@ -385,9 +400,15 @@ func (ws *WebScanner) getEnabledTests() []TestRunner {
 	return testRunners
 }
 
+func (ws *WebScanner) debugf(format string, args ...interface{}) {
+	if ws.config.Verbose && !ws.silent {
+		fmt.Printf(format, args...)
+	}
+}
+
 // calculateSecurityScore calcula la puntuación de seguridad
 func (ws *WebScanner) calculateSecurityScore(result *ScanResult) SecurityScore {
-	fmt.Printf("DEBUG: Calculando score - Tests ejecutados: %d\n", result.TestsExecuted)
+	ws.debugf("DEBUG: Calculando score - Tests ejecutados: %d\n", result.TestsExecuted)
 
 	if result.TestsExecuted == 0 {
 		return SecurityScore{Value: 0, Risk: "Unknown"}
@@ -404,7 +425,7 @@ func (ws *WebScanner) calculateSecurityScore(result *ScanResult) SecurityScore {
 	lowFailures := 0
 
 	for _, test := range result.TestResults {
-		fmt.Printf("DEBUG: Test '%s' - Status: %s, Severity: %s\n", test.TestName, test.Status, test.Severity)
+		ws.debugf("DEBUG: Test '%s' - Status: %s, Severity: %s\n", test.TestName, test.Status, test.Severity)
 		if test.Status != "Skipped" && test.Status != "Timeout" {
 			completedTests++
 			switch test.Status {
@@ -429,7 +450,7 @@ func (ws *WebScanner) calculateSecurityScore(result *ScanResult) SecurityScore {
 		}
 	}
 
-	fmt.Printf("DEBUG: Passed: %d, Warning: %d, Failed: %d (Critical: %d, High: %d, Medium: %d, Low: %d)\n",
+	ws.debugf("DEBUG: Passed: %d, Warning: %d, Failed: %d (Critical: %d, High: %d, Medium: %d, Low: %d)\n",
 		passedCount, warningCount, failedCount, criticalFailures, highFailures, mediumFailures, lowFailures)
 
 	if completedTests == 0 {
@@ -440,7 +461,7 @@ func (ws *WebScanner) calculateSecurityScore(result *ScanResult) SecurityScore {
 	successRate := float64(passedCount+warningCount) / float64(completedTests)
 	baseScore := successRate * 10
 
-	fmt.Printf("DEBUG: Success rate: %.2f%%, Score base inicial: %.2f\n", successRate*100, baseScore)
+	ws.debugf("DEBUG: Success rate: %.2f%%, Score base inicial: %.2f\n", successRate*100, baseScore)
 
 	// Aplicar penalizaciones moderadas por severity - pero sin eliminar todo el progreso
 	// Las penalizaciones son proporcionales y no excesivas
@@ -448,25 +469,25 @@ func (ws *WebScanner) calculateSecurityScore(result *ScanResult) SecurityScore {
 	if criticalFailures > 0 {
 		penalty := float64(criticalFailures) * 0.8 // Penalización moderada por crítico
 		totalPenalty += penalty
-		fmt.Printf("DEBUG: Penalización por %d failures críticos: -%.2f\n", criticalFailures, penalty)
+		ws.debugf("DEBUG: Penalización por %d failures críticos: -%.2f\n", criticalFailures, penalty)
 	}
 	if highFailures > 0 {
 		penalty := float64(highFailures) * 0.5 // Penalización moderada por alto
 		totalPenalty += penalty
-		fmt.Printf("DEBUG: Penalización por %d failures altos: -%.2f\n", highFailures, penalty)
+		ws.debugf("DEBUG: Penalización por %d failures altos: -%.2f\n", highFailures, penalty)
 	}
 	if mediumFailures > 0 {
 		penalty := float64(mediumFailures) * 0.3 // Penalización pequeña por medio
 		totalPenalty += penalty
-		fmt.Printf("DEBUG: Penalización por %d failures medios: -%.2f\n", mediumFailures, penalty)
+		ws.debugf("DEBUG: Penalización por %d failures medios: -%.2f\n", mediumFailures, penalty)
 	}
 	if lowFailures > 0 {
 		penalty := float64(lowFailures) * 0.1 // Penalización mínima por bajo
 		totalPenalty += penalty
-		fmt.Printf("DEBUG: Penalización por %d failures bajos: -%.2f\n", lowFailures, penalty)
+		ws.debugf("DEBUG: Penalización por %d failures bajos: -%.2f\n", lowFailures, penalty)
 	}
 
-	fmt.Printf("DEBUG: Penalización total: -%.2f\n", totalPenalty)
+	ws.debugf("DEBUG: Penalización total: -%.2f\n", totalPenalty)
 	baseScore -= totalPenalty
 
 	// Penalización muy pequeña por tests saltados
@@ -474,7 +495,7 @@ func (ws *WebScanner) calculateSecurityScore(result *ScanResult) SecurityScore {
 	if skippedCount > 0 {
 		skippedPenalty := float64(skippedCount) * 0.05 // Penalización muy pequeña
 		baseScore -= skippedPenalty
-		fmt.Printf("DEBUG: Penalización por %d tests saltados: -%.2f\n", skippedCount, skippedPenalty)
+		ws.debugf("DEBUG: Penalización por %d tests saltados: -%.2f\n", skippedCount, skippedPenalty)
 	}
 
 	// Establecer un mínimo razonable: si pasaron algunos tests, el score no puede ser 0
@@ -482,7 +503,7 @@ func (ws *WebScanner) calculateSecurityScore(result *ScanResult) SecurityScore {
 	if passedCount > 0 {
 		// Score mínimo basado en cuántos tests pasaron
 		minScore = math.Max(1.0, float64(passedCount)*0.3)
-		fmt.Printf("DEBUG: Score mínimo calculado: %.2f (basado en %d tests pasados)\n", minScore, passedCount)
+		ws.debugf("DEBUG: Score mínimo calculado: %.2f (basado en %d tests pasados)\n", minScore, passedCount)
 	}
 
 	// Aplicar límites
@@ -493,7 +514,7 @@ func (ws *WebScanner) calculateSecurityScore(result *ScanResult) SecurityScore {
 		baseScore = 10
 	}
 
-	fmt.Printf("DEBUG: Score final: %.2f\n", baseScore)
+	ws.debugf("DEBUG: Score final: %.2f\n", baseScore)
 
 	// Determinar nivel de riesgo
 	var risk string
@@ -508,7 +529,7 @@ func (ws *WebScanner) calculateSecurityScore(result *ScanResult) SecurityScore {
 		risk = "Crítico"
 	}
 
-	fmt.Printf("DEBUG: Nivel de riesgo: %s\n", risk)
+	ws.debugf("DEBUG: Nivel de riesgo: %s\n", risk)
 
 	return SecurityScore{
 		Value: baseScore,
@@ -520,10 +541,10 @@ func (ws *WebScanner) calculateSecurityScore(result *ScanResult) SecurityScore {
 func (ws *WebScanner) generateRecommendations(result *ScanResult) []string {
 	recommendations := []string{}
 
-	fmt.Printf("DEBUG: Generando recomendaciones para %d tests\n", len(result.TestResults))
+	ws.debugf("DEBUG: Generando recomendaciones para %d tests\n", len(result.TestResults))
 
 	for _, test := range result.TestResults {
-		fmt.Printf("DEBUG: Test '%s' - Status: %s, Severity: %s\n", test.TestName, test.Status, test.Severity)
+		ws.debugf("DEBUG: Test '%s' - Status: %s, Severity: %s\n", test.TestName, test.Status, test.Severity)
 		if test.Status != "Passed" {
 			// Usar strings.Contains para buscar patrones en el nombre del test
 			testName := strings.ToLower(test.TestName)
@@ -707,6 +728,7 @@ type ScanOptions struct {
 	EnabledTests     map[string]bool  // mapa de test_id -> enabled
 	SkipChannel      chan bool        // canal para recibir comandos de skip (opcional)
 	ProgressCallback ProgressCallback // callback para reportar progreso (opcional)
+	Silent           bool             // no escribir progreso en stdout (TUI)
 }
 
 // CreateScanConfig crea una configuración de scanner unificada
@@ -748,6 +770,7 @@ func ExecuteScan(options ScanOptions) (*ScanResult, error) {
 
 	// Crear scanner
 	webScanner := NewWebScanner(cfg)
+	webScanner.silent = options.Silent
 
 	// Ejecutar escaneo con las opciones completas (incluye callback y skip channel)
 	result := webScanner.ScanURLWithOptions(options.TargetURL, options.SkipChannel, options.ProgressCallback)

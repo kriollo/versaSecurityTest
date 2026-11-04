@@ -96,9 +96,10 @@ type Model struct {
 	Scanning     bool
 	ScanProgress ScanProgress
 	ScanResult   *scanner.ScanResult
-	SkipChannel  chan bool          // Canal para enviar comandos de skip durante el escaneo
-	ScanContext  context.Context    // Context para cancelar el escaneo
-	ScanCancel   context.CancelFunc // Función para cancelar el escaneo
+	SkipChannel  chan bool            // Canal para enviar comandos de skip durante el escaneo
+	ProgressChan chan ScanProgressMsg // Canal para recibir progreso del scanner
+	ScanContext  context.Context      // Context para cancelar el escaneo
+	ScanCancel   context.CancelFunc   // Función para cancelar el escaneo
 
 	// Finalización
 	FinishingSpinner int
