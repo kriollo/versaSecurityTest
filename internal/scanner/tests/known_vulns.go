@@ -91,6 +91,10 @@ func (t *KnownVulnerabilitiesTest) Run(targetURL string, client HTTPClient, _ *c
 	t.checkWordPress(base, client, &result, &issues)
 	t.checkDrupal(base, client, &result, &issues)
 	t.checkSecretsInJS(base, client, &result, &issues)
+	t.checkAuthBypass(base, client, &result, &issues)
+	t.checkSessionHijacking(base, client, &result, &issues)
+	t.checkWeakPasswordPolicy(base, client, &result, &issues)
+	t.checkGraphQLAbuse(base, client, &result, &issues)
 
 	if len(issues) > 0 {
 		result.Status = "Failed"
@@ -961,6 +965,122 @@ func (t *KnownVulnerabilitiesTest) checkSecretsInJS(base string, client HTTPClie
 				})
 				return
 			}
+		}
+	}
+}
+
+
+// checkAuthBypass: prueba bypass de autenticación vía headers y path tricks.
+func (t *KnownVulnerabilitiesTest) checkAuthBypass(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	for _, ep := range []string{"/admin", "/dashboard", "/panel"} {
+		// Header bypass
+		for _, h := range []struct{ k, v string }{{"X-Original-URL", ep}, {"X-Rewrite-URL", ep}} {
+			req, _ := http.NewRequest(http.MethodGet, base+"/", nil)
+			req.Header.Set(h.k, h.v)
+			resp, err := client.Do(req)
+			if err != nil {
+				continue
+			}
+			body, _ := ReadResponseBody(resp)
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusOK && !looksLikeLoginPage(body) && containsAdminKeyword(body) {
+				*issues = append(*issues, "Posible bypass de autenticación vía "+h.k+" hacia "+ep)
+				result.Severity = "Critical"
+				return
+			}
+		}
+		// Path trick
+		for _, trick := range []string{ep + "/", "//" + strings.TrimPrefix(ep, "/"), ep + "%20", ep + "%09"} {
+			resp, err := client.Get(base + trick)
+			if err != nil {
+				continue
+			}
+			body, _ := ReadResponseBody(resp)
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusOK && !looksLikeLoginPage(body) && containsAdminKeyword(body) {
+				*issues = append(*issues, "Posible bypass de autenticación vía path trick: "+trick)
+				result.Severity = "Critical"
+				return
+			}
+		}
+	}
+}
+
+// checkSessionHijacking: verifica si la cookie de sesión carece de flags de protección.
+func (t *KnownVulnerabilitiesTest) checkSessionHijacking(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	resp, err := client.Get(base + "/")
+	if err != nil {
+		return
+	}
+	resp.Body.Close()
+	for _, c := range resp.Cookies() {
+		name := strings.ToLower(c.Name)
+		if strings.Contains(name, "session") || strings.Contains(name, "phpsessid") || strings.Contains(name, "sid") {
+			if !c.HttpOnly {
+				*issues = append(*issues, "Cookie de sesión '"+c.Name+"' sin HttpOnly (riesgo de hijacking vía XSS)")
+				result.Severity = "Medium"
+			}
+			if !c.Secure {
+				*issues = append(*issues, "Cookie de sesión '"+c.Name+"' sin Secure (riesgo de hijacking en HTTP)")
+				if result.Severity != "Critical" && result.Severity != "High" {
+					result.Severity = "Medium"
+				}
+			}
+			if c.SameSite == http.SameSiteDefaultMode {
+				*issues = append(*issues, "Cookie de sesión '"+c.Name+"' sin SameSite explícito")
+			}
+		}
+	}
+}
+
+// checkWeakPasswordPolicy: intenta registrar/actualizar con contraseña débil.
+func (t *KnownVulnerabilitiesTest) checkWeakPasswordPolicy(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	for _, ep := range []string{"/register", "/signup", "/api/register"} {
+		for _, weak := range []string{"123456", "password", "12345678"} {
+			body := "username=testuser&email=test@test.com&password=" + weak
+			req, _ := http.NewRequest(http.MethodPost, base+ep, strings.NewReader(body))
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			resp, err := client.Do(req)
+			if err != nil {
+				continue
+			}
+			bodyBytes, _ := ReadResponseBody(resp)
+			resp.Body.Close()
+			bodyStr := string(bodyBytes)
+			if resp.StatusCode >= 200 && resp.StatusCode < 300 && !looksLikeHTMLPage(bodyStr) && (strings.Contains(strings.ToLower(bodyStr), "success") || strings.Contains(strings.ToLower(bodyStr), "created") || strings.Contains(strings.ToLower(bodyStr), "registered")) {
+				*issues = append(*issues, "Política de contraseña débil: acepta '"+weak+"' en "+ep)
+				if result.Severity != "Critical" && result.Severity != "High" {
+					result.Severity = "Medium"
+				}
+				return
+			}
+		}
+	}
+}
+
+// checkGraphQLAbuse: prueba introspection y query anidada profunda.
+func (t *KnownVulnerabilitiesTest) checkGraphQLAbuse(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	// Introspection ya cubierta; aquí profundidad
+	deep := `{"query":"{ a { b { c { d { e { f { g { h { i { j } } } } } } } } }"}`
+	for _, ep := range []string{"/graphql", "/graphiql"} {
+		req, err := http.NewRequest(http.MethodPost, base+ep, strings.NewReader(deep))
+		if err != nil {
+			continue
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := client.Do(req)
+		if err != nil {
+			continue
+		}
+		bodyBytes, _ := ReadResponseBody(resp)
+		resp.Body.Close()
+		bodyStr := string(bodyBytes)
+		if resp.StatusCode == http.StatusOK && (strings.Contains(bodyStr, "\"data\"") || strings.Contains(bodyStr, "\"errors\"")) {
+			*issues = append(*issues, "GraphQL acepta query profundamente anidada (posible DoS/abuse) en "+ep)
+			if result.Severity != "Critical" && result.Severity != "High" {
+				result.Severity = "Medium"
+			}
+			return
 		}
 	}
 }

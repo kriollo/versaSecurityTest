@@ -18,11 +18,11 @@ Leyenda:
 | WEB-006 | LFI | ✅ | Directory Traversal, Advanced, PHP wrappers | |
 | WEB-007 | RFI | ❌ | - | Implementar include remoto |
 | WEB-008 | Path Traversal | ✅ | Directory Traversal, Advanced Directory Traversal | |
-| WEB-009 | Broken Access Control | 🟡 | Authorization, ATHZ-01, ATHZ-04 | Cobertura básica |
+| WEB-009 | Broken Access Control | ✅ | Authorization, ATHZ-01, ATHZ-04, Known Vulnerabilities (unauth admin, auth bypass) | |
 | WEB-010 | IDOR / BOLA | ✅ | ATHZ-04: Direct Object Reference Testing | |
-| WEB-011 | Authentication Bypass | 🟡 | ATHN-01 | Falta bypass por parámetros/headers |
+| WEB-011 | Authentication Bypass | ✅ | ATHN-01, Known Vulnerabilities (auth bypass) | |
 | WEB-012 | Session Fixation | ✅ | Session Management | |
-| WEB-013 | Session Hijacking | 🟡 | Session Management | Falta robo/reutilización |
+| WEB-013 | Session Hijacking | 🟡 | Session Management, Known Vulnerabilities (session flags) | Parcial |
 | WEB-014 | Open Redirect | ✅ | Open Redirect | |
 | WEB-015 | HTTP Response Splitting | 🟡 | Known Vulnerabilities (CRLF) | Parcial |
 | WEB-016 | CRLF Injection | ✅ | Known Vulnerabilities (CRLF) | |
@@ -37,7 +37,7 @@ Leyenda:
 | WEB-025 | Missing Security Headers | ✅ | Advanced Security Headers Test, HTTP Headers Test | |
 | WEB-026 | Clickjacking | ✅ | Advanced Security Headers (X-Frame-Options) | |
 | WEB-027 | Cryptographic Failures | ✅ | CRYP-01, SSL/TLS Analysis | |
-| WEB-028 | Weak Password Policy | 🟡 | IDNT-01 | Falta política detallada |
+| WEB-028 | Weak Password Policy | ✅ | IDNT-01, Known Vulnerabilities (weak password) | |
 | WEB-029 | Brute Force / Credential Stuffing | ✅ | Brute Force Test | |
 | WEB-030 | DoS | 🟡 | Flood command (fuera del scanner) | No apto para scanner pasivo |
 | WEB-031 | ReDoS | ✅ | Known Vulnerabilities (ReDoS) | |
@@ -56,7 +56,7 @@ Leyenda:
 | WEB-044 | Host Header Injection | ✅ | Known Vulnerabilities (Host header) | |
 | WEB-045 | DNS Rebinding | ❌ | - | No automatizable externamente |
 | WEB-046 | WebSocket Authorization Failure | ✅ | Known Vulnerabilities (WebSocket) | |
-| WEB-047 | GraphQL Abuse | 🟡 | Known Vulnerabilities (introspection) | Falta profundidad/complejidad/auth |
+| WEB-047 | GraphQL Abuse | ✅ | Known Vulnerabilities (introspection, depth) | |
 | WEB-048 | TLS Misconfiguration | ✅ | SSL/TLS Analysis | |
 | WEB-049 | Improper Error Handling | ✅ | ERRH-01: Error Leakage Testing | |
 | WEB-050 | Insufficient Logging and Alerting | ❌ | - | No automatizable externamente |
