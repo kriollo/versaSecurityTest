@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	tests "github.com/versaSecurityTest/internal/scanner/tests"
+	"github.com/versaSecurityTest/internal/version"
 )
 
 // RenderHeader renderiza el header de la aplicación
@@ -16,9 +17,9 @@ func (m Model) RenderHeader() string {
   ──────────────────`
 
 	header := HeaderStyle.Render(banner)
-	version := NormalStyle.Render("   v1.3.0 | Simple & Secure")
+	versionLabel := NormalStyle.Render("   v" + version.Get() + " | Simple & Secure")
 
-	return header + "\n" + version + "\n"
+	return header + "\n" + versionLabel + "\n"
 }
 
 // RenderProtocolStep renderiza el paso de selección de protocolo

@@ -12,6 +12,7 @@ import (
 	"github.com/versaSecurityTest/internal/scanner"
 	tuiPackage "github.com/versaSecurityTest/internal/tui"
 	"github.com/versaSecurityTest/internal/update"
+	"github.com/versaSecurityTest/internal/version"
 )
 
 func main() {
@@ -41,7 +42,7 @@ func main() {
 	// Procesar comando de actualización
 	if *updateFlag {
 		fmt.Println("🚀 Iniciando verificador de actualizaciones...")
-		if err := update.CheckForUpdates("2.2.0"); err != nil {
+		if err := update.CheckForUpdates(version.Get()); err != nil {
 			fmt.Printf("❌ Error al buscar actualizaciones: %v\n", err)
 			os.Exit(1)
 		}
@@ -170,7 +171,7 @@ func printBanner() {
   🛡️  VERSA SECURITY
   ──────────────────
   Automated Web Security Scanner
-  v2.2.0 | Standard & Professional Mode
+  v` + version.Get() + ` | Standard & Professional Mode
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
 	fmt.Println(tuiPackage.HeaderStyle.Render(banner))
 }

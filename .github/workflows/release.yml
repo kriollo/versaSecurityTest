@@ -41,7 +41,9 @@ jobs:
           BINARY_NAME="versaSecurityTest-${{ matrix.goos }}-${{ matrix.goarch }}$([ "${{ matrix.goos }}" = "windows" ] && echo ".exe" || echo "")"
 
           echo "Compilando para ${{ matrix.goos }}/${{ matrix.goarch }} -> ${BINARY_NAME}..."
-          go build -v -o "dist/${BINARY_NAME}" .
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [ -z "$VERSION" ]; then VERSION="dev"; fi
+          go build -v -ldflags "-X github.com/versaSecurityTest/internal/version.Version=${VERSION}" -o "dist/${BINARY_NAME}" .
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
