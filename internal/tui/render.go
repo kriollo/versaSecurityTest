@@ -17,7 +17,7 @@ func (m Model) RenderHeader() string {
   ──────────────────`
 
 	header := HeaderStyle.Render(banner)
-	versionLabel := NormalStyle.Render("   v" + version.Get() + " | Simple & Secure")
+	versionLabel := NormalStyle.Render("   " + version.Label() + " | Simple & Secure")
 
 	return header + "\n" + versionLabel + "\n"
 }

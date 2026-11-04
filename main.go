@@ -171,7 +171,7 @@ func printBanner() {
   🛡️  VERSA SECURITY
   ──────────────────
   Automated Web Security Scanner
-  v` + version.Get() + ` | Standard & Professional Mode
+  ` + version.Label() + ` | Standard & Professional Mode
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
 	fmt.Println(tuiPackage.HeaderStyle.Render(banner))
 }

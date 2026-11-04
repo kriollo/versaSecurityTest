@@ -316,28 +316,6 @@ func waitForProgress(ch <-chan ScanProgressMsg) tea.Cmd {
 	}
 }
 
-// createProgressCallback crea un callback para reportar progreso en tiempo real
-func (m Model) createProgressCallback() func(string, int, int) {
-	return func(testName string, completed, total int) {
-		// El callback se ejecuta en el goroutine del scanner
-		// No podemos enviar comandos de Bubble Tea directamente aquí
-		// En su lugar, el scanner ya muestra progreso en la consola
-		// Para TUI, podríamos usar un channel pero sería complejo
-		// Por ahora, dejamos que el scanner maneje el progreso interno
-	}
-}
-
-// createProgressCmd crea un comando que actualiza el progreso
-func (m Model) createProgressCmd(testName string, completed, total int) tea.Cmd {
-	return func() tea.Msg {
-		return ScanProgressMsg{
-			TestName:  testName,
-			Completed: completed,
-			Total:     total,
-		}
-	}
-}
-
 // handleProgressUpdate maneja la actualización del progreso
 func (m Model) handleProgressUpdate(msg ScanProgressMsg) (Model, tea.Cmd) {
 	// Actualizar progreso en el modelo

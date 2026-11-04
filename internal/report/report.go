@@ -398,7 +398,7 @@ func GenerateHTMLReport(result *scanner.ScanResult) string {
 
 	output.WriteString(`
         <footer>
-            Generado automáticamente por VersaSecurityTest v` + version.Get() + ` &copy; ` + time.Now().Format("2006") + `
+            Generado automáticamente por VersaSecurityTest ` + version.Label() + ` &copy; ` + time.Now().Format("2006") + `
         </footer>
     </div>
 

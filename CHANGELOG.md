@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.1] - 2026-11-03
+
+### Fixed
+
+- **TUI sin corrupción**: el progreso del escáner ya no escribe directamente en stdout, por lo que
+  desaparecen las líneas duplicadas y mezcladas (`Hilos: 8los: 8`). El progreso real se transmite a
+  la interfaz mediante un canal y se refresca con Bubble Tea.
+- **Versión en la UI**: se elimina el valor fijo `v1.3.0`. La versión se toma del build
+  (`-ldflags`) o de la metadata VCS, y en compilaciones locales se muestra como `dev-<commit>`
+  en lugar de una pseudo-versión larga.
+
 ## [2.2.0] - 2026-11-03
 
 ### Added
