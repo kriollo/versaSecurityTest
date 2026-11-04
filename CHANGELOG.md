@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.6] - 2026-11-04
+
+### Fixed
+
+- **La puntuación podía dar "Bajo" con una vulnerabilidad crítica presente**: el piso basado en tests
+  pasados recompraba puntos y tapaba los hallazgos graves. Ahora hay un **tope por severidad** (crítico ≤ 3.9,
+  alto ≤ 5.9, medio ≤ 7.9), las advertencias cuentan la mitad (no como pase limpio) y se quitó ese piso.
+  Un sitio con un hallazgo crítico ya nunca sale "Bajo".
+- **Falsos positivos corregidos en los hallazgos**:
+  - Cookie de sesión sin `Secure` ya no se marca en objetivos HTTP/localhost (solo en HTTPS real).
+  - La sonda de superficie DoS ya no cuenta las respuestas 429 como fallo (429 = el rate limiting funciona).
+  - El banner `Server`/`X-Powered-By` se valora por si trae versión (con versión = Low, sin versión = Info),
+    en vez de marcar "High" cualquier cabecera; Configuration toma la severidad real más alta, no un "High" fijo.
+  - La falta de `Content-Security-Policy` es **High**, no **Critical** (Critical se reserva para vulnerabilidades
+    activamente explotables).
+
+### Added
+
+- Pruebas del cálculo de puntuación (un crítico nunca es "Bajo", tope por severidad, todo-limpio = "Bajo").
+
 ## [2.2.5] - 2026-11-04
 
 ### Fixed

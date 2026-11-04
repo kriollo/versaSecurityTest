@@ -457,64 +457,41 @@ func (ws *WebScanner) calculateSecurityScore(result *ScanResult) SecurityScore {
 		return SecurityScore{Value: 2.0, Risk: "Unknown"}
 	}
 
-	// Calcular score base como porcentaje de éxito
-	successRate := float64(passedCount+warningCount) / float64(completedTests)
-	baseScore := successRate * 10
+	// Base: proporción de tests sin problemas. Una advertencia vale la mitad (es un hallazgo menor,
+	// no un pase limpio); antes contaba como pase completo e inflaba la nota.
+	base := float64(passedCount) + 0.5*float64(warningCount)
+	baseScore := base / float64(completedTests) * 10
 
-	ws.debugf("DEBUG: Success rate: %.2f%%, Score base inicial: %.2f\n", successRate*100, baseScore)
-
-	// Aplicar penalizaciones moderadas por severity - pero sin eliminar todo el progreso
-	// Las penalizaciones son proporcionales y no excesivas
-	totalPenalty := 0.0
-	if criticalFailures > 0 {
-		penalty := float64(criticalFailures) * 0.8 // Penalización moderada por crítico
-		totalPenalty += penalty
-		ws.debugf("DEBUG: Penalización por %d failures críticos: -%.2f\n", criticalFailures, penalty)
-	}
-	if highFailures > 0 {
-		penalty := float64(highFailures) * 0.5 // Penalización moderada por alto
-		totalPenalty += penalty
-		ws.debugf("DEBUG: Penalización por %d failures altos: -%.2f\n", highFailures, penalty)
-	}
-	if mediumFailures > 0 {
-		penalty := float64(mediumFailures) * 0.3 // Penalización pequeña por medio
-		totalPenalty += penalty
-		ws.debugf("DEBUG: Penalización por %d failures medios: -%.2f\n", mediumFailures, penalty)
-	}
-	if lowFailures > 0 {
-		penalty := float64(lowFailures) * 0.1 // Penalización mínima por bajo
-		totalPenalty += penalty
-		ws.debugf("DEBUG: Penalización por %d failures bajos: -%.2f\n", lowFailures, penalty)
-	}
-
-	ws.debugf("DEBUG: Penalización total: -%.2f\n", totalPenalty)
+	// Penalizaciones por severidad del fallo (diferencian dentro de la banda de riesgo).
+	totalPenalty := float64(criticalFailures)*1.5 + float64(highFailures)*0.8 +
+		float64(mediumFailures)*0.4 + float64(lowFailures)*0.15 + float64(warningCount)*0.1
 	baseScore -= totalPenalty
 
-	// Penalización muy pequeña por tests saltados
 	skippedCount := result.TestsSkipped + result.TestsTimeout
-	if skippedCount > 0 {
-		skippedPenalty := float64(skippedCount) * 0.05 // Penalización muy pequeña
-		baseScore -= skippedPenalty
-		ws.debugf("DEBUG: Penalización por %d tests saltados: -%.2f\n", skippedCount, skippedPenalty)
+	baseScore -= float64(skippedCount) * 0.05
+
+	if passedCount > 0 && baseScore < 1.0 {
+		baseScore = 1.0 // si algo pasó, la nota no es 0 (salvo que el tope por severidad la baje)
 	}
 
-	// Establecer un mínimo razonable: si pasaron algunos tests, el score no puede ser 0
-	minScore := 0.0
-	if passedCount > 0 {
-		// Score mínimo basado en cuántos tests pasaron
-		minScore = math.Max(1.0, float64(passedCount)*0.3)
-		ws.debugf("DEBUG: Score mínimo calculado: %.2f (basado en %d tests pasados)\n", minScore, passedCount)
+	// TOPE POR SEVERIDAD: un hallazgo grave DOMINA la nota. Esto corrige el error de que un sitio con
+	// una vulnerabilidad crítica saliera "Bajo" por pasar muchos tests informativos.
+	//   Crítico -> máx 3.9 ("Crítico")   Alto -> máx 5.9 ("Alto")   Medio -> máx 7.9 ("Medio")   Bajo -> máx 9.4
+	scoreCap := 10.0
+	switch {
+	case criticalFailures > 0:
+		scoreCap = 3.9
+	case highFailures > 0:
+		scoreCap = 5.9
+	case mediumFailures > 0:
+		scoreCap = 7.9
+	case lowFailures > 0:
+		scoreCap = 9.4
 	}
+	baseScore = math.Min(baseScore, scoreCap)
+	baseScore = math.Max(0, math.Min(10, baseScore))
 
-	// Aplicar límites
-	if baseScore < minScore {
-		baseScore = minScore
-	}
-	if baseScore > 10 {
-		baseScore = 10
-	}
-
-	ws.debugf("DEBUG: Score final: %.2f\n", baseScore)
+	ws.debugf("DEBUG: base=%.2f penalty=%.2f cap=%.1f -> score %.2f\n", base, totalPenalty, scoreCap, baseScore)
 
 	// Determinar nivel de riesgo
 	var risk string

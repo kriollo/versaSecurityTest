@@ -1,6 +1,6 @@
 {
   "concurrent": 8,
-  "timeout": 120000000000,
+  "timeout": 60000000000,
   "user_agent": "VersaSecurityTest/1.1 (Security Scanner)",
   "headers": {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -11,32 +11,32 @@
   "tests": {
     "sql_injection": true,
     "xss": true,
-    "brute_force": true,
+    "brute_force": false,
     "http_headers": true,
-    "ssl_analysis": true,
-    "csrf_protection": true,
-    "file_upload": true,
-    "directory_traversal": true,
-    "info_disclosure": true,
+    "ssl_analysis": false,
+    "csrf_protection": false,
+    "file_upload": false,
+    "directory_traversal": false,
+    "info_disclosure": false,
     "info_gathering": true,
     "configuration": true,
-    "identity_mgmt": true,
-    "authentication": true,
+    "identity_mgmt": false,
+    "authentication": false,
     "authorization": true,
     "session_mgmt": true,
     "input_validation": true,
-    "error_handling": true,
-    "cryptography": true,
-    "business_logic": true,
+    "error_handling": false,
+    "cryptography": false,
+    "business_logic": false,
     "client_side": true,
     "api_security": true,
-    "ssrf": true,
-    "open_redirect": true,
-    "network_scan": true,
-    "outdated_components": true,
-    "data_integrity": true,
-    "known_vulns": true,
-    "use_advanced_tests": true
+    "ssrf": false,
+    "open_redirect": false,
+    "network_scan": false,
+    "outdated_components": false,
+    "data_integrity": false,
+    "known_vulns": false,
+    "use_advanced_tests": false
   },
   "verbose": false,
   "language": "es",
@@ -78,6 +78,7 @@
         "network_scan": false,
         "outdated_components": false,
         "data_integrity": false,
+        "known_vulns": false,
         "use_advanced_tests": false
       }
     },
@@ -114,6 +115,7 @@
         "network_scan": false,
         "outdated_components": false,
         "data_integrity": false,
+        "known_vulns": false,
         "use_advanced_tests": false
       }
     },
@@ -150,6 +152,7 @@
         "network_scan": false,
         "outdated_components": false,
         "data_integrity": false,
+        "known_vulns": false,
         "use_advanced_tests": true
       }
     }

@@ -2,7 +2,7 @@
 
 **VersaSecurityTest** es un scanner de seguridad web automático desarrollado en Go, diseñado para identificar vulnerabilidades comunes en aplicaciones web de manera rápida y eficiente.
 
-![VersaSecurityTest Banner](https://img.shields.io/badge/VersaSecurityTest-v2.2.5-blue.svg)
+![VersaSecurityTest Banner](https://img.shields.io/badge/VersaSecurityTest-v2.2.6-blue.svg)
 ![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)
@@ -587,7 +587,12 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
 ### Versión 2.1.2
 
-### ✅ Versión 2.2.5 (Actual)
+### ✅ Versión 2.2.6 (Actual)
+
+- [x] **Puntuación corregida**: un hallazgo grave domina la nota (un crítico ya no puede salir "Bajo"); tope por severidad y advertencias que cuentan la mitad.
+- [x] **Menos falsos positivos**: cookie sin `Secure` ya no se marca en localhost/HTTP; 429 no cuenta como "DoS"; banner `Server` según tenga versión; falta de CSP es High (no Critical).
+
+### Versión 2.2.5
 
 - [x] **Arreglado el input de URL**: la tecla `v` (y otros caracteres) ya no la "come" un hotkey global; además se aceptan todos los caracteres válidos de URL (`%`, `+`, `#`, `~`, etc.).
 
@@ -669,7 +674,7 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
 <div align="center">
 
-**🔐 VersaSecurityTest v2.2.5 - Scanner de Seguridad con integración OWASP 2025**
+**🔐 VersaSecurityTest v2.2.6 - Scanner de Seguridad con integración OWASP 2025**
 
 **✨ Versión 2.0**: OWASP 2021 (A06, A08, A10), Port Scanner, Navegación Granular, TUI Profesional
 

@@ -1105,8 +1105,10 @@ func (t *KnownVulnerabilitiesTest) checkSessionHijacking(base string, client HTT
 				*issues = append(*issues, "Cookie de sesión '"+c.Name+"' sin HttpOnly (riesgo de hijacking vía XSS)")
 				result.Severity = "Medium"
 			}
-			if !c.Secure {
-				*issues = append(*issues, "Cookie de sesión '"+c.Name+"' sin Secure (riesgo de hijacking en HTTP)")
+			// Secure solo se exige sobre HTTPS no-local: en HTTP/localhost el navegador no manda la cookie
+			// por un canal cifrado igual, así que exigirlo sería un falso positivo.
+			if !c.Secure && strings.HasPrefix(strings.ToLower(base), "https://") && !IsLocalTarget(base) {
+				*issues = append(*issues, "Cookie de sesión '"+c.Name+"' sin Secure en HTTPS (riesgo de hijacking)")
 				if result.Severity != "Critical" && result.Severity != "High" {
 					result.Severity = "Medium"
 				}
@@ -1322,7 +1324,8 @@ func (t *KnownVulnerabilitiesTest) checkDoSSurface(base string, client HTTPClien
 				failures <- 1
 				return
 			}
-			if resp.StatusCode >= 500 || resp.StatusCode == http.StatusTooManyRequests {
+			// 429 NO es fallo: significa que el rate limiting está funcionando (defensa, no DoS).
+			if resp.StatusCode >= 500 {
 				failures <- 1
 			}
 			resp.Body.Close()

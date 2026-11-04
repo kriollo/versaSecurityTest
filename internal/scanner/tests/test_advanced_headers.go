@@ -38,8 +38,10 @@ func (t *AdvancedSecurityHeadersTest) Run(targetURL string, client HTTPClient, p
 	// HEADERS CRÍTICOS DE SEGURIDAD
 	securityHeaders := map[string]HeaderCheck{
 		"Content-Security-Policy": {
-			Required:      true,
-			Severity:      "Critical",
+			Required: true,
+			// Falta de CSP es serio pero no "Crítico": Critical se reserva para vulnerabilidades activamente
+			// explotables (RCE/SQLi/auth bypass). La ausencia de una defensa en profundidad es High.
+			Severity:      "High",
 			Description:   "Previene XSS y data injection attacks",
 			ValidValues:   []string{"default-src", "script-src", "style-src"},
 			InvalidValues: []string{"unsafe-inline", "unsafe-eval", "*"},

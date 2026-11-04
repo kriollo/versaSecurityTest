@@ -38,13 +38,14 @@ func (t *ConfigurationTest) Run(targetURL string, client HTTPClient, payloads *c
 	// CONF-05: Rutas internas expuestas
 	t.testInternalPaths(targetURL, client, &result)
 
-	// Determinar el estado final
+	// Determinar el estado final. La severidad es la MÁS ALTA de las evidencias reales, no un "High"
+	// fijo por tener cualquier hallazgo (antes un simple banner "Server: Apache" salía como High).
 	if len(result.Details) == 0 {
 		result.Description = "No se encontraron problemas de configuración"
 	} else {
 		result.Status = "Failed"
 		result.Description = fmt.Sprintf("Se encontraron %d problemas de configuración", len(result.Details))
-		result.Severity = "High"
+		result.Severity = maxEvidenceSeverity(result.Evidence, "Low")
 	}
 
 	return result
@@ -200,11 +201,18 @@ func (t *ConfigurationTest) testServerMisconfiguration(targetURL string, client 
 
 	for header, issue := range problematicHeaders {
 		if value := resp.Header.Get(header); value != "" {
+			// Un banner con versión (p. ej. "Apache/2.4.52") es más útil a un atacante que uno sin
+			// versión ("Apache"): el primero es Low, el segundo apenas informativo.
+			sev := "Info"
+			if strings.ContainsAny(value, "0123456789") {
+				sev = "Low"
+			}
 			result.Details = append(result.Details, fmt.Sprintf("%s: %s (%s)", issue, value, header))
 			result.Evidence = append(result.Evidence, Evidence{
 				Type:     "Server Information Disclosure",
 				URL:      targetURL,
 				Response: fmt.Sprintf("%s: %s", header, value),
+				Severity: sev,
 			})
 		}
 	}
@@ -232,6 +240,7 @@ func (t *ConfigurationTest) testServerMisconfiguration(targetURL string, client 
 				Type:     "Dangerous HTTP Method",
 				URL:      targetURL,
 				Response: fmt.Sprintf("Method %s returned %d", method, resp.StatusCode),
+				Severity: "Medium",
 			})
 		}
 	}
@@ -266,6 +275,7 @@ func (t *ConfigurationTest) testCORSMisconfiguration(targetURL string, client HT
 			Type:     "CORS Misconfiguration",
 			URL:      targetURL,
 			Response: "Access-Control-Allow-Origin: * with Access-Control-Allow-Credentials: true",
+			Severity: "High",
 		})
 	}
 
@@ -276,6 +286,7 @@ func (t *ConfigurationTest) testCORSMisconfiguration(targetURL string, client HT
 			Type:     "CORS Origin Reflection",
 			URL:      targetURL,
 			Response: fmt.Sprintf("Malicious origin reflected: %s", accessControlOrigin),
+			Severity: "High",
 		})
 	}
 }
@@ -395,4 +406,16 @@ func (t *DefaultPagesTest) Run(targetURL string, client HTTPClient, payloads *co
 	}
 
 	return result
+}
+
+// maxEvidenceSeverity devuelve la severidad más alta entre las evidencias (o def si ninguna la trae).
+func maxEvidenceSeverity(evs []Evidence, def string) string {
+	rank := map[string]int{"Info": 1, "Low": 2, "Medium": 3, "High": 4, "Critical": 5}
+	best := def
+	for _, e := range evs {
+		if rank[e.Severity] > rank[best] {
+			best = e.Severity
+		}
+	}
+	return best
 }
