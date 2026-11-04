@@ -6,6 +6,7 @@ import (
 	"time"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/versaSecurityTest/internal/config"
@@ -86,6 +87,10 @@ func (t *KnownVulnerabilitiesTest) Run(targetURL string, client HTTPClient, _ *c
 	t.checkBusinessLogic(base, client, &result, &issues)
 	t.checkPHPWrappers(base, client, &result, &issues)
 	t.checkPHPDeserialization(base, client, &result, &issues)
+	t.checkRCE(base, client, &result, &issues)
+	t.checkWordPress(base, client, &result, &issues)
+	t.checkDrupal(base, client, &result, &issues)
+	t.checkSecretsInJS(base, client, &result, &issues)
 
 	if len(issues) > 0 {
 		result.Status = "Failed"
@@ -817,6 +822,141 @@ func (t *KnownVulnerabilitiesTest) checkPHPDeserialization(base string, client H
 					URL:         u,
 					Payload:     payload,
 					StatusCode:  resp.StatusCode,
+					Severity:    "High",
+				})
+				return
+			}
+		}
+	}
+}
+
+
+// checkRCE: detecta ejecución de código PHP vía parámetros que evalúan entrada.
+func (t *KnownVulnerabilitiesTest) checkRCE(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	for _, ep := range []string{"/", "/index.php", "/eval", "/exec", "/run"} {
+		for _, param := range []string{"code", "cmd", "exec", "eval", "php"} {
+			for _, payload := range []string{"phpinfo()", "system('id')", "passthru('id')"} {
+				u := base + ep + "?" + param + "=" + url.QueryEscape(payload)
+				resp, err := client.Get(u)
+				if err != nil {
+					continue
+				}
+				body, _ := ReadResponseBody(resp)
+				resp.Body.Close()
+				if resp.StatusCode == http.StatusOK && (strings.Contains(body, "phpinfo()") || strings.Contains(body, "PHP Version") || strings.Contains(body, "uid=")) {
+					*issues = append(*issues, "Posible RCE en "+ep+" ("+param+")")
+					result.Severity = "Critical"
+					result.Evidence = append(result.Evidence, Evidence{
+						Type:        "RCE",
+						URL:         u,
+						Payload:     payload,
+						StatusCode:  resp.StatusCode,
+						Severity:    "Critical",
+					})
+					return
+				}
+			}
+		}
+	}
+}
+
+// checkWordPress: detecta WordPress y superficies comunes (REST users, xmlrpc).
+func (t *KnownVulnerabilitiesTest) checkWordPress(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	resp, err := client.Get(base + "/wp-includes/version.php")
+	if err != nil {
+		return
+	}
+	body, _ := ReadResponseBody(resp)
+	resp.Body.Close()
+	if resp.StatusCode == http.StatusOK && strings.Contains(body, "wp_version") {
+		*issues = append(*issues, "WordPress detectado: /wp-includes/version.php accesible")
+		result.Severity = "Medium"
+	}
+	// REST API users
+	resp, err = client.Get(base + "/wp-json/wp/v2/users")
+	if err == nil {
+		b, _ := ReadResponseBody(resp)
+		resp.Body.Close()
+		if resp.StatusCode == http.StatusOK && strings.Contains(b, "\"slug\"") {
+			*issues = append(*issues, "WordPress REST API expone usuarios (/wp-json/wp/v2/users)")
+			result.Severity = "Medium"
+		}
+	}
+	// xmlrpc
+	resp, err = client.Get(base + "/xmlrpc.php")
+	if err == nil {
+		resp.Body.Close()
+		body2, _ := ReadResponseBody(resp)
+		if (resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusMethodNotAllowed) && (strings.Contains(strings.ToLower(string(body2)), "xmlrpc") || strings.Contains(strings.ToLower(string(body2)), "xml-rpc")) {
+			*issues = append(*issues, "xmlrpc.php presente (superficie de ataque WordPress)")
+			if result.Severity != "Critical" && result.Severity != "High" {
+				result.Severity = "Low"
+			}
+		}
+	}
+}
+
+// checkDrupal: detecta Drupal y superficies comunes.
+func (t *KnownVulnerabilitiesTest) checkDrupal(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	resp, err := client.Get(base + "/CHANGELOG.txt")
+	if err != nil {
+		return
+	}
+	body, _ := ReadResponseBody(resp)
+	resp.Body.Close()
+	if resp.StatusCode == http.StatusOK && strings.Contains(strings.ToLower(body), "drupal") {
+		*issues = append(*issues, "Drupal detectado: CHANGELOG.txt accesible")
+		result.Severity = "Low"
+	}
+	resp, err = client.Get(base + "/user/login")
+	if err == nil {
+		b2, _ := ReadResponseBody(resp)
+		resp.Body.Close()
+		if resp.StatusCode == http.StatusOK && (strings.Contains(strings.ToLower(string(b2)), "drupal") || strings.Contains(strings.ToLower(string(b2)), "user-login")) {
+			*issues = append(*issues, "Drupal: /user/login accesible")
+		}
+	}
+}
+
+// checkSecretsInJS: busca secretos en bundles JavaScript referenciados.
+func (t *KnownVulnerabilitiesTest) checkSecretsInJS(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	resp, err := client.Get(base + "/")
+	if err != nil {
+		return
+	}
+	body, _ := ReadResponseBody(resp)
+	resp.Body.Close()
+	// Extraer src de scripts
+	re := regexp.MustCompile(`src=["']([^"']+\.js)["']`)
+	matches := re.FindAllStringSubmatch(body, -1)
+	seen := map[string]bool{}
+	for _, m := range matches {
+		if len(m) < 2 {
+			continue
+		}
+		jsURL := m[1]
+		if !strings.HasPrefix(jsURL, "http") {
+			jsURL = base + "/" + strings.TrimPrefix(jsURL, "/")
+		}
+		if seen[jsURL] {
+			continue
+		}
+		seen[jsURL] = true
+		r, err := client.Get(jsURL)
+		if err != nil {
+			continue
+		}
+		jb, _ := ReadResponseBody(r)
+		r.Body.Close()
+		for _, pat := range []string{"api_key", "apikey", "secret_key", "access_token", "AKIA", "-----BEGIN"} {
+			if strings.Contains(strings.ToLower(string(jb)), strings.ToLower(pat)) {
+				*issues = append(*issues, "Posible secreto en bundle JS: "+pat+" en "+jsURL)
+				if result.Severity != "Critical" {
+					result.Severity = "High"
+				}
+				result.Evidence = append(result.Evidence, Evidence{
+					Type:        "Secrets Exposure (JS)",
+					URL:         jsURL,
 					Severity:    "High",
 				})
 				return

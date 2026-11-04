@@ -14,7 +14,7 @@ Leyenda:
 | WEB-002 | Cross-Site Scripting (XSS) | ✅ | Cross-Site Scripting (XSS), Advanced XSS | Reflejado/DOM |
 | WEB-003 | CSRF | ✅ | CSRF Protection | Tokens, SameSite, CORS |
 | WEB-004 | SSRF | ✅ | Server-Side Request Forgery (SSRF) | |
-| WEB-005 | RCE | 🟡 | Known Vulnerabilities (PHP exec, command injection) | Parcial |
+| WEB-005 | RCE | ✅ | Known Vulnerabilities (RCE, command injection) | |
 | WEB-006 | LFI | 🟡 | Directory Traversal, Advanced Directory Traversal | Falta wrappers php://, data:// |
 | WEB-007 | RFI | ❌ | - | Implementar include remoto |
 | WEB-008 | Path Traversal | ✅ | Directory Traversal, Advanced Directory Traversal | |
