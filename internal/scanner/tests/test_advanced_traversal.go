@@ -3,8 +3,8 @@ package tests
 import (
 	"fmt"
 	"io"
-	"net/url"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 

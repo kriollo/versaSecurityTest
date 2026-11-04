@@ -3,12 +3,12 @@ package tests
 import (
 	"encoding/base64"
 	"fmt"
-	"time"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/versaSecurityTest/internal/config"
 )
@@ -259,11 +259,11 @@ func (t *KnownVulnerabilitiesTest) checkExposedGit(base string, client HTTPClien
 		*issues = append(*issues, "/.git/HEAD expuesto: el repositorio Git puede descargarse completo")
 		result.Severity = "Critical"
 		result.Evidence = append(result.Evidence, Evidence{
-			Type:        "Repositorio Git expuesto",
-			URL:         base + "/.git/HEAD",
-			StatusCode:  resp.StatusCode,
-			Response:    firstLine(body, 120),
-			Severity:    "Critical",
+			Type:       "Repositorio Git expuesto",
+			URL:        base + "/.git/HEAD",
+			StatusCode: resp.StatusCode,
+			Response:   firstLine(body, 120),
+			Severity:   "Critical",
 		})
 	}
 }
@@ -283,10 +283,10 @@ func (t *KnownVulnerabilitiesTest) checkDebugEndpoints(base string, client HTTPC
 				result.Severity = "High"
 			}
 			result.Evidence = append(result.Evidence, Evidence{
-				Type:        "Debug Endpoint",
-				URL:         base + p,
-				StatusCode:  resp.StatusCode,
-				Severity:    "High",
+				Type:       "Debug Endpoint",
+				URL:        base + p,
+				StatusCode: resp.StatusCode,
+				Severity:   "High",
 			})
 		}
 	}
@@ -312,15 +312,14 @@ func (t *KnownVulnerabilitiesTest) checkGraphQLIntrospection(base string, client
 				result.Severity = "High"
 			}
 			result.Evidence = append(result.Evidence, Evidence{
-				Type:        "GraphQL Introspection",
-				URL:         base + p,
-				StatusCode:  resp.StatusCode,
-				Severity:    "High",
+				Type:       "GraphQL Introspection",
+				URL:        base + p,
+				StatusCode: resp.StatusCode,
+				Severity:   "High",
 			})
 		}
 	}
 }
-
 
 // checkCommandInjection: detecta ejecución de comandos del SO en parámetros comunes.
 func (t *KnownVulnerabilitiesTest) checkCommandInjection(base string, client HTTPClient, result *TestResult, issues *[]string) {
@@ -341,11 +340,11 @@ func (t *KnownVulnerabilitiesTest) checkCommandInjection(base string, client HTT
 					*issues = append(*issues, "Posible inyección de comandos del SO en "+ep+" ("+param+")")
 					result.Severity = "Critical"
 					result.Evidence = append(result.Evidence, Evidence{
-						Type:        "OS Command Injection",
-						URL:         u,
-						Payload:     payload,
-						StatusCode:  resp.StatusCode,
-						Severity:    "Critical",
+						Type:       "OS Command Injection",
+						URL:        u,
+						Payload:    payload,
+						StatusCode: resp.StatusCode,
+						Severity:   "Critical",
 					})
 					return
 				}
@@ -368,10 +367,10 @@ func (t *KnownVulnerabilitiesTest) checkCRLFInjection(base string, client HTTPCl
 			result.Severity = "High"
 		}
 		result.Evidence = append(result.Evidence, Evidence{
-			Type:        "CRLF Injection",
-			URL:         u,
-			StatusCode:  resp.StatusCode,
-			Severity:    "High",
+			Type:       "CRLF Injection",
+			URL:        u,
+			StatusCode: resp.StatusCode,
+			Severity:   "High",
 		})
 	}
 }
@@ -396,9 +395,9 @@ func (t *KnownVulnerabilitiesTest) checkHostHeaderInjection(base string, client 
 			result.Severity = "Medium"
 		}
 		result.Evidence = append(result.Evidence, Evidence{
-			Type:        "Host Header Injection",
-			URL:         base + "/",
-			Severity:    "Medium",
+			Type:     "Host Header Injection",
+			URL:      base + "/",
+			Severity: "Medium",
 		})
 	}
 }
@@ -422,16 +421,15 @@ func (t *KnownVulnerabilitiesTest) checkXXE(base string, client HTTPClient, resu
 			*issues = append(*issues, "XXE: el endpoint "+ep+" resolvió una entidad externa (file:///etc/passwd)")
 			result.Severity = "Critical"
 			result.Evidence = append(result.Evidence, Evidence{
-				Type:        "XXE",
-				URL:         base + ep,
-				StatusCode:  resp.StatusCode,
-				Severity:    "Critical",
+				Type:       "XXE",
+				URL:        base + ep,
+				StatusCode: resp.StatusCode,
+				Severity:   "Critical",
 			})
 			return
 		}
 	}
 }
-
 
 func base64URLDecode(s string) ([]byte, error) {
 	// pad
@@ -440,7 +438,6 @@ func base64URLDecode(s string) ([]byte, error) {
 	}
 	return base64.URLEncoding.DecodeString(s)
 }
-
 
 // checkRFI: detecta inclusión de recursos remotos en parámetros comunes.
 func (t *KnownVulnerabilitiesTest) checkRFI(base string, client HTTPClient, result *TestResult, issues *[]string) {
@@ -457,10 +454,10 @@ func (t *KnownVulnerabilitiesTest) checkRFI(base string, client HTTPClient, resu
 				*issues = append(*issues, "Posible Remote File Inclusion en "+ep+" ("+param+")")
 				result.Severity = "Critical"
 				result.Evidence = append(result.Evidence, Evidence{
-					Type:        "RFI",
-					URL:         u,
-					StatusCode:  resp.StatusCode,
-					Severity:    "Critical",
+					Type:       "RFI",
+					URL:        u,
+					StatusCode: resp.StatusCode,
+					Severity:   "Critical",
 				})
 				return
 			}
@@ -486,11 +483,11 @@ func (t *KnownVulnerabilitiesTest) checkLDAPInjection(base string, client HTTPCl
 					*issues = append(*issues, "Posible LDAP Injection en "+ep+" ("+param+")")
 					result.Severity = "High"
 					result.Evidence = append(result.Evidence, Evidence{
-						Type:        "LDAP Injection",
-						URL:         u,
-						Payload:     p,
-						StatusCode:  resp.StatusCode,
-						Severity:    "High",
+						Type:       "LDAP Injection",
+						URL:        u,
+						Payload:    p,
+						StatusCode: resp.StatusCode,
+						Severity:   "High",
 					})
 					return
 				}
@@ -513,9 +510,9 @@ func (t *KnownVulnerabilitiesTest) checkReDoS(base string, client HTTPClient, re
 		*issues = append(*issues, fmt.Sprintf("Posible ReDoS: respuesta tardó %v con entrada larga", elapsed))
 		result.Severity = "Medium"
 		result.Evidence = append(result.Evidence, Evidence{
-			Type:        "ReDoS",
-			URL:         base + "/",
-			Severity:    "Medium",
+			Type:     "ReDoS",
+			URL:      base + "/",
+			Severity: "Medium",
 		})
 	}
 }
@@ -537,9 +534,9 @@ func (t *KnownVulnerabilitiesTest) checkCachePoisoning(base string, client HTTPC
 		*issues = append(*issues, "Posible Cache Poisoning: X-Forwarded-Host se refleja en la respuesta")
 		result.Severity = "Medium"
 		result.Evidence = append(result.Evidence, Evidence{
-			Type:        "Cache Poisoning",
-			URL:         base + "/",
-			Severity:    "Medium",
+			Type:     "Cache Poisoning",
+			URL:      base + "/",
+			Severity: "Medium",
 		})
 	}
 }
@@ -561,16 +558,16 @@ func (t *KnownVulnerabilitiesTest) checkMassAssignment(base string, client HTTPC
 		resp.Body.Close()
 		bodyStr := string(bodyBytes)
 		// Si acepta la petición (2xx/201) sin rechazar campos extra y no es página genérica, es sospechoso
-		if (resp.StatusCode == http.StatusCreated || (resp.StatusCode >= 200 && resp.StatusCode < 300 && !looksLikeHTMLPage(bodyStr))) {
+		if resp.StatusCode == http.StatusCreated || (resp.StatusCode >= 200 && resp.StatusCode < 300 && !looksLikeHTMLPage(bodyStr)) {
 			*issues = append(*issues, "Posible Mass Assignment en "+ep+" (campos role/isAdmin aceptados)")
 			if result.Severity != "Critical" {
 				result.Severity = "High"
 			}
 			result.Evidence = append(result.Evidence, Evidence{
-				Type:        "Mass Assignment",
-				URL:         base + ep,
-				StatusCode:  resp.StatusCode,
-				Severity:    "High",
+				Type:       "Mass Assignment",
+				URL:        base + ep,
+				StatusCode: resp.StatusCode,
+				Severity:   "High",
 			})
 			return
 		}
@@ -596,9 +593,9 @@ func (t *KnownVulnerabilitiesTest) checkPrototypePollution(base string, client H
 				*issues = append(*issues, "Posible Prototype Pollution: la propiedad inyectada se refleja")
 				result.Severity = "High"
 				result.Evidence = append(result.Evidence, Evidence{
-					Type:        "Prototype Pollution",
-					URL:         base + "/",
-					Severity:    "High",
+					Type:     "Prototype Pollution",
+					URL:      base + "/",
+					Severity: "High",
 				})
 			}
 		}
@@ -688,15 +685,14 @@ func (t *KnownVulnerabilitiesTest) checkWebSocketAuth(base string, client HTTPCl
 				result.Severity = "Medium"
 			}
 			result.Evidence = append(result.Evidence, Evidence{
-				Type:        "WebSocket Auth",
-				URL:         wsURL + ep,
-				StatusCode:  resp.StatusCode,
-				Severity:    "Medium",
+				Type:       "WebSocket Auth",
+				URL:        wsURL + ep,
+				StatusCode: resp.StatusCode,
+				Severity:   "Medium",
 			})
 		}
 	}
 }
-
 
 // checkUnauthAdminEndpoints: detecta paneles/endpoints administrativos accesibles sin autenticación.
 func (t *KnownVulnerabilitiesTest) checkUnauthAdminEndpoints(base string, client HTTPClient, result *TestResult, issues *[]string) {
@@ -714,10 +710,10 @@ func (t *KnownVulnerabilitiesTest) checkUnauthAdminEndpoints(base string, client
 				result.Severity = "High"
 			}
 			result.Evidence = append(result.Evidence, Evidence{
-				Type:        "Broken Access Control",
-				URL:         base + ep,
-				StatusCode:  resp.StatusCode,
-				Severity:    "High",
+				Type:       "Broken Access Control",
+				URL:        base + ep,
+				StatusCode: resp.StatusCode,
+				Severity:   "High",
 			})
 		}
 	}
@@ -750,11 +746,11 @@ func (t *KnownVulnerabilitiesTest) checkBusinessLogic(base string, client HTTPCl
 					result.Severity = "Medium"
 				}
 				result.Evidence = append(result.Evidence, Evidence{
-					Type:        "Business Logic",
-					URL:         base + ep,
-					Payload:     body,
-					StatusCode:  resp.StatusCode,
-					Severity:    "Medium",
+					Type:       "Business Logic",
+					URL:        base + ep,
+					Payload:    body,
+					StatusCode: resp.StatusCode,
+					Severity:   "Medium",
 				})
 				return
 			}
@@ -771,7 +767,6 @@ func containsAdminKeyword(body string) bool {
 	}
 	return false
 }
-
 
 // checkPHPWrappers: detecta LFI vía wrappers php:// y data://.
 func (t *KnownVulnerabilitiesTest) checkPHPWrappers(base string, client HTTPClient, result *TestResult, issues *[]string) {
@@ -795,11 +790,11 @@ func (t *KnownVulnerabilitiesTest) checkPHPWrappers(base string, client HTTPClie
 					*issues = append(*issues, "Posible LFI vía wrapper PHP en "+ep+" ("+param+")")
 					result.Severity = "Critical"
 					result.Evidence = append(result.Evidence, Evidence{
-						Type:        "LFI (PHP wrapper)",
-						URL:         u,
-						Payload:     p,
-						StatusCode:  resp.StatusCode,
-						Severity:    "Critical",
+						Type:       "LFI (PHP wrapper)",
+						URL:        u,
+						Payload:    p,
+						StatusCode: resp.StatusCode,
+						Severity:   "Critical",
 					})
 					return
 				}
@@ -828,18 +823,17 @@ func (t *KnownVulnerabilitiesTest) checkPHPDeserialization(base string, client H
 					result.Severity = "High"
 				}
 				result.Evidence = append(result.Evidence, Evidence{
-					Type:        "Insecure Deserialization (PHP)",
-					URL:         u,
-					Payload:     payload,
-					StatusCode:  resp.StatusCode,
-					Severity:    "High",
+					Type:       "Insecure Deserialization (PHP)",
+					URL:        u,
+					Payload:    payload,
+					StatusCode: resp.StatusCode,
+					Severity:   "High",
 				})
 				return
 			}
 		}
 	}
 }
-
 
 // checkRCE: detecta ejecución de código PHP vía parámetros que evalúan entrada.
 func (t *KnownVulnerabilitiesTest) checkRCE(base string, client HTTPClient, result *TestResult, issues *[]string) {
@@ -857,11 +851,11 @@ func (t *KnownVulnerabilitiesTest) checkRCE(base string, client HTTPClient, resu
 					*issues = append(*issues, "Posible RCE en "+ep+" ("+param+")")
 					result.Severity = "Critical"
 					result.Evidence = append(result.Evidence, Evidence{
-						Type:        "RCE",
-						URL:         u,
-						Payload:     payload,
-						StatusCode:  resp.StatusCode,
-						Severity:    "Critical",
+						Type:       "RCE",
+						URL:        u,
+						Payload:    payload,
+						StatusCode: resp.StatusCode,
+						Severity:   "Critical",
 					})
 					return
 				}
@@ -965,16 +959,15 @@ func (t *KnownVulnerabilitiesTest) checkSecretsInJS(base string, client HTTPClie
 					result.Severity = "High"
 				}
 				result.Evidence = append(result.Evidence, Evidence{
-					Type:        "Secrets Exposure (JS)",
-					URL:         jsURL,
-					Severity:    "High",
+					Type:     "Secrets Exposure (JS)",
+					URL:      jsURL,
+					Severity: "High",
 				})
 				return
 			}
 		}
 	}
 }
-
 
 // checkAuthBypass: prueba bypass de autenticación vía headers y path tricks.
 func (t *KnownVulnerabilitiesTest) checkAuthBypass(base string, client HTTPClient, result *TestResult, issues *[]string) {
@@ -1091,7 +1084,6 @@ func (t *KnownVulnerabilitiesTest) checkGraphQLAbuse(base string, client HTTPCli
 	}
 }
 
-
 // checkHTTPRequestSmuggling: sonda de bajo impacto con CL+TE conflictivos.
 // No intenta desincronizar tráfico real; compara contra una petición de control.
 func (t *KnownVulnerabilitiesTest) checkHTTPRequestSmuggling(base string, client HTTPClient, result *TestResult, issues *[]string) {
@@ -1125,10 +1117,10 @@ func (t *KnownVulnerabilitiesTest) checkHTTPRequestSmuggling(base string, client
 			result.Severity = "High"
 		}
 		result.Evidence = append(result.Evidence, Evidence{
-			Type:        "HTTP Request Smuggling",
-			URL:         base + "/",
-			StatusCode:  ambiguous,
-			Severity:    "High",
+			Type:       "HTTP Request Smuggling",
+			URL:        base + "/",
+			StatusCode: ambiguous,
+			Severity:   "High",
 		})
 	}
 }
@@ -1193,10 +1185,10 @@ func (t *KnownVulnerabilitiesTest) checkSupplyChainExposure(base string, client 
 				result.Severity = "Medium"
 			}
 			result.Evidence = append(result.Evidence, Evidence{
-				Type:        "Supply Chain Exposure",
-				URL:         base + p,
-				StatusCode:  resp.StatusCode,
-				Severity:    "Medium",
+				Type:       "Supply Chain Exposure",
+				URL:        base + p,
+				StatusCode: resp.StatusCode,
+				Severity:   "Medium",
 			})
 		}
 	}
@@ -1228,7 +1220,6 @@ func (t *KnownVulnerabilitiesTest) checkSessionEntropy(base string, client HTTPC
 		}
 	}
 }
-
 
 // checkDoSSurface: ráfaga pequeña y segura para detectar degradación básica.
 func (t *KnownVulnerabilitiesTest) checkDoSSurface(base string, client HTTPClient, result *TestResult, issues *[]string) {

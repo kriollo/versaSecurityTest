@@ -2,7 +2,7 @@
 
 **VersaSecurityTest** es un scanner de seguridad web automático desarrollado en Go, diseñado para identificar vulnerabilidades comunes en aplicaciones web de manera rápida y eficiente.
 
-![VersaSecurityTest Banner](https://img.shields.io/badge/VersaSecurityTest-v2.1.2-blue.svg)
+![VersaSecurityTest Banner](https://img.shields.io/badge/VersaSecurityTest-v2.2.0-blue.svg)
 ![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)
@@ -585,7 +585,13 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
 ### Versión 2.1.1
 
-### ✅ Versión 2.1.2 (Actual)
+### Versión 2.1.2
+
+### ✅ Versión 2.2.0 (Actual)
+
+- [x] **Cobertura ampliada**: RCE, LFI con wrappers PHP, deserialización PHP, RFI, LDAP, CRLF, XXE, Host Header, ReDoS, cache poisoning, mass assignment, prototype pollution, JWT, rate limit, WebSocket, auth bypass, weak password, GraphQL abuse.
+- [x] **Sondas de bajo impacto**: HTTP Request Smuggling, race conditions, supply chain expuesto, entropía de sesión y superficie DoS.
+- [x] **Menos falsos positivos** en directory traversal y enumeración.
 
 - [x] **Más vulnerabilidades conocidas**: backups, .git, debug endpoints, directory listing, GraphQL introspection.
 - [x] **Menos falsos positivos**: directory traversal y enumeración de directorios.
@@ -635,7 +641,7 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
 <div align="center">
 
-**🔐 VersaSecurityTest v2.1.2 - Scanner de Seguridad con integración OWASP 2021**
+**🔐 VersaSecurityTest v2.2.0 - Scanner de Seguridad con integración OWASP 2021**
 
 **✨ Versión 2.0**: OWASP 2021 (A06, A08, A10), Port Scanner, Navegación Granular, TUI Profesional
 

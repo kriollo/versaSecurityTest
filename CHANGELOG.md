@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-11-03
+
+### Added
+
+- **Cobertura ampliada del catálogo**: RCE, LFI con wrappers `php://`/`data://`, deserialización PHP,
+  RFI, LDAP Injection, CRLF, XXE, Host Header Injection, ReDoS, cache poisoning, mass assignment,
+  prototype pollution, JWT, rate limit bypass, WebSocket auth, auth bypass, weak password y GraphQL abuse.
+- **Sondas de bajo impacto**: HTTP Request Smuggling (CL vs CL+TE), race conditions, exposición de
+  manifiestos/CI (supply chain), entropía de sesión y superficie DoS.
+- **Documentación de cobertura**: `catalogo_cobertura.md`, `owasp_top10_cobertura.md` y `php_cobertura.md`.
+
+### Fixed
+
+- **Directory Traversal**: sin falsos positivos por patrones genéricos en respuestas 404.
+- **Enumeración de directorios**: `/admin` se reporta como hallazgo.
+
 ## [2.1.2] - 2026-11-03
 
 ### Added
