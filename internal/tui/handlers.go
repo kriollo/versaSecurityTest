@@ -390,8 +390,12 @@ func (m Model) HandleResultsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // IsValidURLChar verifica si un carácter es válido para una URL
 func IsValidURLChar(char string) bool {
-	validChars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_/:?&=@"
-	return strings.Contains(validChars, char)
+	// Caracteres admitidos al escribir la URL. Incluye los de RFC 3986 que aparecen en URLs reales
+	// (percent-encoding %, sub-delims, fragmento #, etc.) para no bloquear ninguna letra ni símbolo común.
+	// La validación real de la URL se hace después; aquí solo se filtran espacios y controles.
+	validChars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" +
+		"-._~:/?#[]@!$&'()*+,;=%"
+	return len(char) == 1 && strings.Contains(validChars, char)
 }
 
 // generateDetailedReport genera un reporte detallado para el modal

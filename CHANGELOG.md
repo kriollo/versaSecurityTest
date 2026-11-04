@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.5] - 2026-11-04
+
+### Fixed
+
+- **No se podía escribir la letra `v` (ni activarla) en el campo de URL de la TUI**: un hotkey global `v`
+  (toggle verbose) interceptaba la tecla en todas las pantallas. Se quitó del dispatch global; el modo
+  verbose se sigue alternando con `v` en la pantalla de Tests, que es donde corresponde.
+- **El campo de URL rechazaba caracteres válidos** (`%`, `+`, `#`, `~`, `,`, `;`, etc.): `IsValidURLChar`
+  ahora admite el juego completo de RFC 3986; la validación real de la URL se hace después.
+
 ## [2.2.4] - 2026-11-04
 
 ### Fixed

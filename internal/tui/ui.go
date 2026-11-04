@@ -143,13 +143,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
-		// Teclas globales
+		// Teclas globales. Solo teclas que NO deban llegar nunca a un campo de texto. "v" se quitó de
+		// aquí porque se comía la letra al escribir la URL; el modo verbose se alterna con "v" en la
+		// pantalla de Tests (HandleTestsKeys), que es donde tiene sentido.
 		switch msg.String() {
 		case "ctrl+c":
 			return m, tea.Quit
-		case "v":
-			m.Verbose = !m.Verbose
-			return m, nil
 		}
 
 		// Manejo por estado
