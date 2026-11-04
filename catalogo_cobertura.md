@@ -15,7 +15,7 @@ Leyenda:
 | WEB-003 | CSRF | ✅ | CSRF Protection | Tokens, SameSite, CORS |
 | WEB-004 | SSRF | ✅ | Server-Side Request Forgery (SSRF) | |
 | WEB-005 | RCE | ✅ | Known Vulnerabilities (RCE, command injection) | |
-| WEB-006 | LFI | 🟡 | Directory Traversal, Advanced Directory Traversal | Falta wrappers php://, data:// |
+| WEB-006 | LFI | ✅ | Directory Traversal, Advanced, PHP wrappers | |
 | WEB-007 | RFI | ❌ | - | Implementar include remoto |
 | WEB-008 | Path Traversal | ✅ | Directory Traversal, Advanced Directory Traversal | |
 | WEB-009 | Broken Access Control | 🟡 | Authorization, ATHZ-01, ATHZ-04 | Cobertura básica |
@@ -49,7 +49,7 @@ Leyenda:
 | WEB-037 | CORS Misconfiguration | ✅ | Configuration Security, CSRF Protection | |
 | WEB-038 | JWT Validation Failure | ✅ | Known Vulnerabilities (JWT) | |
 | WEB-039 | Rate Limit Bypass | 🟡 | Known Vulnerabilities (Rate Limit) | Informativo |
-| WEB-040 | Secrets Exposure | 🟡 | Known Vulnerabilities (archivos sensibles) | Falta bundles/logs |
+| WEB-040 | Secrets Exposure | ✅ | Known Vulnerabilities (archivos sensibles, JS bundles) | |
 | WEB-041 | Dependency Vulnerability | ✅ | A06: Vulnerable and Outdated Components | |
 | WEB-042 | Dependency Confusion | ❌ | - | No automatizable externamente |
 | WEB-043 | Supply Chain Compromise | ❌ | - | No automatizable externamente |
