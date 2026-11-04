@@ -253,7 +253,7 @@ func (t *DirectoryEnumerationTest) Run(targetURL string, client HTTPClient, payl
 
 	// Lista de directorios/archivos comunes a verificar
 	commonPaths := []string{
-		"/admin", "/administrator", "/wp-admin", "/phpmyadmin",
+		"/administrator", "/wp-admin", "/phpmyadmin",
 		"/config", "/backup", "/test", "/temp", "/uploads",
 		"/.git", "/.svn", "/.env", "/config.php", "/web.config",
 	}

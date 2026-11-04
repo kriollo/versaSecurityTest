@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"net/http"
 	"strings"
 	"sync"
 
@@ -128,12 +129,7 @@ func (t *AdvancedDirectoryTraversalTest) analyzeTraversalResponse(statusCode int
 		{"daemon:x:", "/etc/passwd accedido - cuentas del sistema visibles", "Critical"},
 		{"bin:x:1:1:", "/etc/passwd accedido - estructura de usuarios comprometida", "Critical"},
 		{"root:$", "/etc/shadow accedido - hashes de contraseñas expuestos", "Critical"},
-		{"# localhost", "/etc/hosts accedido - configuración de red expuesta", "High"},
-		{"127.0.0.1", "/etc/hosts accedido - mapeo de hosts visible", "High"},
 		{"linux version", "/proc/version accedido - información del kernel expuesta", "Medium"},
-		{"ubuntu", "/etc/issue accedido - información del sistema expuesta", "Medium"},
-		{"debian", "/etc/issue accedido - información del sistema expuesta", "Medium"},
-		{"welcome to", "/etc/motd accedido - mensaje del sistema visible", "Low"},
 	}
 
 	// PATRONES DE ARCHIVOS SISTEMA WINDOWS
@@ -154,26 +150,30 @@ func (t *AdvancedDirectoryTraversalTest) analyzeTraversalResponse(statusCode int
 		{"@echo off", "autoexec.bat accedido - scripts de arranque visibles", "Medium"},
 	}
 
-	// Buscar patrones Unix/Linux
-	for _, pattern := range unixPatterns {
-		if strings.Contains(responseLower, pattern.pattern) {
-			return TraversalVulnerability{
-				IsVulnerable: true,
-				Description:  pattern.description,
-				Evidence:     fmt.Sprintf("Patrón encontrado: '%s' en respuesta con payload '%s'", pattern.pattern, payload),
-				Severity:     pattern.severity,
+	// Buscar patrones Unix/Linux (solo si la respuesta es exitosa: un 404/500 con el texto
+	// "ubuntu" en la página de error no es evidencia de lectura de /etc/issue).
+	if statusCode == http.StatusOK || statusCode == http.StatusPartialContent {
+		for _, pattern := range unixPatterns {
+			if strings.Contains(responseLower, pattern.pattern) {
+				return TraversalVulnerability{
+					IsVulnerable: true,
+					Description:  pattern.description,
+					Evidence:     fmt.Sprintf("Patrón encontrado: '%s' en respuesta con payload '%s'", pattern.pattern, payload),
+					Severity:     pattern.severity,
+				}
 			}
 		}
 	}
 
-	// Buscar patrones Windows
-	for _, pattern := range windowsPatterns {
-		if strings.Contains(responseLower, pattern.pattern) {
-			return TraversalVulnerability{
-				IsVulnerable: true,
-				Description:  pattern.description,
-				Evidence:     fmt.Sprintf("Patrón encontrado: '%s' en respuesta con payload '%s'", pattern.pattern, payload),
-				Severity:     pattern.severity,
+	if statusCode == http.StatusOK || statusCode == http.StatusPartialContent {
+		for _, pattern := range windowsPatterns {
+			if strings.Contains(responseLower, pattern.pattern) {
+				return TraversalVulnerability{
+					IsVulnerable: true,
+					Description:  pattern.description,
+					Evidence:     fmt.Sprintf("Patrón encontrado: '%s' en respuesta con payload '%s'", pattern.pattern, payload),
+					Severity:     pattern.severity,
+				}
 			}
 		}
 	}
@@ -196,14 +196,15 @@ func (t *AdvancedDirectoryTraversalTest) analyzeTraversalResponse(statusCode int
 		{"rewriterule", ".htaccess accedido - reglas de reescritura visibles", "Medium"},
 	}
 
-	// Buscar patrones de archivos web
-	for _, pattern := range webPatterns {
-		if strings.Contains(responseLower, pattern.pattern) {
-			return TraversalVulnerability{
-				IsVulnerable: true,
-				Description:  pattern.description,
-				Evidence:     fmt.Sprintf("Patrón encontrado: '%s' en respuesta con payload '%s'", pattern.pattern, payload),
-				Severity:     pattern.severity,
+	if statusCode == http.StatusOK || statusCode == http.StatusPartialContent {
+		for _, pattern := range webPatterns {
+			if strings.Contains(responseLower, pattern.pattern) {
+				return TraversalVulnerability{
+					IsVulnerable: true,
+					Description:  pattern.description,
+					Evidence:     fmt.Sprintf("Patrón encontrado: '%s' en respuesta con payload '%s'", pattern.pattern, payload),
+					Severity:     pattern.severity,
+				}
 			}
 		}
 	}

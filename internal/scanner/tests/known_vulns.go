@@ -27,6 +27,23 @@ var sensitiveFiles = []struct {
 	{"/versaWYS/composer.lock", "dependencias del kernel"},
 	{"/package.json", "dependencias del frontend"},
 	{"/versaWYS/logs/", "carpeta de logs"},
+	{"/.git/HEAD", "repositorio Git expuesto (HEAD)"},
+	{"/.svn/entries", "repositorio SVN expuesto"},
+	{"/backup.sql", "volcado de base de datos expuesto"},
+	{"/dump.sql", "volcado de base de datos expuesto"},
+	{"/db.sql", "volcado de base de datos expuesto"},
+	{"/config.php.bak", "backup de configuración con credenciales"},
+	{"/config.php.old", "backup de configuración con credenciales"},
+	{"/.env.bak", "backup de variables de entorno"},
+	{"/.env.local", "variables de entorno locales expuestas"},
+	{"/phpinfo.php", "phpinfo() expuesto (información del servidor)"},
+	{"/info.php", "phpinfo() expuesto (información del servidor)"},
+	{"/server-status", "estado del servidor Apache expuesto"},
+	{"/server-info", "información del servidor Apache expuesta"},
+	{"/swagger.json", "documentación OpenAPI expuesta"},
+	{"/openapi.json", "documentación OpenAPI expuesta"},
+	{"/api-docs", "documentación de API expuesta"},
+	{"/graphql", "endpoint GraphQL expuesto (introspection)"},
 }
 
 func (t *KnownVulnerabilitiesTest) Run(targetURL string, client HTTPClient, _ *config.PayloadConfig) TestResult {
@@ -45,6 +62,10 @@ func (t *KnownVulnerabilitiesTest) Run(targetURL string, client HTTPClient, _ *c
 	t.checkArrayCookie(base, client, &result, &issues)
 	t.checkTemplateInjection(base, client, &result, &issues)
 	t.checkPhpExecution(base, client, &result, &issues)
+	t.checkDirectoryListing(base, client, &result, &issues)
+	t.checkExposedGit(base, client, &result, &issues)
+	t.checkDebugEndpoints(base, client, &result, &issues)
+	t.checkGraphQLIntrospection(base, client, &result, &issues)
 
 	if len(issues) > 0 {
 		result.Status = "Failed"
@@ -163,6 +184,103 @@ func (t *KnownVulnerabilitiesTest) checkPhpExecution(base string, client HTTPCli
 				StatusCode: resp.StatusCode,
 				Response:   firstLine(body, 120),
 				Severity:   "High",
+			})
+		}
+	}
+}
+
+// checkDirectoryListing: detecta listado de directorios habilitado (Index of /).
+func (t *KnownVulnerabilitiesTest) checkDirectoryListing(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	for _, p := range []string{"/", "/uploads/", "/images/", "/assets/", "/static/"} {
+		resp, err := client.Get(base + p)
+		if err != nil {
+			continue
+		}
+		body, _ := ReadResponseBody(resp)
+		resp.Body.Close()
+		if resp.StatusCode == http.StatusOK && strings.Contains(strings.ToLower(body), "index of /") {
+			*issues = append(*issues, fmt.Sprintf("Listado de directorios habilitado en %s", p))
+			result.Severity = "Medium"
+			result.Evidence = append(result.Evidence, Evidence{
+				Type:        "Directory Listing",
+				URL:         base + p,
+				StatusCode:  resp.StatusCode,
+				Severity:    "Medium",
+				Description: "El servidor lista el contenido del directorio",
+			})
+		}
+	}
+}
+
+// checkExposedGit: /.git/HEAD expuesto permite descargar el repositorio completo.
+func (t *KnownVulnerabilitiesTest) checkExposedGit(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	resp, err := client.Get(base + "/.git/HEAD")
+	if err != nil {
+		return
+	}
+	body, _ := ReadResponseBody(resp)
+	resp.Body.Close()
+	if resp.StatusCode == http.StatusOK && strings.Contains(body, "ref: refs/heads") {
+		*issues = append(*issues, "/.git/HEAD expuesto: el repositorio Git puede descargarse completo")
+		result.Severity = "Critical"
+		result.Evidence = append(result.Evidence, Evidence{
+			Type:        "Repositorio Git expuesto",
+			URL:         base + "/.git/HEAD",
+			StatusCode:  resp.StatusCode,
+			Response:    firstLine(body, 120),
+			Severity:    "Critical",
+		})
+	}
+}
+
+// checkDebugEndpoints: endpoints de depuración expuestos.
+func (t *KnownVulnerabilitiesTest) checkDebugEndpoints(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	for _, p := range []string{"/debug", "/trace", "/_profiler", "/telescope", "/horizon"} {
+		resp, err := client.Get(base + p)
+		if err != nil {
+			continue
+		}
+		body, _ := ReadResponseBody(resp)
+		resp.Body.Close()
+		if resp.StatusCode == http.StatusOK && !looksLikeHTMLPage(body) {
+			*issues = append(*issues, fmt.Sprintf("Endpoint de depuración accesible: %s", p))
+			if result.Severity != "Critical" {
+				result.Severity = "High"
+			}
+			result.Evidence = append(result.Evidence, Evidence{
+				Type:        "Debug Endpoint",
+				URL:         base + p,
+				StatusCode:  resp.StatusCode,
+				Severity:    "High",
+			})
+		}
+	}
+}
+
+// checkGraphQLIntrospection: introspection habilitada expone el esquema completo.
+func (t *KnownVulnerabilitiesTest) checkGraphQLIntrospection(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	for _, p := range []string{"/graphql", "/graphiql", "/playground"} {
+		req, err := http.NewRequest(http.MethodPost, base+p, strings.NewReader(`{"query":"{__schema{types{name}}}"}`))
+		if err != nil {
+			continue
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := client.Do(req)
+		if err != nil {
+			continue
+		}
+		body, _ := ReadResponseBody(resp)
+		resp.Body.Close()
+		if resp.StatusCode == http.StatusOK && strings.Contains(body, "__schema") {
+			*issues = append(*issues, fmt.Sprintf("Introspection de GraphQL habilitada en %s", p))
+			if result.Severity != "Critical" {
+				result.Severity = "High"
+			}
+			result.Evidence = append(result.Evidence, Evidence{
+				Type:        "GraphQL Introspection",
+				URL:         base + p,
+				StatusCode:  resp.StatusCode,
+				Severity:    "High",
 			})
 		}
 	}
