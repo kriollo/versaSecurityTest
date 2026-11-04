@@ -22,7 +22,7 @@ Leyenda:
 | WEB-010 | IDOR / BOLA | ✅ | ATHZ-04: Direct Object Reference Testing | |
 | WEB-011 | Authentication Bypass | ✅ | ATHN-01, Known Vulnerabilities (auth bypass) | |
 | WEB-012 | Session Fixation | ✅ | Session Management | |
-| WEB-013 | Session Hijacking | 🟡 | Session Management, Known Vulnerabilities (session flags) | Parcial |
+| WEB-013 | Session Hijacking | ✅ | Session Management, Known Vulnerabilities (flags, entropy) | |
 | WEB-014 | Open Redirect | ✅ | Open Redirect | |
 | WEB-015 | HTTP Response Splitting | 🟡 | Known Vulnerabilities (CRLF) | Parcial |
 | WEB-016 | CRLF Injection | ✅ | Known Vulnerabilities (CRLF) | |
@@ -42,8 +42,8 @@ Leyenda:
 | WEB-030 | DoS | 🟡 | Flood command (fuera del scanner) | No apto para scanner pasivo |
 | WEB-031 | ReDoS | ✅ | Known Vulnerabilities (ReDoS) | |
 | WEB-032 | Cache Poisoning | ✅ | Known Vulnerabilities (Cache Poisoning) | |
-| WEB-033 | HTTP Request Smuggling | ❌ | - | Requiere proxy/infraestructura; no automatizable simple |
-| WEB-034 | Race Condition | ❌ | - | Requiere concurrencia controlada; parcial en flood |
+| WEB-033 | HTTP Request Smuggling | 🟡 | Known Vulnerabilities (CL+TE probe) | Sonda de bajo impacto |
+| WEB-034 | Race Condition | 🟡 | Known Vulnerabilities (concurrency probe), flood | Sonda básica |
 | WEB-035 | Mass Assignment | ✅ | Known Vulnerabilities (Mass Assignment) | |
 | WEB-036 | Prototype Pollution | ✅ | Known Vulnerabilities (Prototype Pollution) | |
 | WEB-037 | CORS Misconfiguration | ✅ | Configuration Security, CSRF Protection | |
@@ -51,8 +51,8 @@ Leyenda:
 | WEB-039 | Rate Limit Bypass | 🟡 | Known Vulnerabilities (Rate Limit) | Informativo |
 | WEB-040 | Secrets Exposure | ✅ | Known Vulnerabilities (archivos sensibles, JS bundles) | |
 | WEB-041 | Dependency Vulnerability | ✅ | A06: Vulnerable and Outdated Components | |
-| WEB-042 | Dependency Confusion | ❌ | - | No automatizable externamente |
-| WEB-043 | Supply Chain Compromise | ❌ | - | No automatizable externamente |
+| WEB-042 | Dependency Confusion | 🟡 | Known Vulnerabilities (manifiestos expuestos) | Solo exposición |
+| WEB-043 | Supply Chain Compromise | 🟡 | Known Vulnerabilities (CI/manifiestos expuestos) | Solo exposición |
 | WEB-044 | Host Header Injection | ✅ | Known Vulnerabilities (Host header) | |
 | WEB-045 | DNS Rebinding | ❌ | - | No automatizable externamente |
 | WEB-046 | WebSocket Authorization Failure | ✅ | Known Vulnerabilities (WebSocket) | |

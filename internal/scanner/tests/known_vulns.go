@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/versaSecurityTest/internal/config"
 )
@@ -95,6 +96,10 @@ func (t *KnownVulnerabilitiesTest) Run(targetURL string, client HTTPClient, _ *c
 	t.checkSessionHijacking(base, client, &result, &issues)
 	t.checkWeakPasswordPolicy(base, client, &result, &issues)
 	t.checkGraphQLAbuse(base, client, &result, &issues)
+	t.checkHTTPRequestSmuggling(base, client, &result, &issues)
+	t.checkRaceCondition(base, client, &result, &issues)
+	t.checkSupplyChainExposure(base, client, &result, &issues)
+	t.checkSessionEntropy(base, client, &result, &issues)
 
 	if len(issues) > 0 {
 		result.Status = "Failed"
@@ -1081,6 +1086,144 @@ func (t *KnownVulnerabilitiesTest) checkGraphQLAbuse(base string, client HTTPCli
 				result.Severity = "Medium"
 			}
 			return
+		}
+	}
+}
+
+
+// checkHTTPRequestSmuggling: sonda de bajo impacto con CL+TE conflictivos.
+// No intenta desincronizar tráfico real; compara contra una petición de control.
+func (t *KnownVulnerabilitiesTest) checkHTTPRequestSmuggling(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	body := "0\r\n\r\n"
+	send := func(ambiguous bool) int {
+		req, err := http.NewRequest(http.MethodPost, base+"/", strings.NewReader(body))
+		if err != nil {
+			return -1
+		}
+		req.Header.Set("Content-Length", "6")
+		if ambiguous {
+			req.Header.Set("Transfer-Encoding", "chunked")
+		}
+		req.Header.Set("Connection", "close")
+		resp, err := client.Do(req)
+		if err != nil {
+			return -1
+		}
+		resp.Body.Close()
+		return resp.StatusCode
+	}
+	control := send(false)
+	ambiguous := send(true)
+	if control < 0 || ambiguous < 0 {
+		return
+	}
+	// Solo es sospechoso si la ambigüedad cambia el resultado y el servidor la acepta.
+	if ambiguous != control && ambiguous >= 200 && ambiguous < 400 && control >= 400 {
+		*issues = append(*issues, "Posible HTTP Request Smuggling: CL+TE ambiguo aceptado mientras la petición de control es rechazada")
+		if result.Severity != "Critical" {
+			result.Severity = "High"
+		}
+		result.Evidence = append(result.Evidence, Evidence{
+			Type:        "HTTP Request Smuggling",
+			URL:         base + "/",
+			StatusCode:  ambiguous,
+			Severity:    "High",
+		})
+	}
+}
+
+// checkRaceCondition: envía solicitudes concurrentes a un endpoint benigno y busca respuestas inconsistentes.
+func (t *KnownVulnerabilitiesTest) checkRaceCondition(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	const n = 8
+	var wg sync.WaitGroup
+	codes := make(chan int, n)
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resp, err := client.Get(base + "/")
+			if err != nil {
+				codes <- 0
+				return
+			}
+			codes <- resp.StatusCode
+			resp.Body.Close()
+		}()
+	}
+	wg.Wait()
+	close(codes)
+	seen := map[int]bool{}
+	errs := 0
+	for c := range codes {
+		if c == 0 || c >= 500 {
+			errs++
+		}
+		seen[c] = true
+	}
+	if errs >= 2 {
+		*issues = append(*issues, "Posible condición de carrera: respuestas 5xx/errores bajo concurrencia")
+		if result.Severity != "Critical" && result.Severity != "High" {
+			result.Severity = "Medium"
+		}
+	} else if len(seen) > 2 {
+		*issues = append(*issues, "Respuestas inconsistentes bajo concurrencia (posible race condition)")
+		if result.Severity != "Critical" && result.Severity != "High" {
+			result.Severity = "Low"
+		}
+	}
+}
+
+// checkSupplyChainExposure: detecta manifiestos/CI expuestos que permiten evaluar supply chain.
+func (t *KnownVulnerabilitiesTest) checkSupplyChainExposure(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	for _, p := range []string{
+		"/package.json", "/package-lock.json", "/composer.json", "/composer.lock",
+		"/.github/workflows", "/.gitlab-ci.yml", "/Jenkinsfile", "/Dockerfile",
+		"/docker-compose.yml", "/yarn.lock", "/pnpm-lock.yaml",
+	} {
+		resp, err := client.Get(base + p)
+		if err != nil {
+			continue
+		}
+		body, _ := ReadResponseBody(resp)
+		resp.Body.Close()
+		if resp.StatusCode == http.StatusOK && !looksLikeHTMLPage(body) && len(strings.TrimSpace(body)) > 0 {
+			*issues = append(*issues, "Manifiesto/CI expuesto: "+p+" (superficie de supply chain)")
+			if result.Severity != "Critical" && result.Severity != "High" {
+				result.Severity = "Medium"
+			}
+			result.Evidence = append(result.Evidence, Evidence{
+				Type:        "Supply Chain Exposure",
+				URL:         base + p,
+				StatusCode:  resp.StatusCode,
+				Severity:    "Medium",
+			})
+		}
+	}
+}
+
+// checkSessionEntropy: muestrea IDs de sesión y evalúa longitud/entropía básica.
+func (t *KnownVulnerabilitiesTest) checkSessionEntropy(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	var ids []string
+	for i := 0; i < 3; i++ {
+		resp, err := client.Get(base + "/")
+		if err != nil {
+			return
+		}
+		resp.Body.Close()
+		for _, c := range resp.Cookies() {
+			name := strings.ToLower(c.Name)
+			if strings.Contains(name, "session") || strings.Contains(name, "phpsessid") || strings.Contains(name, "sid") {
+				ids = append(ids, c.Value)
+			}
+		}
+	}
+	for _, id := range ids {
+		if len(id) < 16 {
+			*issues = append(*issues, "ID de sesión corto/poco aleatorio ("+id+")")
+			if result.Severity != "Critical" && result.Severity != "High" {
+				result.Severity = "Medium"
+			}
+			break
 		}
 	}
 }
