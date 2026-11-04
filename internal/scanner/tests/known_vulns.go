@@ -82,6 +82,8 @@ func (t *KnownVulnerabilitiesTest) Run(targetURL string, client HTTPClient, _ *c
 	t.checkJWT(base, client, &result, &issues)
 	t.checkRateLimitBypass(base, client, &result, &issues)
 	t.checkWebSocketAuth(base, client, &result, &issues)
+	t.checkUnauthAdminEndpoints(base, client, &result, &issues)
+	t.checkBusinessLogic(base, client, &result, &issues)
 
 	if len(issues) > 0 {
 		result.Status = "Failed"
@@ -676,6 +678,81 @@ func (t *KnownVulnerabilitiesTest) checkWebSocketAuth(base string, client HTTPCl
 			})
 		}
 	}
+}
+
+
+// checkUnauthAdminEndpoints: detecta paneles/endpoints administrativos accesibles sin autenticación.
+func (t *KnownVulnerabilitiesTest) checkUnauthAdminEndpoints(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	for _, ep := range []string{"/admin", "/administrator", "/dashboard", "/panel", "/api/admin", "/manage", "/console"} {
+		resp, err := client.Get(base + ep)
+		if err != nil {
+			continue
+		}
+		body, _ := ReadResponseBody(resp)
+		resp.Body.Close()
+		// Considerar vulnerable si responde 200 y NO parece una página de login
+		if resp.StatusCode == http.StatusOK && !looksLikeLoginPage(body) && containsAdminKeyword(body) {
+			*issues = append(*issues, "Panel/endpoint administrativo accesible sin autenticación: "+ep)
+			if result.Severity != "Critical" {
+				result.Severity = "High"
+			}
+			result.Evidence = append(result.Evidence, Evidence{
+				Type:        "Broken Access Control",
+				URL:         base + ep,
+				StatusCode:  resp.StatusCode,
+				Severity:    "High",
+			})
+		}
+	}
+}
+
+func looksLikeLoginPage(body string) bool {
+	lb := strings.ToLower(body)
+	return strings.Contains(lb, "password") && (strings.Contains(lb, "login") || strings.Contains(lb, "sign in") || strings.Contains(lb, "iniciar"))
+}
+
+// checkBusinessLogic: prueba manipulación de cantidad/precio en endpoints comunes.
+func (t *KnownVulnerabilitiesTest) checkBusinessLogic(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	for _, ep := range []string{"/cart/add", "/api/cart", "/checkout", "/order"} {
+		for _, body := range []string{"quantity=-1", "qty=-1", "price=0", "amount=0"} {
+			req, err := http.NewRequest(http.MethodPost, base+ep, strings.NewReader(body))
+			if err != nil {
+				continue
+			}
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			resp, err := client.Do(req)
+			if err != nil {
+				continue
+			}
+			bodyBytes, _ := ReadResponseBody(resp)
+			resp.Body.Close()
+			bodyStr := string(bodyBytes)
+			if resp.StatusCode >= 200 && resp.StatusCode < 300 && !looksLikeHTMLPage(bodyStr) {
+				*issues = append(*issues, "Posible fallo de lógica de negocio en "+ep+" (acepta "+body+")")
+				if result.Severity != "Critical" && result.Severity != "High" {
+					result.Severity = "Medium"
+				}
+				result.Evidence = append(result.Evidence, Evidence{
+					Type:        "Business Logic",
+					URL:         base + ep,
+					Payload:     body,
+					StatusCode:  resp.StatusCode,
+					Severity:    "Medium",
+				})
+				return
+			}
+		}
+	}
+}
+
+func containsAdminKeyword(body string) bool {
+	lb := strings.ToLower(body)
+	for _, kw := range []string{"admin panel", "dashboard", "management console", "administración", "admin area", "control panel"} {
+		if strings.Contains(lb, kw) {
+			return true
+		}
+	}
+	return false
 }
 
 // looksLikeHTMLPage: la respuesta es una página web (la app enrutó la petición), no un archivo servido tal cual.
