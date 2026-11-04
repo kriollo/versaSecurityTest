@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.2] - 2026-11-03
+
+### Added
+
+- **Más vulnerabilidades conocidas**: backups de BD/config, repositorio Git/SVN expuesto, `phpinfo()`,
+  `server-status`, documentación OpenAPI/Swagger, endpoints de depuración, listado de directorios y
+  introspection de GraphQL.
+
+### Fixed
+
+- **Directory Traversal**: eliminados falsos positivos por patrones genéricos ("ubuntu", etc.) en páginas de
+  error 404; solo se reporta con respuesta exitosa.
+- **Enumeración de directorios**: se restauró `/admin` como hallazgo reportable.
+
 ## [2.1.1] - 2026-11-03
 
 ### Fixed

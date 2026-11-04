@@ -41,7 +41,7 @@ func main() {
 	// Procesar comando de actualización
 	if *updateFlag {
 		fmt.Println("🚀 Iniciando verificador de actualizaciones...")
-		if err := update.CheckForUpdates("2.1.1"); err != nil {
+		if err := update.CheckForUpdates("2.1.2"); err != nil {
 			fmt.Printf("❌ Error al buscar actualizaciones: %v\n", err)
 			os.Exit(1)
 		}
@@ -170,7 +170,7 @@ func printBanner() {
   🛡️  VERSA SECURITY
   ──────────────────
   Automated Web Security Scanner
-  v2.1.1 | Standard & Professional Mode
+  v2.1.2 | Standard & Professional Mode
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
 	fmt.Println(tuiPackage.HeaderStyle.Render(banner))
 }
