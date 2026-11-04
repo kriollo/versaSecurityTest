@@ -6,8 +6,8 @@ implementados en `versaSecurity`.
 | Tecnología / Superficie | Clase de riesgo | Estado | Test(s) existente(s) | Notas |
 |---|---|---|---|---|
 | PHP Runtime | RCE | 🟡 | Known Vulnerabilities (PHP exec, command injection) | Falta eval/assert/preg_replace |
-| PHP Runtime | File inclusion / path traversal | 🟡 | Directory Traversal, Advanced Directory Traversal | Falta wrappers php://, data:// |
-| PHP Runtime | Deserialización | ✅ | A08:2021 - Software and Data Integrity Failures | |
+| PHP Runtime | File inclusion / path traversal | ✅ | Directory Traversal, Advanced Directory Traversal, Known Vulnerabilities (PHP wrappers) | |
+| PHP Runtime | Deserialización | ✅ | A08 + Known Vulnerabilities (PHP deserialization) | |
 | PHP Runtime | Command injection | ✅ | OS Command Injection | |
 | PHP Runtime | Exposición de configuración | ✅ | Known Vulnerabilities (archivos sensibles) | |
 | Laravel | SQLi / XSS / CSRF / mass assignment / upload / path traversal / tokens | ✅/🟡 | SQL/XSS/CSRF/File Upload/Dir Traversal/Mass Assignment | Cobertura genérica |

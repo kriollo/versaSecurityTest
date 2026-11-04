@@ -84,6 +84,8 @@ func (t *KnownVulnerabilitiesTest) Run(targetURL string, client HTTPClient, _ *c
 	t.checkWebSocketAuth(base, client, &result, &issues)
 	t.checkUnauthAdminEndpoints(base, client, &result, &issues)
 	t.checkBusinessLogic(base, client, &result, &issues)
+	t.checkPHPWrappers(base, client, &result, &issues)
+	t.checkPHPDeserialization(base, client, &result, &issues)
 
 	if len(issues) > 0 {
 		result.Status = "Failed"
@@ -753,6 +755,74 @@ func containsAdminKeyword(body string) bool {
 		}
 	}
 	return false
+}
+
+
+// checkPHPWrappers: detecta LFI vía wrappers php:// y data://.
+func (t *KnownVulnerabilitiesTest) checkPHPWrappers(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	payloads := []string{
+		"php://filter/convert.base64-encode/resource=index.php",
+		"php://input",
+		"data://text/plain,<?php phpinfo(); ?>",
+	}
+	for _, ep := range []string{"/", "/index.php", "/page", "/view", "/file"} {
+		for _, param := range []string{"page", "file", "path", "include", "template"} {
+			for _, p := range payloads {
+				u := base + ep + "?" + param + "=" + url.QueryEscape(p)
+				resp, err := client.Get(u)
+				if err != nil {
+					continue
+				}
+				body, _ := ReadResponseBody(resp)
+				resp.Body.Close()
+				// base64 de <?php suele empezar con PD9waHA
+				if resp.StatusCode == http.StatusOK && (strings.Contains(body, "PD9waHA") || strings.Contains(body, "phpinfo()")) {
+					*issues = append(*issues, "Posible LFI vía wrapper PHP en "+ep+" ("+param+")")
+					result.Severity = "Critical"
+					result.Evidence = append(result.Evidence, Evidence{
+						Type:        "LFI (PHP wrapper)",
+						URL:         u,
+						Payload:     p,
+						StatusCode:  resp.StatusCode,
+						Severity:    "Critical",
+					})
+					return
+				}
+			}
+		}
+	}
+}
+
+// checkPHPDeserialization: detecta unserialize() de entrada controlada por el usuario.
+func (t *KnownVulnerabilitiesTest) checkPHPDeserialization(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	// Payload serializado que, si se deserializa, suele provocar error o reflejo
+	payload := "O:8:\"StdClass\":0:{}"
+	for _, ep := range []string{"/", "/api", "/data"} {
+		for _, param := range []string{"data", "obj", "payload", "serialized"} {
+			u := base + ep + "?" + param + "=" + url.QueryEscape(payload)
+			resp, err := client.Get(u)
+			if err != nil {
+				continue
+			}
+			body, _ := ReadResponseBody(resp)
+			resp.Body.Close()
+			lb := strings.ToLower(body)
+			if strings.Contains(lb, "unserialize") || strings.Contains(lb, "stdclass") || strings.Contains(lb, "__wakeup") || strings.Contains(lb, "allowed classes") {
+				*issues = append(*issues, "Posible deserialización insegura (unserialize) en "+ep+" ("+param+")")
+				if result.Severity != "Critical" {
+					result.Severity = "High"
+				}
+				result.Evidence = append(result.Evidence, Evidence{
+					Type:        "Insecure Deserialization (PHP)",
+					URL:         u,
+					Payload:     payload,
+					StatusCode:  resp.StatusCode,
+					Severity:    "High",
+				})
+				return
+			}
+		}
+	}
 }
 
 // looksLikeHTMLPage: la respuesta es una página web (la app enrutó la petición), no un archivo servido tal cual.
