@@ -301,6 +301,8 @@ func GetAvailableTests() []TestDefinition {
 		{ID: "outdated_components", Name: "Outdated Components", Description: "Detección de software vulnerable (A06)", Category: "CONF", Recommended: true, HasAdvanced: false},
 		{ID: "data_integrity", Name: "Data Integrity", Description: "Fallos en integridad de datos (A08)", Category: "CRYP", Recommended: true, HasAdvanced: false},
 		{ID: "known_vulns", Name: "Vulns conocidas (CVE 2026)", Description: "Fallas de 2026 en frameworks PHP: config expuesta, SSTI, cookie no-string, .php servido", Category: "CONF", Recommended: true, HasAdvanced: false},
+		{ID: "ssrf", Name: "SSRF", Description: "Server-Side Request Forgery (incluye bypasses avanzados)", Category: "SSRF", Recommended: true, HasAdvanced: false},
+		{ID: "open_redirect", Name: "Open Redirect", Description: "Redirecciones abiertas controladas por el usuario", Category: "INPV", Recommended: true, HasAdvanced: false},
 	}
 }
 
@@ -357,6 +359,10 @@ func (c *Config) IsTestEnabled(testID string) bool {
 		return c.Tests.DataIntegrity
 	case "known_vulns":
 		return c.Tests.KnownVulns
+	case "ssrf":
+		return c.Tests.SSRF
+	case "open_redirect":
+		return c.Tests.OpenRedirect
 	default:
 		return false
 	}
@@ -415,6 +421,10 @@ func (c *Config) SetTestEnabled(testID string, enabled bool) {
 		c.Tests.DataIntegrity = enabled
 	case "known_vulns":
 		c.Tests.KnownVulns = enabled
+	case "ssrf":
+		c.Tests.SSRF = enabled
+	case "open_redirect":
+		c.Tests.OpenRedirect = enabled
 	}
 }
 
