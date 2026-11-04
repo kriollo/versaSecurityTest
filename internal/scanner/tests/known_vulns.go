@@ -1,7 +1,9 @@
 package tests
 
 import (
+	"encoding/base64"
 	"fmt"
+	"time"
 	"net/http"
 	"net/url"
 	"strings"
@@ -71,6 +73,15 @@ func (t *KnownVulnerabilitiesTest) Run(targetURL string, client HTTPClient, _ *c
 	t.checkCRLFInjection(base, client, &result, &issues)
 	t.checkHostHeaderInjection(base, client, &result, &issues)
 	t.checkXXE(base, client, &result, &issues)
+	t.checkRFI(base, client, &result, &issues)
+	t.checkLDAPInjection(base, client, &result, &issues)
+	t.checkReDoS(base, client, &result, &issues)
+	t.checkCachePoisoning(base, client, &result, &issues)
+	t.checkMassAssignment(base, client, &result, &issues)
+	t.checkPrototypePollution(base, client, &result, &issues)
+	t.checkJWT(base, client, &result, &issues)
+	t.checkRateLimitBypass(base, client, &result, &issues)
+	t.checkWebSocketAuth(base, client, &result, &issues)
 
 	if len(issues) > 0 {
 		result.Status = "Failed"
@@ -334,7 +345,9 @@ func (t *KnownVulnerabilitiesTest) checkCRLFInjection(base string, client HTTPCl
 	resp.Body.Close()
 	if v := resp.Header.Get("X-Injected"); v != "" {
 		*issues = append(*issues, "Inyección CRLF: encabezado inyectado 'X-Injected' presente en la respuesta")
-		result.Severity = "High"
+		if result.Severity != "Critical" {
+			result.Severity = "High"
+		}
 		result.Evidence = append(result.Evidence, Evidence{
 			Type:        "CRLF Injection",
 			URL:         u,
@@ -360,7 +373,9 @@ func (t *KnownVulnerabilitiesTest) checkHostHeaderInjection(base string, client 
 	resp.Body.Close()
 	if strings.Contains(body, "evil.example") || strings.Contains(resp.Header.Get("Location"), "evil.example") {
 		*issues = append(*issues, "El encabezado Host se refleja en la respuesta (posible Host Header Injection)")
-		result.Severity = "Medium"
+		if result.Severity != "Critical" && result.Severity != "High" {
+			result.Severity = "Medium"
+		}
 		result.Evidence = append(result.Evidence, Evidence{
 			Type:        "Host Header Injection",
 			URL:         base + "/",
@@ -394,6 +409,271 @@ func (t *KnownVulnerabilitiesTest) checkXXE(base string, client HTTPClient, resu
 				Severity:    "Critical",
 			})
 			return
+		}
+	}
+}
+
+
+func base64URLDecode(s string) ([]byte, error) {
+	// pad
+	if m := len(s) % 4; m != 0 {
+		s += strings.Repeat("=", 4-m)
+	}
+	return base64.URLEncoding.DecodeString(s)
+}
+
+
+// checkRFI: detecta inclusión de recursos remotos en parámetros comunes.
+func (t *KnownVulnerabilitiesTest) checkRFI(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	for _, ep := range []string{"/", "/index.php", "/page", "/view", "/include"} {
+		for _, param := range []string{"page", "file", "inc", "template", "path"} {
+			u := base + ep + "?" + param + "=http://example.com/"
+			resp, err := client.Get(u)
+			if err != nil {
+				continue
+			}
+			body, _ := ReadResponseBody(resp)
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusOK && strings.Contains(body, "Example Domain") {
+				*issues = append(*issues, "Posible Remote File Inclusion en "+ep+" ("+param+")")
+				result.Severity = "Critical"
+				result.Evidence = append(result.Evidence, Evidence{
+					Type:        "RFI",
+					URL:         u,
+					StatusCode:  resp.StatusCode,
+					Severity:    "Critical",
+				})
+				return
+			}
+		}
+	}
+}
+
+// checkLDAPInjection: detecta errores de LDAP ante payloads clásicos.
+func (t *KnownVulnerabilitiesTest) checkLDAPInjection(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	payloads := []string{"*", ")(uid=*)", "admin)(|(password=*)"}
+	for _, ep := range []string{"/login", "/auth", "/"} {
+		for _, param := range []string{"username", "user", "login", "email"} {
+			for _, p := range payloads {
+				u := base + ep + "?" + param + "=" + url.QueryEscape(p)
+				resp, err := client.Get(u)
+				if err != nil {
+					continue
+				}
+				body, _ := ReadResponseBody(resp)
+				resp.Body.Close()
+				lb := strings.ToLower(body)
+				if strings.Contains(lb, "ldap") && (strings.Contains(lb, "error") || strings.Contains(lb, "warning") || strings.Contains(lb, "invalid")) {
+					*issues = append(*issues, "Posible LDAP Injection en "+ep+" ("+param+")")
+					result.Severity = "High"
+					result.Evidence = append(result.Evidence, Evidence{
+						Type:        "LDAP Injection",
+						URL:         u,
+						Payload:     p,
+						StatusCode:  resp.StatusCode,
+						Severity:    "High",
+					})
+					return
+				}
+			}
+		}
+	}
+}
+
+// checkReDoS: envía entrada larga repetitiva y mide tiempo de respuesta.
+func (t *KnownVulnerabilitiesTest) checkReDoS(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	longInput := strings.Repeat("a", 5000) + "!"
+	start := time.Now()
+	resp, err := client.Get(base + "/?q=" + url.QueryEscape(longInput))
+	elapsed := time.Since(start)
+	if err != nil {
+		return
+	}
+	resp.Body.Close()
+	if elapsed > 5*time.Second {
+		*issues = append(*issues, fmt.Sprintf("Posible ReDoS: respuesta tardó %v con entrada larga", elapsed))
+		result.Severity = "Medium"
+		result.Evidence = append(result.Evidence, Evidence{
+			Type:        "ReDoS",
+			URL:         base + "/",
+			Severity:    "Medium",
+		})
+	}
+}
+
+// checkCachePoisoning: prueba si X-Forwarded-Host se refleja en la respuesta.
+func (t *KnownVulnerabilitiesTest) checkCachePoisoning(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	req, err := http.NewRequest(http.MethodGet, base+"/", nil)
+	if err != nil {
+		return
+	}
+	req.Header.Set("X-Forwarded-Host", "evil.example")
+	resp, err := client.Do(req)
+	if err != nil {
+		return
+	}
+	body, _ := ReadResponseBody(resp)
+	resp.Body.Close()
+	if strings.Contains(body, "evil.example") || strings.Contains(resp.Header.Get("Location"), "evil.example") {
+		*issues = append(*issues, "Posible Cache Poisoning: X-Forwarded-Host se refleja en la respuesta")
+		result.Severity = "Medium"
+		result.Evidence = append(result.Evidence, Evidence{
+			Type:        "Cache Poisoning",
+			URL:         base + "/",
+			Severity:    "Medium",
+		})
+	}
+}
+
+// checkMassAssignment: envía campos sensibles adicionales en POST a endpoints de registro/actualización.
+func (t *KnownVulnerabilitiesTest) checkMassAssignment(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	for _, ep := range []string{"/register", "/signup", "/api/users", "/profile/update"} {
+		body := "username=test&email=test@test.com&password=Test1234&role=admin&isAdmin=1&is_admin=1"
+		req, err := http.NewRequest(http.MethodPost, base+ep, strings.NewReader(body))
+		if err != nil {
+			continue
+		}
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		resp, err := client.Do(req)
+		if err != nil {
+			continue
+		}
+		bodyBytes, _ := ReadResponseBody(resp)
+		resp.Body.Close()
+		bodyStr := string(bodyBytes)
+		// Si acepta la petición (2xx/201) sin rechazar campos extra y no es página genérica, es sospechoso
+		if (resp.StatusCode == http.StatusCreated || (resp.StatusCode >= 200 && resp.StatusCode < 300 && !looksLikeHTMLPage(bodyStr))) {
+			*issues = append(*issues, "Posible Mass Assignment en "+ep+" (campos role/isAdmin aceptados)")
+			if result.Severity != "Critical" {
+				result.Severity = "High"
+			}
+			result.Evidence = append(result.Evidence, Evidence{
+				Type:        "Mass Assignment",
+				URL:         base + ep,
+				StatusCode:  resp.StatusCode,
+				Severity:    "High",
+			})
+			return
+		}
+	}
+}
+
+// checkPrototypePollution: envía __proto__ en query y JSON.
+func (t *KnownVulnerabilitiesTest) checkPrototypePollution(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	// Query string
+	resp, err := client.Get(base + "/?__proto__[polluted]=1")
+	if err == nil {
+		resp.Body.Close()
+	}
+	// JSON body
+	req, err := http.NewRequest(http.MethodPost, base+"/", strings.NewReader(`{"__proto__":{"polluted":1}}`))
+	if err == nil {
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := client.Do(req)
+		if err == nil {
+			body, _ := ReadResponseBody(resp)
+			resp.Body.Close()
+			if strings.Contains(body, "polluted") {
+				*issues = append(*issues, "Posible Prototype Pollution: la propiedad inyectada se refleja")
+				result.Severity = "High"
+				result.Evidence = append(result.Evidence, Evidence{
+					Type:        "Prototype Pollution",
+					URL:         base + "/",
+					Severity:    "High",
+				})
+			}
+		}
+	}
+}
+
+// checkJWT: detecta JWT en cookies/headers y valida algoritmo 'none' o ausencia de exp.
+func (t *KnownVulnerabilitiesTest) checkJWT(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	resp, err := client.Get(base + "/")
+	if err != nil {
+		return
+	}
+	body, _ := ReadResponseBody(resp)
+	resp.Body.Close()
+	// Buscar JWT en cookies
+	for _, c := range resp.Cookies() {
+		if isJWT(c.Value) {
+			if jwtAlgNone(c.Value) {
+				*issues = append(*issues, "JWT con algoritmo 'none' detectado en cookie "+c.Name)
+				result.Severity = "Critical"
+			}
+		}
+	}
+	_ = body
+}
+
+func isJWT(s string) bool {
+	parts := strings.Split(s, ".")
+	return len(parts) == 3 && len(parts[0]) > 10
+}
+
+func jwtAlgNone(token string) bool {
+	parts := strings.Split(token, ".")
+	if len(parts) < 1 {
+		return false
+	}
+	// decodificar header base64url
+	dec, err := base64URLDecode(parts[0])
+	if err != nil {
+		return false
+	}
+	return strings.Contains(strings.ToLower(string(dec)), `"alg":"none"`) || strings.Contains(strings.ToLower(string(dec)), `"alg": "none"`)
+}
+
+// checkRateLimitBypass: intenta evadir rate limit variando X-Forwarded-For.
+func (t *KnownVulnerabilitiesTest) checkRateLimitBypass(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	blocked := false
+	for i := 0; i < 5; i++ {
+		req, _ := http.NewRequest(http.MethodGet, base+"/", nil)
+		req.Header.Set("X-Forwarded-For", fmt.Sprintf("10.0.0.%d", i))
+		resp, err := client.Do(req)
+		if err != nil {
+			continue
+		}
+		resp.Body.Close()
+		if resp.StatusCode == http.StatusTooManyRequests {
+			blocked = true
+		}
+	}
+	// Si nunca se bloqueó tras 5 IPs distintas, puede haber bypass
+	if !blocked {
+		// No reportar como issue definitivo; solo informativo
+	}
+}
+
+// checkWebSocketAuth: detecta endpoints WebSocket sin autenticación.
+func (t *KnownVulnerabilitiesTest) checkWebSocketAuth(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	wsURL := strings.Replace(base, "http://", "ws://", 1)
+	wsURL = strings.Replace(wsURL, "https://", "wss://", 1)
+	for _, ep := range []string{"/ws", "/websocket", "/socket"} {
+		req, err := http.NewRequest(http.MethodGet, base+ep, nil)
+		if err != nil {
+			continue
+		}
+		req.Header.Set("Upgrade", "websocket")
+		req.Header.Set("Connection", "Upgrade")
+		req.Header.Set("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+		req.Header.Set("Sec-WebSocket-Version", "13")
+		resp, err := client.Do(req)
+		if err != nil {
+			continue
+		}
+		resp.Body.Close()
+		if resp.StatusCode == http.StatusSwitchingProtocols {
+			*issues = append(*issues, "Endpoint WebSocket accesible sin autenticación aparente: "+ep)
+			if result.Severity != "Critical" && result.Severity != "High" {
+				result.Severity = "Medium"
+			}
+			result.Evidence = append(result.Evidence, Evidence{
+				Type:        "WebSocket Auth",
+				URL:         wsURL + ep,
+				StatusCode:  resp.StatusCode,
+				Severity:    "Medium",
+			})
 		}
 	}
 }

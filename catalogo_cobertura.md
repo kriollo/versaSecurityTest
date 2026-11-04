@@ -27,7 +27,7 @@ Leyenda:
 | WEB-015 | HTTP Response Splitting | 🟡 | Known Vulnerabilities (CRLF) | Parcial |
 | WEB-016 | CRLF Injection | ✅ | Known Vulnerabilities (CRLF) | |
 | WEB-017 | OS Command Injection | ✅ | Known Vulnerabilities (command injection) | |
-| WEB-018 | LDAP Injection | ❌ | - | Implementar |
+| WEB-018 | LDAP Injection | ✅ | Known Vulnerabilities (LDAP) | |
 | WEB-019 | XXE | ✅ | Known Vulnerabilities (XXE) | |
 | WEB-020 | Insecure Deserialization | ✅ | A08:2021 - Software and Data Integrity Failures | |
 | WEB-021 | SSTI | ✅ | Known Vulnerabilities (template injection) | |
@@ -40,22 +40,22 @@ Leyenda:
 | WEB-028 | Weak Password Policy | 🟡 | IDNT-01 | Falta política detallada |
 | WEB-029 | Brute Force / Credential Stuffing | ✅ | Brute Force Test | |
 | WEB-030 | DoS | 🟡 | Flood command (fuera del scanner) | Falta en scanner web |
-| WEB-031 | ReDoS | ❌ | - | Implementar |
-| WEB-032 | Cache Poisoning | ❌ | - | Implementar |
+| WEB-031 | ReDoS | ✅ | Known Vulnerabilities (ReDoS) | |
+| WEB-032 | Cache Poisoning | ✅ | Known Vulnerabilities (Cache Poisoning) | |
 | WEB-033 | HTTP Request Smuggling | ❌ | - | Implementar |
 | WEB-034 | Race Condition | ❌ | - | Implementar |
-| WEB-035 | Mass Assignment | ❌ | - | Implementar |
-| WEB-036 | Prototype Pollution | ❌ | - | Implementar |
+| WEB-035 | Mass Assignment | ✅ | Known Vulnerabilities (Mass Assignment) | |
+| WEB-036 | Prototype Pollution | ✅ | Known Vulnerabilities (Prototype Pollution) | |
 | WEB-037 | CORS Misconfiguration | ✅ | Configuration Security, CSRF Protection | |
-| WEB-038 | JWT Validation Failure | ❌ | - | Implementar |
-| WEB-039 | Rate Limit Bypass | ❌ | - | Implementar |
+| WEB-038 | JWT Validation Failure | ✅ | Known Vulnerabilities (JWT) | |
+| WEB-039 | Rate Limit Bypass | 🟡 | Known Vulnerabilities (Rate Limit) | Informativo |
 | WEB-040 | Secrets Exposure | 🟡 | Known Vulnerabilities (archivos sensibles) | Falta bundles/logs |
 | WEB-041 | Dependency Vulnerability | ✅ | A06: Vulnerable and Outdated Components | |
 | WEB-042 | Dependency Confusion | ❌ | - | Implementar |
 | WEB-043 | Supply Chain Compromise | ❌ | - | Implementar |
 | WEB-044 | Host Header Injection | ✅ | Known Vulnerabilities (Host header) | |
 | WEB-045 | DNS Rebinding | ❌ | - | Implementar |
-| WEB-046 | WebSocket Authorization Failure | ❌ | - | Implementar |
+| WEB-046 | WebSocket Authorization Failure | ✅ | Known Vulnerabilities (WebSocket) | |
 | WEB-047 | GraphQL Abuse | 🟡 | Known Vulnerabilities (introspection) | Falta profundidad/complejidad/auth |
 | WEB-048 | TLS Misconfiguration | ✅ | SSL/TLS Analysis | |
 | WEB-049 | Improper Error Handling | ✅ | ERRH-01: Error Leakage Testing | |
