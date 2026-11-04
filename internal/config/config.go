@@ -209,6 +209,7 @@ func DefaultConfig() *Config {
 					InputValidation: true,
 					ClientSide:      true,
 					APISecurity:     true,
+					KnownVulns:      true,
 					NetworkScan:     false,
 				},
 			},
@@ -245,6 +246,7 @@ func DefaultConfig() *Config {
 					NetworkScan:        true,
 					OutdatedComponents: true,
 					DataIntegrity:      true,
+					KnownVulns:         true,
 				},
 			},
 		},
@@ -685,74 +687,17 @@ func (c *Config) CountEnabledTests(profileID string) int {
 		return 0
 	}
 
+	// Contar contra la lista única de tests disponibles usando la config del perfil: así el número
+	// coincide SIEMPRE con lo que el escáner ejecuta y no se desincroniza al añadir tests nuevos
+	// (antes era una lista a mano que omitía NetworkScan, OutdatedComponents, DataIntegrity,
+	// KnownVulns, SSRF y OpenRedirect, por lo que la cantidad salía mal).
+	pc := &Config{Tests: profile.Tests}
 	count := 0
-	tests := profile.Tests
-
-	// Contar tests habilitados
-	if tests.SQLInjection {
-		count++
+	for _, def := range GetAvailableTests() {
+		if pc.IsTestEnabled(def.ID) {
+			count++
+		}
 	}
-	if tests.XSS {
-		count++
-	}
-	if tests.BruteForce {
-		count++
-	}
-	if tests.HTTPHeaders {
-		count++
-	}
-	if tests.SSLAnalysis {
-		count++
-	}
-	if tests.CSRFProtection {
-		count++
-	}
-	if tests.FileUpload {
-		count++
-	}
-	if tests.DirTraversal {
-		count++
-	}
-	if tests.InfoDisclosure {
-		count++
-	}
-	if tests.InfoGathering {
-		count++
-	}
-	if tests.Configuration {
-		count++
-	}
-	if tests.IdentityMgmt {
-		count++
-	}
-	if tests.Authentication {
-		count++
-	}
-	if tests.Authorization {
-		count++
-	}
-	if tests.SessionMgmt {
-		count++
-	}
-	if tests.InputValidation {
-		count++
-	}
-	if tests.ErrorHandling {
-		count++
-	}
-	if tests.Cryptography {
-		count++
-	}
-	if tests.BusinessLogic {
-		count++
-	}
-	if tests.ClientSide {
-		count++
-	}
-	if tests.APISecurity {
-		count++
-	}
-
 	return count
 }
 

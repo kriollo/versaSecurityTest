@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.4] - 2026-11-04
+
+### Fixed
+
+- **Línea de ayuda duplicada en la pantalla de resultados**: el bloque de scroll repetía el footer que ya
+  muestra `RenderFooter`. Ahora el contenido con scroll solo muestra la barra de progreso y el footer sale una vez.
+- **Conteo de tests por perfil incorrecto**: `CountEnabledTests` contaba a mano y omitía NetworkScan,
+  OutdatedComponents, DataIntegrity, KnownVulns, SSRF y OpenRedirect. Ahora cuenta contra la lista única de
+  tests (`GetAvailableTests` + `IsTestEnabled`), así nunca se desincroniza. Básico 6, estándar 11, avanzado 27.
+- **El perfil Avanzado no ejecutaba el test de vulnerabilidades conocidas** (`known_vulns`) — ni Estándar ni
+  Avanzado lo tenían activado. Añadido a ambos; el Avanzado ahora habilita los 27 tests disponibles.
+
+### Changed
+
+- **Footers de la TUI revisados por pantalla** y alineados a las teclas reales: nuevo pie para la pantalla de
+  Protocolo, y en Tests se muestran todas las teclas (a/n/r, v: Verbose, x: Avanzado, navegación ←→).
+
 ## [2.2.3] - 2026-11-04
 
 ### Fixed

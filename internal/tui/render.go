@@ -458,9 +458,10 @@ func (m Model) RenderResultsStep() string {
 		}
 		progressBar += "]"
 
+		// Solo la barra de progreso del scroll; los controles los muestra RenderFooter una sola vez
+		// (antes esta línea "🎮 ..." se repetía aquí y en el footer, duplicándose en pantalla).
 		scrollContent += fmt.Sprintf("\n\n📜 SCROLL: %s %.1f%% | Líneas %d-%d de %d",
 			progressBar, progressPercent, startLine+1, endLine, totalLines)
-		scrollContent += fmt.Sprintf("\n🎮 ↑↓ Línea | Enter: Reintentar | ← Borrar: Cambiar Tests | p: Perfil | s: Guardar | Esc: Salir")
 	}
 
 	sb.WriteString(scrollContent)
@@ -548,12 +549,14 @@ func (m Model) RenderFooter() string {
 	var help strings.Builder
 
 	switch m.State {
+	case StateProtocol:
+		help.WriteString("🎮 ↑↓/Espacio: HTTP/HTTPS | Enter: Continuar | Esc: Salir")
 	case StateURL:
-		help.WriteString("🎮 Tab: Cambiar protocolo | Enter: Continuar | Esc: Salir")
+		help.WriteString("🎮 Escribe la URL | Enter: Continuar | Esc: Volver")
 	case StateProfile:
 		help.WriteString("🎮 ↑↓: Navegar perfiles | Enter: Seleccionar | Esc: Volver")
 	case StateTests:
-		help.WriteString("🎮 ↑↓: Navegar | Space: Seleccionar/Deseleccionar | a: Todos | n: Ninguno | Enter: Continuar | Esc: Volver")
+		help.WriteString("🎮 ↑↓←→: Navegar | Espacio: Marcar | a/n/r: Todos/Ninguno/Recomendados | v: Verbose | x: Avanzado | Enter: Continuar | Esc: Volver")
 	case StateFormat:
 		help.WriteString("🎮 ↑↓: Navegar formatos | Enter: Continuar | Esc: Volver")
 	case StateConfirm:

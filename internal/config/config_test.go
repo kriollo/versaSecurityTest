@@ -30,3 +30,34 @@ func TestCadaTestDisponibleSePuedeActivar(t *testing.T) {
 		t.Error("known_vulns no está en la lista de tests disponibles (no aparecería en la TUI)")
 	}
 }
+
+// El conteo de tests por perfil debe coincidir con los que realmente se ejecutan (lista única +
+// IsTestEnabled), no con una lista a mano. Regresión: antes omitía 6 tests y el número salía bajo.
+func TestConteoDeTestsPorPerfilEsCorrecto(t *testing.T) {
+	c := DefaultConfig()
+	avail := GetAvailableTests()
+
+	for _, id := range []string{"basic", "standard", "advanced"} {
+		prof, err := c.GetProfileInfo(id)
+		if err != nil {
+			t.Fatalf("perfil %s: %v", id, err)
+		}
+		pc := &Config{Tests: prof.Tests}
+		manual := 0
+		for _, def := range avail {
+			if pc.IsTestEnabled(def.ID) {
+				manual++
+			}
+		}
+		got := c.CountEnabledTests(id)
+		if got != manual {
+			t.Errorf("perfil %s: CountEnabledTests=%d pero los tests habilitados son %d", id, got, manual)
+		}
+		t.Logf("perfil %s: %d tests", id, got)
+	}
+
+	// El perfil avanzado habilita todo → debe contar todos los tests disponibles.
+	if got := c.CountEnabledTests("advanced"); got != len(avail) {
+		t.Errorf("advanced debería habilitar los %d tests disponibles, contó %d", len(avail), got)
+	}
+}
