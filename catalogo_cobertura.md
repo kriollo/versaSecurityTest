@@ -14,8 +14,8 @@ Leyenda:
 | WEB-002 | Cross-Site Scripting (XSS) | ✅ | Cross-Site Scripting (XSS), Advanced XSS | Reflejado/DOM |
 | WEB-003 | CSRF | ✅ | CSRF Protection | Tokens, SameSite, CORS |
 | WEB-004 | SSRF | ✅ | Server-Side Request Forgery (SSRF) | |
-| WEB-005 | RCE | 🟡 | Known Vulnerabilities (ejecución PHP) | Falta ejecución de comandos/SSTI-to-RCE |
-| WEB-006 | LFI | 🟡 | Directory Traversal, Advanced Directory Traversal | Falta inclusión de wrappers (php://, data://) |
+| WEB-005 | RCE | 🟡 | Known Vulnerabilities (PHP exec, command injection) | Parcial |
+| WEB-006 | LFI | 🟡 | Directory Traversal, Advanced Directory Traversal | Falta wrappers php://, data:// |
 | WEB-007 | RFI | ❌ | - | Implementar include remoto |
 | WEB-008 | Path Traversal | ✅ | Directory Traversal, Advanced Directory Traversal | |
 | WEB-009 | Broken Access Control | 🟡 | Authorization, ATHZ-01, ATHZ-04 | Cobertura básica |
@@ -39,11 +39,11 @@ Leyenda:
 | WEB-027 | Cryptographic Failures | ✅ | CRYP-01, SSL/TLS Analysis | |
 | WEB-028 | Weak Password Policy | 🟡 | IDNT-01 | Falta política detallada |
 | WEB-029 | Brute Force / Credential Stuffing | ✅ | Brute Force Test | |
-| WEB-030 | DoS | 🟡 | Flood command (fuera del scanner) | Falta en scanner web |
+| WEB-030 | DoS | 🟡 | Flood command (fuera del scanner) | No apto para scanner pasivo |
 | WEB-031 | ReDoS | ✅ | Known Vulnerabilities (ReDoS) | |
 | WEB-032 | Cache Poisoning | ✅ | Known Vulnerabilities (Cache Poisoning) | |
-| WEB-033 | HTTP Request Smuggling | ❌ | - | Implementar |
-| WEB-034 | Race Condition | ❌ | - | Implementar |
+| WEB-033 | HTTP Request Smuggling | ❌ | - | Requiere proxy/infraestructura; no automatizable simple |
+| WEB-034 | Race Condition | ❌ | - | Requiere concurrencia controlada; parcial en flood |
 | WEB-035 | Mass Assignment | ✅ | Known Vulnerabilities (Mass Assignment) | |
 | WEB-036 | Prototype Pollution | ✅ | Known Vulnerabilities (Prototype Pollution) | |
 | WEB-037 | CORS Misconfiguration | ✅ | Configuration Security, CSRF Protection | |
@@ -51,15 +51,15 @@ Leyenda:
 | WEB-039 | Rate Limit Bypass | 🟡 | Known Vulnerabilities (Rate Limit) | Informativo |
 | WEB-040 | Secrets Exposure | 🟡 | Known Vulnerabilities (archivos sensibles) | Falta bundles/logs |
 | WEB-041 | Dependency Vulnerability | ✅ | A06: Vulnerable and Outdated Components | |
-| WEB-042 | Dependency Confusion | ❌ | - | Implementar |
-| WEB-043 | Supply Chain Compromise | ❌ | - | Implementar |
+| WEB-042 | Dependency Confusion | ❌ | - | No automatizable externamente |
+| WEB-043 | Supply Chain Compromise | ❌ | - | No automatizable externamente |
 | WEB-044 | Host Header Injection | ✅ | Known Vulnerabilities (Host header) | |
-| WEB-045 | DNS Rebinding | ❌ | - | Implementar |
+| WEB-045 | DNS Rebinding | ❌ | - | No automatizable externamente |
 | WEB-046 | WebSocket Authorization Failure | ✅ | Known Vulnerabilities (WebSocket) | |
 | WEB-047 | GraphQL Abuse | 🟡 | Known Vulnerabilities (introspection) | Falta profundidad/complejidad/auth |
 | WEB-048 | TLS Misconfiguration | ✅ | SSL/TLS Analysis | |
 | WEB-049 | Improper Error Handling | ✅ | ERRH-01: Error Leakage Testing | |
-| WEB-050 | Insufficient Logging and Alerting | ❌ | - | Difícil de probar externamente |
+| WEB-050 | Insufficient Logging and Alerting | ❌ | - | No automatizable externamente |
 
 ## Prioridad sugerida de implementación
 1. WEB-017 OS Command Injection
