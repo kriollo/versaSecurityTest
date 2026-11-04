@@ -3,6 +3,7 @@ package tests
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/versaSecurityTest/internal/config"
@@ -66,6 +67,10 @@ func (t *KnownVulnerabilitiesTest) Run(targetURL string, client HTTPClient, _ *c
 	t.checkExposedGit(base, client, &result, &issues)
 	t.checkDebugEndpoints(base, client, &result, &issues)
 	t.checkGraphQLIntrospection(base, client, &result, &issues)
+	t.checkCommandInjection(base, client, &result, &issues)
+	t.checkCRLFInjection(base, client, &result, &issues)
+	t.checkHostHeaderInjection(base, client, &result, &issues)
+	t.checkXXE(base, client, &result, &issues)
 
 	if len(issues) > 0 {
 		result.Status = "Failed"
@@ -282,6 +287,113 @@ func (t *KnownVulnerabilitiesTest) checkGraphQLIntrospection(base string, client
 				StatusCode:  resp.StatusCode,
 				Severity:    "High",
 			})
+		}
+	}
+}
+
+
+// checkCommandInjection: detecta ejecución de comandos del SO en parámetros comunes.
+func (t *KnownVulnerabilitiesTest) checkCommandInjection(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	endpoints := []string{"/ping", "/exec", "/run", "/cmd", "/lookup", "/diagnostic"}
+	params := []string{"ip", "host", "cmd", "command", "q", "target"}
+	payloads := []string{"; id", "| id", "$(id)", "`id`"}
+	for _, ep := range endpoints {
+		for _, param := range params {
+			for _, payload := range payloads {
+				u := base + ep + "?" + param + "=" + url.QueryEscape(payload)
+				resp, err := client.Get(u)
+				if err != nil {
+					continue
+				}
+				body, _ := ReadResponseBody(resp)
+				resp.Body.Close()
+				if resp.StatusCode == http.StatusOK && (strings.Contains(body, "uid=") || strings.Contains(body, "gid=")) {
+					*issues = append(*issues, "Posible inyección de comandos del SO en "+ep+" ("+param+")")
+					result.Severity = "Critical"
+					result.Evidence = append(result.Evidence, Evidence{
+						Type:        "OS Command Injection",
+						URL:         u,
+						Payload:     payload,
+						StatusCode:  resp.StatusCode,
+						Severity:    "Critical",
+					})
+					return
+				}
+			}
+		}
+	}
+}
+
+// checkCRLFInjection: detecta inyección de CR/LF en encabezados.
+func (t *KnownVulnerabilitiesTest) checkCRLFInjection(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	u := base + "/?q=%0d%0aX-Injected:%20true"
+	resp, err := client.Get(u)
+	if err != nil {
+		return
+	}
+	resp.Body.Close()
+	if v := resp.Header.Get("X-Injected"); v != "" {
+		*issues = append(*issues, "Inyección CRLF: encabezado inyectado 'X-Injected' presente en la respuesta")
+		result.Severity = "High"
+		result.Evidence = append(result.Evidence, Evidence{
+			Type:        "CRLF Injection",
+			URL:         u,
+			StatusCode:  resp.StatusCode,
+			Severity:    "High",
+		})
+	}
+}
+
+// checkHostHeaderInjection: detecta reflexión del encabezado Host.
+func (t *KnownVulnerabilitiesTest) checkHostHeaderInjection(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	req, err := http.NewRequest(http.MethodGet, base+"/", nil)
+	if err != nil {
+		return
+	}
+	req.Host = "evil.example"
+	req.Header.Set("Host", "evil.example")
+	resp, err := client.Do(req)
+	if err != nil {
+		return
+	}
+	body, _ := ReadResponseBody(resp)
+	resp.Body.Close()
+	if strings.Contains(body, "evil.example") || strings.Contains(resp.Header.Get("Location"), "evil.example") {
+		*issues = append(*issues, "El encabezado Host se refleja en la respuesta (posible Host Header Injection)")
+		result.Severity = "Medium"
+		result.Evidence = append(result.Evidence, Evidence{
+			Type:        "Host Header Injection",
+			URL:         base + "/",
+			Severity:    "Medium",
+		})
+	}
+}
+
+// checkXXE: detecta procesamiento de entidades externas en endpoints XML.
+func (t *KnownVulnerabilitiesTest) checkXXE(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	payload := `<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><foo>&xxe;</foo>`
+	for _, ep := range []string{"/api/xml", "/xml", "/soap", "/ws"} {
+		req, err := http.NewRequest(http.MethodPost, base+ep, strings.NewReader(payload))
+		if err != nil {
+			continue
+		}
+		req.Header.Set("Content-Type", "application/xml")
+		resp, err := client.Do(req)
+		if err != nil {
+			continue
+		}
+		body, _ := ReadResponseBody(resp)
+		resp.Body.Close()
+		if resp.StatusCode == http.StatusOK && (strings.Contains(body, "root:x:0:0:") || strings.Contains(body, "daemon:x:")) {
+			*issues = append(*issues, "XXE: el endpoint "+ep+" resolvió una entidad externa (file:///etc/passwd)")
+			result.Severity = "Critical"
+			result.Evidence = append(result.Evidence, Evidence{
+				Type:        "XXE",
+				URL:         base + ep,
+				StatusCode:  resp.StatusCode,
+				Severity:    "Critical",
+			})
+			return
 		}
 	}
 }

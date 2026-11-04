@@ -24,11 +24,11 @@ Leyenda:
 | WEB-012 | Session Fixation | ✅ | Session Management | |
 | WEB-013 | Session Hijacking | 🟡 | Session Management | Falta robo/reutilización |
 | WEB-014 | Open Redirect | ✅ | Open Redirect | |
-| WEB-015 | HTTP Response Splitting | ❌ | - | Implementar |
-| WEB-016 | CRLF Injection | ❌ | - | Implementar |
-| WEB-017 | OS Command Injection | ❌ | - | Implementar |
+| WEB-015 | HTTP Response Splitting | 🟡 | Known Vulnerabilities (CRLF) | Parcial |
+| WEB-016 | CRLF Injection | ✅ | Known Vulnerabilities (CRLF) | |
+| WEB-017 | OS Command Injection | ✅ | Known Vulnerabilities (command injection) | |
 | WEB-018 | LDAP Injection | ❌ | - | Implementar |
-| WEB-019 | XXE | ❌ | - | Implementar |
+| WEB-019 | XXE | ✅ | Known Vulnerabilities (XXE) | |
 | WEB-020 | Insecure Deserialization | ✅ | A08:2021 - Software and Data Integrity Failures | |
 | WEB-021 | SSTI | ✅ | Known Vulnerabilities (template injection) | |
 | WEB-022 | Unrestricted File Upload | ✅ | File Upload Test | |
@@ -53,7 +53,7 @@ Leyenda:
 | WEB-041 | Dependency Vulnerability | ✅ | A06: Vulnerable and Outdated Components | |
 | WEB-042 | Dependency Confusion | ❌ | - | Implementar |
 | WEB-043 | Supply Chain Compromise | ❌ | - | Implementar |
-| WEB-044 | Host Header Injection | ❌ | - | Implementar |
+| WEB-044 | Host Header Injection | ✅ | Known Vulnerabilities (Host header) | |
 | WEB-045 | DNS Rebinding | ❌ | - | Implementar |
 | WEB-046 | WebSocket Authorization Failure | ❌ | - | Implementar |
 | WEB-047 | GraphQL Abuse | 🟡 | Known Vulnerabilities (introspection) | Falta profundidad/complejidad/auth |
