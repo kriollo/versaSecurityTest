@@ -39,7 +39,7 @@ Leyenda:
 | WEB-027 | Cryptographic Failures | ✅ | CRYP-01, SSL/TLS Analysis | |
 | WEB-028 | Weak Password Policy | ✅ | IDNT-01, Known Vulnerabilities (weak password) | |
 | WEB-029 | Brute Force / Credential Stuffing | ✅ | Brute Force Test | |
-| WEB-030 | DoS | 🟡 | Flood command (fuera del scanner) | No apto para scanner pasivo |
+| WEB-030 | DoS | 🟡 | Known Vulnerabilities (burst probe), flood | Sonda básica |
 | WEB-031 | ReDoS | ✅ | Known Vulnerabilities (ReDoS) | |
 | WEB-032 | Cache Poisoning | ✅ | Known Vulnerabilities (Cache Poisoning) | |
 | WEB-033 | HTTP Request Smuggling | 🟡 | Known Vulnerabilities (CL+TE probe) | Sonda de bajo impacto |
@@ -54,7 +54,7 @@ Leyenda:
 | WEB-042 | Dependency Confusion | 🟡 | Known Vulnerabilities (manifiestos expuestos) | Solo exposición |
 | WEB-043 | Supply Chain Compromise | 🟡 | Known Vulnerabilities (CI/manifiestos expuestos) | Solo exposición |
 | WEB-044 | Host Header Injection | ✅ | Known Vulnerabilities (Host header) | |
-| WEB-045 | DNS Rebinding | ❌ | - | No automatizable externamente |
+| WEB-045 | DNS Rebinding | 🟡 | Known Vulnerabilities (Host header) | Indirecto |
 | WEB-046 | WebSocket Authorization Failure | ✅ | Known Vulnerabilities (WebSocket) | |
 | WEB-047 | GraphQL Abuse | ✅ | Known Vulnerabilities (introspection, depth) | |
 | WEB-048 | TLS Misconfiguration | ✅ | SSL/TLS Analysis | |

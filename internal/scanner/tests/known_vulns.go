@@ -100,6 +100,7 @@ func (t *KnownVulnerabilitiesTest) Run(targetURL string, client HTTPClient, _ *c
 	t.checkRaceCondition(base, client, &result, &issues)
 	t.checkSupplyChainExposure(base, client, &result, &issues)
 	t.checkSessionEntropy(base, client, &result, &issues)
+	t.checkDoSSurface(base, client, &result, &issues)
 
 	if len(issues) > 0 {
 		result.Status = "Failed"
@@ -1224,6 +1225,43 @@ func (t *KnownVulnerabilitiesTest) checkSessionEntropy(base string, client HTTPC
 				result.Severity = "Medium"
 			}
 			break
+		}
+	}
+}
+
+
+// checkDoSSurface: ráfaga pequeña y segura para detectar degradación básica.
+func (t *KnownVulnerabilitiesTest) checkDoSSurface(base string, client HTTPClient, result *TestResult, issues *[]string) {
+	const n = 10
+	var wg sync.WaitGroup
+	failures := make(chan int, n)
+	start := time.Now()
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resp, err := client.Get(base + "/")
+			if err != nil {
+				failures <- 1
+				return
+			}
+			if resp.StatusCode >= 500 || resp.StatusCode == http.StatusTooManyRequests {
+				failures <- 1
+			}
+			resp.Body.Close()
+		}()
+	}
+	wg.Wait()
+	close(failures)
+	count := 0
+	for range failures {
+		count++
+	}
+	elapsed := time.Since(start)
+	if count >= n/2 || elapsed > 10*time.Second {
+		*issues = append(*issues, fmt.Sprintf("Posible superficie DoS: %d/%d fallos o degradación bajo carga básica (%v)", count, n, elapsed))
+		if result.Severity != "Critical" && result.Severity != "High" {
+			result.Severity = "Medium"
 		}
 	}
 }
